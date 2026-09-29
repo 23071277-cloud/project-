@@ -1,7 +1,14 @@
 <?php
+/**
+ * Plugin Name: Background Queue & Versioning
+ * Description: Quản lý vòng đời Version (n+1) và xử lý Background Job gọi AI chấm điểm.
+ * Version: 1.0.0
+ * Author: hoàng anh
+ */
+
 if (!defined('ABSPATH')) exit;
 
-// 1. TẠO VERSION MỚI (n+1) VÀ KÍCH HOẠT QUEUE (CHUYỂN SANG SCORING)
+// 1. TẠO VERSION MỚI VÀ KÍCH HOẠT QUEUE (CHUYỂN SANG SCORING)
 function pcs_process_new_upload( $asset_id, $file_url, $maker_id ) { 
     // Bước 1: Tạo bản ghi Asset Version mới trên Database
     $version_post_id = wp_insert_post([
@@ -18,11 +25,11 @@ function pcs_process_new_upload( $asset_id, $file_url, $maker_id ) {
     update_post_meta( $version_post_id, '_asset_id', $asset_id );
     update_post_meta( $version_post_id, '_file_url', $file_url );
 
-    // Bước 3: Chuyển vòng đời đúng quy trình (draft -> scoring)
+    // Bước 3: Chuyển vòng đời quy trình draft -> scoring
     update_post_meta( $version_post_id, '_status', 'draft' );
     update_post_meta( $version_post_id, '_status', 'scoring' );
 
-    // Bước 4: ĐẨY TASK VÀO BACKGROUND JOB QUEUE (Action Scheduler)
+    // Bước 4: ĐẨY TASK VÀO BACKGROUND JOB QUEUE bằng Action Scheduler
     if ( function_exists( 'as_enqueue_async_action' ) ) {
         as_enqueue_async_action( 'pcs_background_ai_scoring_job', array(
             'version_id'     => $version_post_id,
@@ -33,41 +40,35 @@ function pcs_process_new_upload( $asset_id, $file_url, $maker_id ) {
     return $version_post_id;
 }
 
-
-// 2. BACKGROUND WORKER: XỬ LÝ GỌI AI NGẦM KHÔNG NGHẼN SERVER
-// Trạng thái vòng đời: scoring -> in_review
+// 2. BACKGROUND WORKER: XỬ LÝ GỌI AI NGẦM
+// Trạng thái: scoring -> in_review
 add_action( 'pcs_background_ai_scoring_job', 'pcs_execute_ai_scoring', 10, 2 );
 
 function pcs_execute_ai_scoring( $version_id, $asset_id ) {
     // Lấy URL ảnh từ Version để chuẩn bị gửi cho AI
     $file_url = get_post_meta($version_id, '_file_url', true);
-
-    // 3 Tiêu chí bắt buộc phải có theo Rule R7
     $criteria = ['foreign_logo', 'guideline', 'mas_rule'];
     
     // THÔNG TIN MODEL VÀ PROMPT 
-    $model_version = 'mock-gpt-4o-mini'; // điền thật vào
-    $prompt_version = 'v1.2';            // điền thật vào
+    $model_version = 'gemini-1.5-flash'; 
+    $prompt_version = 'v1.2';            
+
+    // Yêu cầu file hàm gọi API (đảm bảo file được nạp nếu chưa có)
+    if ( ! function_exists('pcs_call_gemini_api') ) {
+        require_once plugin_dir_path( __FILE__ ) . 'pcs_call_gemini_api.php';
+    }
 
     foreach ($criteria as $criterion) {      
-        $ai_response = pcs_call_openai_api($file_url, $criterion, $prompt_version); // check tên hàm gọi API
+        
+        // Gọi hàm gọi Gemini API
+        $ai_response = pcs_call_gemini_api($file_url, $criterion, $prompt_version); 
         $ai_data = json_decode($ai_response, true); 
         
-        // -- ĐOẠN NÀY MOCK THÔI --
-        $mock_ai_score = rand(20, 95); 
-        $mock_quote = ($mock_ai_score <= 30) ? 'Trích dẫn giả lập Điều X Guidelines cho ' . $criterion : '';
-        $mock_ai_json = json_encode([
-            'reason' => 'Đây là dữ liệu test tự động từ Background Worker cho tiêu chí: ' . $criterion,
-            'quotes' => $mock_quote,
-            'score'  => $mock_ai_score
-        ]);
+        // Trích xuất dữ liệu trả về từ JSON (có fallback dự phòng nếu lỗi)
+        $real_ai_score = isset($ai_data['score']) ? (int) $ai_data['score'] : 0;
+                $quote = isset($ai_data['source_quote']) ? $ai_data['source_quote'] : '';    
         
-        // Gán dữ liệu vào biến chuẩn bị lưu DB
-        $real_ai_score = $mock_ai_score; // sửa thành $ai_data['score'])
-        $quote         = $mock_quote;    // sửa thành $ai_data['quotes'])
-        $raw_json      = $mock_ai_json;  // sửa thành biến $ai_response nguyên gốc từ LLM
-        
-        // TỪ ĐOẠN NÀY KO SỬA GÌ NỮA NHƯNG CỨ XEM LẠI CHO CHẮC
+        $raw_json = $ai_response;  // Lưu nguyên JSON gốc để tracking
         
         // Tạo bản ghi Check Result ĐỘC LẬP cho từng tiêu chí
         $result_id = wp_insert_post([
@@ -85,7 +86,7 @@ function pcs_execute_ai_scoring( $version_id, $asset_id ) {
         update_post_meta( $result_id, '_model_version', $model_version );
         update_post_meta( $result_id, '_raw_json', wp_slash($raw_json) );
         
-        // Phải lưu quote TRƯỚC score để kích hoạt logic chống ảo giác của Hook pcs_recompute_verdict
+        // Lưu quote TRƯỚC score để kích hoạt logic chống ảo giác của Hook pcs_recompute_verdict
         update_post_meta( $result_id, '_source_quote', $quote );
         update_post_meta( $result_id, '_score', $real_ai_score );
     }
