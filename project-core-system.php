@@ -75,12 +75,12 @@ function pcs_valid_statuses() {
 
 function pcs_status_labels() {
     return [
-        'draft'     => 'Draft (nháp)',
-        'scoring'   => 'Scoring (AI đang chấm)',
-        'in_review' => 'In Review (chờ duyệt)',
-        'approved'  => 'Approved (đã duyệt)',
-        'rejected'  => 'Rejected (bị từ chối)',
-        'released'  => 'Released (đã phát hành)',
+        'draft'     => 'Draft',
+        'scoring'   => 'Scoring',
+        'in_review' => 'In Review',
+        'approved'  => 'Approved',
+        'rejected'  => 'Rejected',
+        'released'  => 'Released',
     ];
 }
 
