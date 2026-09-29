@@ -2,7 +2,6 @@
 if (!defined('ABSPATH')) exit;
 
 // 1. TẠO VERSION MỚI (n+1) VÀ KÍCH HOẠT QUEUE (CHUYỂN SANG SCORING)
-// Hàm này được gọi sau khi Maker tải file vật lý lên xong (Do người làm Task 4 gọi).
 function pcs_process_new_upload( $asset_id, $file_url, $maker_id ) { 
     // Bước 1: Tạo bản ghi Asset Version mới trên Database
     $version_post_id = wp_insert_post([
