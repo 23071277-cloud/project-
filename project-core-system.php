@@ -296,3 +296,6 @@ function pcs_show_notice() {
     }
 }
 add_action('admin_notices', 'pcs_show_notice');
+
+// Add module xử lý Queue và Versioning của hanh
+require_once plugin_dir_path(__FILE__) . 'pcs-queue-versioning.php';
