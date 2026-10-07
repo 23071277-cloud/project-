@@ -18,28 +18,28 @@ function pcs_register_campaign_endpoints() {
     register_rest_route($namespace, '/campaigns', [
         'methods'             => 'POST',
         'callback'            => 'pcs_api_create_campaign',
-        'permission_callback' => 'pcs_check_jwt_admin_token'
+        'permission_callback' => 'pcs_perm_admin_only'
     ]);
 
     // API 2: Tải lên Asset (Kích hoạt Queue)
     register_rest_route($namespace, '/campaigns/(?P<id>\d+)/assets', [
         'methods'             => 'POST',
         'callback'            => 'pcs_api_upload_asset',
-        'permission_callback' => 'pcs_check_jwt_maker_token'
+        'permission_callback' => 'pcs_perm_campaign_maker'
     ]);
 
     // API 3: Lấy thông tin chi tiết Campaign
     register_rest_route($namespace, '/campaigns/(?P<id>\d+)', [
         'methods'             => 'GET',
         'callback'            => 'pcs_api_get_campaign',
-        'permission_callback' => 'pcs_check_jwt_general_token'
+        'permission_callback' => 'pcs_perm_campaign_member'
     ]);
 
     // API 4: Lấy Secure Presigned URL
     register_rest_route($namespace, '/assets/versions/(?P<id>\d+)/secure-link', [
         'methods'             => 'GET',
         'callback'            => 'pcs_api_get_presigned_url',
-        'permission_callback' => 'pcs_check_jwt_general_token'
+        'permission_callback' => 'pcs_perm_version_member'
     ]);
 }
 
@@ -90,10 +90,12 @@ function pcs_api_create_campaign($request) {
  * API 2: Upload Asset & Gọi Queue (Liên kết Task 2)
  */
 function pcs_api_upload_asset($request) {
-    $campaign_id = $request['id'];
+    $campaign_id = absint($request['id']);
     $title = sanitize_text_field($request->get_param('title'));
-    $maker_id = get_current_user_id() ? get_current_user_id() : 1; 
-    
+    // Luôn là user đang đăng nhập; permission_callback đã chặn trường hợp chưa đăng nhập
+    // Always the logged-in user; permission_callback already rejects anonymous requests
+    $maker_id = get_current_user_id();
+
     // Kiểm tra xem có file gửi lên không
     $files = $request->get_file_params();
     if (empty($files['file'])) {
@@ -113,8 +115,12 @@ function pcs_api_upload_asset($request) {
         'post_title'  => $title,
         'post_status' => 'publish',
         'post_author' => $maker_id,
-        'post_parent' => $campaign_id 
+        'post_parent' => $campaign_id
     ]);
+
+    // Core (Thúy) tìm campaign của asset qua meta _campaign_id, không qua post_parent
+    // Core looks up an asset's campaign via _campaign_id meta, not post_parent
+    update_post_meta($asset_id, '_campaign_id', $campaign_id);
 
     // BƯỚC 3: GỌI HÀM QUEUE (pcs_process_new_upload)
     $version_id = 0;
@@ -193,9 +199,90 @@ function pcs_api_get_presigned_url($request) {
 
 // 3. CÁC HÀM HỖ TRỢ
 
-function pcs_check_jwt_admin_token() { return true; }
-function pcs_check_jwt_maker_token() { return true; }
-function pcs_check_jwt_general_token() { return true; }
+// ---- KIỂM QUYỀN (server-side) / PERMISSION CHECKS ----
+// WordPress gọi các hàm này TRƯỚC callback. Trả true = cho qua, trả WP_Error = chặn với mã HTTP trong 'status'.
+// WordPress runs these BEFORE the callback. true = allow, WP_Error = reject with the HTTP code in 'status'.
+
+// Lỗi chuẩn: 401 khi chưa đăng nhập, 403 khi đã đăng nhập nhưng không đủ quyền
+// Standard error: 401 when not logged in, 403 when logged in but not allowed
+function pcs_perm_error($message) {
+    return new WP_Error('pcs_forbidden', $message, ['status' => rest_authorization_required_code()]);
+}
+
+// Cần plugin Project Core (pcs_campaign_role) để biết vai trò trong campaign
+// Requires Project Core (pcs_campaign_role) to resolve per-campaign roles
+function pcs_perm_core_ready() {
+    if (function_exists('pcs_campaign_role')) return true;
+    return new WP_Error('pcs_core_missing', 'Plugin Project Core chưa được kích hoạt.', ['status' => 500]);
+}
+
+// API 1 - chỉ Admin được tạo campaign (R1) / only Admin may create campaigns (R1)
+function pcs_perm_admin_only($request) {
+    if (!is_user_logged_in()) return pcs_perm_error('Bạn cần đăng nhập.');
+    if (!current_user_can('administrator')) return pcs_perm_error('Chỉ Admin được tạo campaign.');
+    return true;
+}
+
+// API 2 - Maker của đúng campaign (hoặc Admin), campaign còn hạn (R2, R3, R4, R17)
+// API 2 - Maker of this campaign (or Admin), campaign not past its deadline
+function pcs_perm_campaign_maker($request) {
+    if (!is_user_logged_in()) return pcs_perm_error('Bạn cần đăng nhập.');
+    $ready = pcs_perm_core_ready();
+    if ($ready !== true) return $ready;
+
+    $campaign_id = absint($request['id']);
+    if (get_post_type($campaign_id) !== 'campaign') {
+        return new WP_Error('pcs_not_found', 'Campaign không tồn tại.', ['status' => 404]);
+    }
+    $role = pcs_campaign_role($campaign_id, get_current_user_id());
+    if (!in_array($role, ['admin', 'maker'], true)) {
+        return pcs_perm_error('Bạn không phải Maker của campaign này.');
+    }
+
+    // Deadline lưu dạng "Y-m-d\TH:i" theo múi giờ của site / stored as "Y-m-d\TH:i" in the site timezone
+    $deadline = get_post_meta($campaign_id, '_campaign_deadline', true);
+    if ($deadline) {
+        $due = date_create_immutable($deadline, wp_timezone());
+        if ($due && $due < new DateTimeImmutable('now', wp_timezone())) {
+            return pcs_perm_error('Campaign đã quá deadline, không nhận thêm file.');
+        }
+    }
+    return true;
+}
+
+// API 3 - thành viên campaign (Maker/Checker) hoặc Admin / campaign member or Admin
+function pcs_perm_campaign_member($request) {
+    if (!is_user_logged_in()) return pcs_perm_error('Bạn cần đăng nhập.');
+    $ready = pcs_perm_core_ready();
+    if ($ready !== true) return $ready;
+
+    $campaign_id = absint($request['id']);
+    if (get_post_type($campaign_id) !== 'campaign') {
+        return new WP_Error('pcs_not_found', 'Campaign không tồn tại.', ['status' => 404]);
+    }
+    if (pcs_campaign_role($campaign_id, get_current_user_id()) === '') {
+        return pcs_perm_error('Bạn không thuộc campaign này.');
+    }
+    return true;
+}
+
+// API 4 - thành viên của campaign chứa version đó / member of the version's campaign
+function pcs_perm_version_member($request) {
+    if (!is_user_logged_in()) return pcs_perm_error('Bạn cần đăng nhập.');
+    $ready = pcs_perm_core_ready();
+    if ($ready !== true) return $ready;
+
+    $version_id = absint($request['id']);
+    if (get_post_type($version_id) !== 'asset_version') {
+        return new WP_Error('pcs_not_found', 'Version không tồn tại.', ['status' => 404]);
+    }
+    // version -> asset -> campaign (hàm có sẵn trong core / helpers from core)
+    $campaign_id = pcs_asset_campaign(pcs_version_asset($version_id));
+    if (pcs_campaign_role($campaign_id, get_current_user_id()) === '') {
+        return pcs_perm_error('Bạn không có quyền xem file của version này.');
+    }
+    return true;
+}
 
 /**
  * Hàm Xử lý Upload vào ổ cứng Server WordPress
