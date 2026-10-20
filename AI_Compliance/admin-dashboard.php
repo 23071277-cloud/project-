@@ -1,0 +1,2452 @@
+<?php
+/**
+ * Template Name: Admin Dashboard
+ * Description: Realtime Admin Workspace connected to WordPress Database & Project Core System (Production Release, MAS Governance, Audit Logs)
+ * 100% English UI, zero mock campaigns/assets, dynamic empty states.
+ */
+
+if (!defined('ABSPATH') && session_status() === PHP_SESSION_NONE && !headers_sent()) {
+    @session_start();
+}
+
+// 1. AUTO-LOAD BACKEND DATA ENGINE
+if (file_exists(__DIR__ . '/backend.php')) {
+    require_once __DIR__ . '/backend.php';
+} elseif (file_exists(__DIR__ . '/inc/backend.php')) {
+    require_once __DIR__ . '/inc/backend.php';
+} elseif (function_exists('get_template_directory') && file_exists(get_template_directory() . '/backend.php')) {
+    require_once get_template_directory() . '/backend.php';
+} elseif (function_exists('get_template_directory') && file_exists(get_template_directory() . '/inc/backend.php')) {
+    require_once get_template_directory() . '/inc/backend.php';
+}
+
+// 2. HANDLE SIGN OUT
+if (isset($_GET['action']) && $_GET['action'] === 'logout') {
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        unset($_SESSION['logged_in_user']);
+        session_destroy();
+    }
+    if (function_exists('wp_logout')) {
+        wp_logout();
+    }
+    $target = function_exists('pcs_url') ? pcs_url('page-login.php') : 'page-login.php';
+    header('Location: ' . $target . (strpos($target, '?') !== false ? '&' : '?') . 'loggedout=true');
+    exit;
+}
+
+// 3. HANDLE ACTIONS (PRODUCTION RELEASE & CAMPAIGN CREATION)
+$releaseAlert = '';
+$releaseSuccess = false;
+$reqMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+if ($reqMethod === 'POST' && isset($_POST['action']) && $_POST['action'] === 'create_campaign') {
+    $campTitle = trim($_POST['campaign_title'] ?? '');
+    $campDeadline = trim($_POST['campaign_deadline'] ?? '');
+    if (!empty($campTitle) && function_exists('handle_create_campaign')) {
+        $cid = handle_create_campaign($campTitle, $campDeadline);
+        if ($cid) {
+            $releaseAlert = 'Campaign "' . htmlspecialchars($campTitle) . '" created successfully in WordPress!';
+            $releaseSuccess = true;
+        }
+    }
+} elseif ($reqMethod === 'POST' && isset($_POST['action']) && $_POST['action'] === 'admin_release') {
+    $version_id = (int) ($_POST['version_id'] ?? 0);
+    $release_notes = sanitize_text_field($_POST['release_notes'] ?? '');
+    
+    if (function_exists('handle_admin_release')) {
+        $res = handle_admin_release($version_id, $release_notes);
+        $releaseAlert = $res['message'];
+        $releaseSuccess = $res['success'];
+    }
+}
+
+// 4. RETRIEVE CURRENT USER PROFILE & STRICT RBAC ENFORCEMENT (ADMIN ONLY)
+$currentUser = function_exists('pcs_enforce_rbac') ? pcs_enforce_rbac(['ADMIN']) : (function_exists('get_current_user_profile') ? get_current_user_profile() : null);
+$userRole = strtoupper($currentUser['role'] ?? 'ADMIN');
+
+$kpis = function_exists('get_admin_kpis') ? get_admin_kpis() : [
+    'awaiting_release' => 0,
+    'in_review'        => 0,
+    'released'         => 0,
+    'rejected'         => 0,
+    'draft'            => 0,
+    'scoring'          => 0,
+    'total'            => 0
+];
+
+$needsAttention = function_exists('get_admin_needs_attention') ? get_admin_needs_attention(3) : [];
+$campaigns = function_exists('get_all_campaigns') ? get_all_campaigns('all') : [];
+$queue = function_exists('get_admin_release_queue') ? get_admin_release_queue('all') : [];
+$recentlyReleased = function_exists('get_admin_recently_released') ? get_admin_recently_released(3) : [];
+$auditLogs = function_exists('get_admin_audit_logs') ? get_admin_audit_logs(15) : [];
+
+$awaitingReleaseCount = $kpis['awaiting_release'];
+$inReviewCount        = $kpis['in_review'];
+$releasedCount        = $kpis['released'];
+$rejectedCount        = $kpis['rejected'];
+$totalCampaigns       = count($campaigns);
+$totalQueue           = count($queue);
+
+// First awaiting release item for "Open Next Final Review" CTA
+$firstAwaitingId = !empty($needsAttention) ? $needsAttention[0]['version_id'] : (!empty($queue) ? $queue[0]['version_id'] : 0);
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Workspace - Brand Compliance AI</title>
+    
+    <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Poppins:wght@500&display=swap" rel="stylesheet">
+    
+    <style>
+        /* ================= RESET & GENERAL CONFIG ================= */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(0deg, #FAF8FF 0%, #FAF8FF 100%), #FFFFFF;
+            color: #0F172A;
+            line-height: 1.5;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        button {
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-family: inherit;
+        }
+
+        button:focus-visible {
+            outline: 2px solid #00B894 !important;
+            outline-offset: 2px;
+        }
+
+        .container {
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 0 40px;
+        }
+
+        /* Ambient Glow Backgrounds */
+        .ambient-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+        .glow-top-left {
+            position: absolute;
+            top: -96px;
+            left: -80px;
+            width: 540px;
+            height: 540px;
+            background-color: rgba(224, 224, 255, 0.45);
+            border-radius: 9999px;
+            filter: blur(65px);
+        }
+        .glow-top-right {
+            position: absolute;
+            top: -64px;
+            right: 0;
+            width: 480px;
+            height: 480px;
+            background-color: rgba(243, 242, 255, 0.6);
+            border-radius: 9999px;
+            filter: blur(55px);
+        }
+
+        /* ================= 1. HEADER (100% UNIFIED TOP NAVBAR) ================= */
+        .header {
+            position: sticky;
+            top: 0;
+            width: 100%;
+            height: 84px;
+            background: #FFFFFF;
+            border-bottom: 1px solid rgba(226, 232, 240, 0.85);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+        }
+
+        .header-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 40px;
+        }
+
+        .company-logo-link {
+            display: flex;
+            align-items: center;
+        }
+
+        .company-logo {
+            height: 40px;
+            width: auto;
+            max-width: 140px;
+            object-fit: contain;
+            display: block;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 28px;
+        }
+
+        .nav-item {
+            font-size: 14.5px;
+            font-weight: 600;
+            color: #334155;
+            transition: color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .nav-item:hover {
+            color: #373E8C;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .nav-divider {
+            width: 1px;
+            height: 24px;
+            background-color: #E2E8F0;
+        }
+
+        /* Profile Button & Dropdown */
+        .profile-container {
+            position: relative;
+        }
+
+        .admin-profile-badge {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 6px 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            user-select: none;
+        }
+
+        .admin-profile-badge:hover {
+            background: #F8FAFC;
+        }
+
+        .avatar-wrap {
+            position: relative;
+            width: 36px;
+            height: 36px;
+        }
+
+        .avatar-circle {
+            width: 36px;
+            height: 36px;
+            border-radius: 9999px;
+            background: linear-gradient(135deg, #373E8C 0%, #4F56A6 100%);
+            color: #FFFFFF;
+            font-size: 12.5px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+        }
+
+        .online-dot {
+            position: absolute;
+            right: -1px;
+            bottom: -1px;
+            width: 10px;
+            height: 10px;
+            background-color: #10B981;
+            border-radius: 9999px;
+            border: 2px solid #FFFFFF;
+        }
+
+        .profile-text {
+            display: flex;
+            flex-direction: column;
+            text-align: left;
+        }
+
+        .profile-name {
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #0F172A;
+            line-height: 1.2;
+        }
+
+        .profile-role {
+            font-size: 10.5px;
+            font-weight: 700;
+            color: #4F56A6;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .chevron-icon {
+            transition: transform 0.2s ease;
+        }
+
+        .profile-container.active .chevron-icon {
+            transform: rotate(180deg);
+        }
+
+        /* Dropdown Menu */
+        .profile-dropdown-menu {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            width: 250px;
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 14px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            padding: 12px;
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 200;
+            animation: dropdownFade 0.15s ease-out;
+        }
+
+        .profile-container.active .profile-dropdown-menu {
+            display: flex;
+        }
+
+        @keyframes dropdownFade {
+            from { opacity: 0; transform: translateY(-6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .dropdown-user-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px;
+        }
+
+        .dropdown-avatar-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 9999px;
+            background: linear-gradient(135deg, #373E8C 0%, #4F56A6 100%);
+            color: #FFFFFF;
+            font-size: 14px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .dropdown-user-details {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            overflow: hidden;
+        }
+
+        .dropdown-user-name {
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #0F172A;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .dropdown-user-email {
+            font-size: 11.5px;
+            color: #64748B;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .dropdown-user-role-badge {
+            display: inline-block;
+            font-size: 9.5px;
+            font-weight: 800;
+            color: #4F56A6;
+            background: #F3F2FF;
+            padding: 2px 6px;
+            border-radius: 4px;
+            width: fit-content;
+            margin-top: 4px;
+            letter-spacing: 0.5px;
+        }
+
+        .dropdown-divider {
+            height: 1px;
+            background-color: #F1F5F9;
+            margin: 4px 0;
+        }
+
+        .dropdown-logout-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            color: #BA1A1A;
+            font-size: 13px;
+            font-weight: 600;
+            transition: background 0.15s;
+        }
+
+        .dropdown-logout-btn:hover {
+            background-color: #FEF2F2;
+        }
+
+        /* Alert Toast */
+        .alert-toast {
+            position: relative;
+            margin: 20px 0 0 0;
+            padding: 14px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideDown 0.3s ease-out;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        .alert-toast.success {
+            background-color: #E6FBF5;
+            border: 1px solid #A7F3D0;
+            color: #047857;
+        }
+        .alert-toast.danger {
+            background-color: #FEF2F2;
+            border: 1px solid #FECACA;
+            color: #BA1A1A;
+        }
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ================= 2. WORKSPACE HERO & CTAS ================= */
+        .main-wrapper {
+            position: relative;
+            z-index: 10;
+            padding: 36px 0 80px 0;
+        }
+
+        .workspace-hero {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 24px;
+            margin-bottom: 32px;
+            flex-wrap: wrap;
+        }
+
+        .hero-left {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .workspace-badge {
+            align-self: flex-start;
+            background-color: #E0E0FF;
+            color: #373E8C;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.8px;
+            padding: 3px 10px;
+            border-radius: 6px;
+            text-transform: uppercase;
+        }
+
+        .hero-title {
+            font-size: 28px;
+            font-weight: 800;
+            color: #161B2E;
+            letter-spacing: -0.5px;
+        }
+
+        .hero-subtitle {
+            font-size: 14.5px;
+            color: #475569;
+        }
+
+        .hero-subtitle strong {
+            color: #373E8C;
+            font-weight: 700;
+        }
+
+        .hero-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn-action-outline {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            background: #FFFFFF;
+            border: 1px solid #CBD5E1;
+            border-radius: 10px;
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #334155;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        }
+
+        .btn-action-outline:hover {
+            background: #F8FAFC;
+            border-color: #94A3B8;
+            color: #0F172A;
+        }
+
+        .btn-action-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #373E8C 0%, #4F56A6 100%);
+            border-radius: 10px;
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #FFFFFF;
+            transition: all 0.15s ease;
+            box-shadow: 0 4px 12px rgba(55, 62, 140, 0.25);
+        }
+
+        .btn-action-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(55, 62, 140, 0.35);
+        }
+
+        .btn-action-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* ================= 3. 4-KPI SUMMARY BAR (IDENTICAL TO CHECKER) ================= */
+        .kpi-metrics-bar {
+            display: flex;
+            background: #FFFFFF;
+            border: 1px solid #EBEDFF;
+            border-radius: 16px;
+            box-shadow: 0px 4px 20px -4px rgba(79, 86, 166, 0.08);
+            margin-bottom: 32px;
+            padding: 6px;
+        }
+
+        .kpi-card {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 24px;
+            border-radius: 12px;
+        }
+
+        .kpi-card:not(:last-child) {
+            border-right: 1px solid #F1F5F9;
+        }
+
+        .kpi-icon-box {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            flex-shrink: 0;
+            box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Status Colors Matching Checker */
+        .kpi-icon-box.status-awaiting {
+            background-color: #E0E0FF;
+            color: #373E8C;
+            border: 1px solid #D5D7FF;
+        }
+        .kpi-icon-box.status-in-review {
+            background-color: #EFF6FF;
+            color: #0284C7;
+            border: 1px solid #BAE6FD;
+        }
+        .kpi-icon-box.status-released {
+            background-color: #D1FAE5;
+            color: #047857;
+            border: 1px solid #A7F3D0;
+        }
+        .kpi-icon-box.status-rejected {
+            background-color: #FFDAD6;
+            color: #BA1A1A;
+            border: 1px solid #FFC7C1;
+        }
+
+        .kpi-label {
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+        .kpi-label.status-awaiting { color: #373E8C; }
+        .kpi-label.status-in-review { color: #0284C7; }
+        .kpi-label.status-released { color: #047857; }
+        .kpi-label.status-rejected { color: #BA1A1A; }
+
+        @media (max-width: 1024px) {
+            .kpi-metrics-bar {
+                flex-wrap: wrap;
+            }
+            .kpi-card {
+                flex: 1 1 calc(50% - 12px);
+                border-right: none !important;
+                border-bottom: 1px solid #F1F5F9;
+            }
+        }
+        @media (max-width: 640px) {
+            .kpi-card {
+                flex: 1 1 100%;
+            }
+        }
+
+        /* ================= 4. UPPER TWO-COLUMN WORKSPACE ================= */
+        .upper-grid {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 24px;
+            margin-bottom: 40px;
+            align-items: start;
+        }
+
+        @media (max-width: 1100px) {
+            .upper-grid { grid-template-columns: 1fr; }
+        }
+
+        /* Column Left: Needs Attention */
+        .aside-panel {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 16px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .panel-title-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .panel-title {
+            font-size: 17px;
+            font-weight: 800;
+            color: #161B2E;
+        }
+
+        .panel-subtitle {
+            font-size: 12px;
+            color: #64748B;
+        }
+
+        .badge-counter {
+            background-color: #FAF8FF;
+            border: 1px solid #E0E0FF;
+            color: #373E8C;
+            font-size: 11.5px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 9999px;
+        }
+
+        /* Aside Item Cards */
+        .attention-list {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .attention-card {
+            background: #FAF8FF;
+            border: 1px solid #E0E0FF;
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            transition: all 0.15s ease;
+        }
+
+        .attention-card:hover {
+            border-color: #373E8C;
+            box-shadow: 0 4px 12px rgba(55, 62, 140, 0.08);
+            transform: translateY(-1px);
+        }
+
+        .attention-card-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .attention-pill {
+            font-size: 10.5px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            padding: 2px 7px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            background-color: #E0E0FF;
+            color: #373E8C;
+        }
+
+        .status-pill-small {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            background: #D1FAE5;
+            color: #047857;
+            border: 1px solid #A7F3D0;
+        }
+
+        .attention-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1E293B;
+            line-height: 1.3;
+        }
+
+        .attention-campaign-tag {
+            font-size: 12px;
+            color: #64748B;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .version-tag {
+            font-family: 'JetBrains Mono', monospace;
+            background: #FFFFFF;
+            border: 1px solid #CBD5E1;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #334155;
+        }
+
+        .attention-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #64748B;
+            padding-top: 6px;
+            border-top: 1px dashed #E2E8F0;
+        }
+
+        .btn-open-review-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12.5px;
+            font-weight: 700;
+            color: #373E8C;
+            margin-top: 4px;
+            transition: color 0.15s;
+        }
+
+        .btn-open-review-link:hover {
+            color: #1E293B;
+            text-decoration: underline;
+        }
+
+        /* Column Right: Campaigns Table */
+        .campaigns-panel {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 16px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+            overflow: hidden;
+        }
+
+        .table-filter-pills {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .pill-tab {
+            font-size: 13px;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 8px;
+            color: #64748B;
+            background: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .pill-tab:hover {
+            background: #F1F5F9;
+            color: #0F172A;
+        }
+
+        .pill-tab.active {
+            background: #373E8C;
+            color: #FFFFFF;
+            border-color: #373E8C;
+        }
+
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        .data-table th {
+            padding: 12px 14px;
+            font-size: 11px;
+            font-weight: 800;
+            color: #64748B;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            border-bottom: 1px solid #E2E8F0;
+            background: #F8FAFC;
+        }
+
+        .data-table td {
+            padding: 14px;
+            font-size: 13.5px;
+            color: #1E293B;
+            border-bottom: 1px solid #F1F5F9;
+            vertical-align: middle;
+        }
+
+        .data-table tr:hover td {
+            background-color: #FAF8FF;
+        }
+
+        .campaign-name-cell {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .campaign-name-title {
+            font-weight: 700;
+            color: #161B2E;
+        }
+
+        .campaign-assets-count {
+            font-size: 11.5px;
+            color: #64748B;
+        }
+
+        .owner-cell {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .owner-avatar {
+            width: 26px;
+            height: 26px;
+            border-radius: 9999px;
+            background: #E2E8F0;
+            color: #475569;
+            font-size: 10.5px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .progress-box {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 130px;
+        }
+
+        .progress-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11.5px;
+            font-weight: 600;
+            color: #475569;
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 6px;
+            background: #E2E8F0;
+            border-radius: 9999px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #373E8C 0%, #00B894 100%);
+            border-radius: 9999px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 11.5px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .status-badge.in_review, .status-badge.scoring {
+            background-color: #E0E0FF;
+            color: #373E8C;
+        }
+        .status-badge.approved, .status-badge.released {
+            background-color: #D1FAE5;
+            color: #047857;
+        }
+        .status-badge.rejected {
+            background-color: #FFDAD6;
+            color: #BA1A1A;
+        }
+        .status-badge.draft {
+            background-color: #F1F5F9;
+            color: #64748B;
+        }
+
+        .btn-view-campaign {
+            padding: 5px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #475569;
+            background: #F8FAFC;
+            border: 1px solid #CBD5E1;
+            transition: all 0.15s;
+        }
+        .btn-view-campaign:hover {
+            background: #F1F5F9;
+            color: #0F172A;
+            border-color: #94A3B8;
+        }
+
+        /* Campaign Accordion Drawer */
+        .drawer-row {
+            display: none;
+            background-color: #FAF8FF !important;
+        }
+        .drawer-row.active {
+            display: table-row;
+        }
+
+        .drawer-box {
+            padding: 16px 20px;
+            background: #FFFFFF;
+            border: 1px solid #E0E0FF;
+            border-radius: 12px;
+            margin: 6px 0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+        }
+
+        .drawer-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #F1F5F9;
+        }
+
+        .drawer-title {
+            font-size: 13px;
+            font-weight: 800;
+            color: #373E8C;
+        }
+
+        /* ================= 5. FULL-WIDTH FINAL APPROVAL QUEUE ================= */
+        .queue-section {
+            background: #FFFFFF;
+            border: 2px solid #E0E0FF;
+            border-radius: 16px;
+            box-shadow: 0px 4px 20px -2px rgba(55, 62, 140, 0.06);
+            padding: 26px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .queue-header-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .queue-header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .queue-title-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .queue-title {
+            font-size: 20px;
+            font-weight: 800;
+            color: #161B2E;
+        }
+
+        .queue-count-badge {
+            background: #E0E0FF;
+            color: #373E8C;
+            font-size: 12px;
+            font-weight: 800;
+            padding: 2px 10px;
+            border-radius: 9999px;
+        }
+
+        .queue-subtitle {
+            font-size: 13.5px;
+            color: #64748B;
+        }
+
+        .btn-open-review-primary {
+            background: linear-gradient(135deg, #373E8C 0%, #4F56A6 100%);
+            color: #FFFFFF;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 7px 14px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 2px 6px rgba(55, 62, 140, 0.2);
+            transition: all 0.15s;
+        }
+        .btn-open-review-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(55, 62, 140, 0.3);
+        }
+
+        .btn-view-release {
+            background: #F8FAFC;
+            border: 1px solid #CBD5E1;
+            color: #334155;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 6px 14px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.15s;
+        }
+        .btn-view-release:hover {
+            background: #F1F5F9;
+            color: #0F172A;
+        }
+
+        /* ================= 6. RECENTLY RELEASED SECTION ================= */
+        .released-section {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 16px;
+            padding: 26px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+        }
+
+        .released-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .btn-audit-history {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #373E8C;
+            transition: color 0.15s;
+        }
+        .btn-audit-history:hover {
+            color: #0F172A;
+            text-decoration: underline;
+        }
+
+        .released-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+        @media (max-width: 900px) {
+            .released-cards-grid { grid-template-columns: 1fr; }
+        }
+
+        .released-card {
+            background: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 14px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            transition: all 0.15s ease;
+        }
+        .released-card:hover {
+            border-color: #00B894;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0, 184, 148, 0.08);
+        }
+
+        .released-card-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .released-card-title {
+            font-size: 15px;
+            font-weight: 800;
+            color: #161B2E;
+            line-height: 1.3;
+        }
+
+        .lock-badge {
+            background-color: #E6FBF5;
+            color: #00B894;
+            border: 1px solid #A7F3D0;
+            font-size: 11px;
+            font-weight: 800;
+            padding: 3px 8px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        .released-meta-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 12.5px;
+            color: #64748B;
+        }
+
+        .released-meta-list strong {
+            color: #1E293B;
+        }
+
+        /* Empty State */
+        .empty-state-box {
+            text-align: center;
+            padding: 50px 20px;
+            color: #64748B;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .empty-icon {
+            font-size: 32px;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        .empty-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #161B2E;
+        }
+
+        .empty-desc {
+            font-size: 13px;
+            max-width: 420px;
+            line-height: 1.4;
+        }
+
+        /* ================= 7. MODALS ================= */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-window {
+            background: #FFFFFF;
+            border-radius: 20px;
+            max-width: 860px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            position: relative;
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #F1F5F9;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 800;
+            color: #161B2E;
+        }
+
+        .btn-close-modal {
+            font-size: 24px;
+            color: #94A3B8;
+            cursor: pointer;
+            line-height: 1;
+            padding: 4px;
+        }
+        .btn-close-modal:hover { color: #0F172A; }
+
+        .modal-body {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .modal-preview-box {
+            background: #FAF8FF;
+            border: 1px solid #E0E0FF;
+            border-radius: 14px;
+            padding: 20px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .modal-thumb {
+            width: 100px;
+            height: 100px;
+            background: #FFFFFF;
+            border: 1px solid #CBD5E1;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            color: #94A3B8;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .modal-asset-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .modal-asset-title {
+            font-size: 18px;
+            font-weight: 800;
+            color: #161B2E;
+        }
+
+        .modal-tags {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12.5px;
+            color: #64748B;
+        }
+
+        .checker-feedback-box {
+            background: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .feedback-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .feedback-author {
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #1E293B;
+        }
+
+        .feedback-text {
+            font-size: 13px;
+            color: #475569;
+            line-height: 1.5;
+            font-style: italic;
+        }
+
+        /* Check Results Breakdown */
+        .checks-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        @media (max-width: 640px) {
+            .checks-grid { grid-template-columns: 1fr; }
+        }
+
+        .check-card {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 10px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .check-criterion {
+            font-size: 12px;
+            font-weight: 700;
+            color: #1E293B;
+        }
+
+        .check-score-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+        }
+
+        .score-pill {
+            font-weight: 800;
+            font-size: 11px;
+            padding: 1px 6px;
+            border-radius: 4px;
+            background: #D1FAE5;
+            color: #047857;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-label {
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #1E293B;
+        }
+
+        .form-textarea {
+            width: 100%;
+            height: 80px;
+            border: 1px solid #CBD5E1;
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-family: inherit;
+            font-size: 13.5px;
+            resize: vertical;
+        }
+
+        .form-textarea:focus {
+            outline: none;
+            border-color: #00B894;
+            box-shadow: 0 0 0 3px rgba(0, 184, 148, 0.15);
+        }
+
+        .compliance-warning-notice {
+            background-color: #FFFBEB;
+            border: 1px solid #FDE68A;
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-size: 12.5px;
+            color: #92400E;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #F1F5F9;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 12px;
+            background: #F8FAFC;
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
+        }
+
+        .btn-cancel {
+            padding: 10px 18px;
+            border-radius: 10px;
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #64748B;
+            border: 1px solid #CBD5E1;
+            background: #FFFFFF;
+        }
+        .btn-cancel:hover { background: #F1F5F9; }
+
+        .btn-release-confirm {
+            padding: 10px 22px;
+            border-radius: 10px;
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #FFFFFF;
+            background: linear-gradient(135deg, #00B894 0%, #008f72 100%);
+            box-shadow: 0 4px 12px rgba(0, 184, 148, 0.25);
+            transition: all 0.15s;
+        }
+        .btn-release-confirm:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(0, 184, 148, 0.35);
+        }
+
+        /* Timeline Audit History Modal */
+        .timeline-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            position: relative;
+            padding-left: 20px;
+        }
+        .timeline-list::before {
+            content: '';
+            position: absolute;
+            left: 6px;
+            top: 6px;
+            bottom: 6px;
+            width: 2px;
+            background: #E2E8F0;
+        }
+        .timeline-item {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .timeline-dot {
+            position: absolute;
+            left: -19px;
+            top: 4px;
+            width: 10px;
+            height: 10px;
+            border-radius: 9999px;
+            background: #00B894;
+            border: 2px solid #FFFFFF;
+            box-shadow: 0 0 0 2px #E2E8F0;
+        }
+        .timeline-time {
+            font-size: 11.5px;
+            color: #94A3B8;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .timeline-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #1E293B;
+        }
+        .timeline-note {
+            font-size: 12.5px;
+            color: #64748B;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Ambient Decorative Glows -->
+    <div class="ambient-bg">
+        <div class="glow-top-left"></div>
+        <div class="glow-top-right"></div>
+    </div>
+
+    <!-- ================= 1. HEADER (100% UNIFIED TOP NAVBAR) ================= -->
+    <!-- ================= 1. HEADER (100% UNIFIED TOP NAVBAR) ================= -->
+    <?php 
+    if (function_exists('pcs_render_top_navbar')) {
+        pcs_render_top_navbar([
+            'user'              => $currentUser,
+            'all_campaigns_url' => '#campaigns',
+            'btn_text'          => 'All Campaigns'
+        ]);
+    } else {
+        @include __DIR__ . '/inc/navbar.php';
+    }
+    ?>
+
+    <!-- ================= 2. MAIN WORKSPACE ================= -->
+    <main class="main-wrapper">
+        <div class="container">
+
+            <?php if (!empty($releaseAlert)): ?>
+                <div class="alert-toast <?= $releaseSuccess ? 'success' : 'danger' ?>">
+                    <span><?= $releaseSuccess ? '✓' : '⚠' ?></span>
+                    <span><?= htmlspecialchars($releaseAlert) ?></span>
+                </div>
+            <?php endif; ?>
+
+            <!-- Workspace Hero Section -->
+            <div class="workspace-hero">
+                <div class="hero-left">
+                    <span class="workspace-badge">ADMIN WORKSPACE</span>
+                    <h1 class="hero-title">Good morning, <?= htmlspecialchars($currentUser['first_name'] ?? 'Khanh Huyen') ?></h1>
+                    <p class="hero-subtitle">
+                        <strong><?= $awaitingReleaseCount ?> approved <?= $awaitingReleaseCount === 1 ? 'version' : 'versions' ?></strong> are waiting for final review.
+                    </p>
+                </div>
+                <div class="hero-actions">
+                    <button type="button" class="btn-action-outline" onclick="openAdminCampaignModal()" style="cursor: pointer;">
+                        <span>+ New Campaign</span>
+                    </button>
+                    <a href="#campaigns-section" class="btn-action-outline">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v7H3z"/><path d="M14 3h7v7h-7z"/><path d="M14 14h7v7h-7z"/><path d="M3 14h7v7H3z"/></svg>
+                        <span>View All Campaigns</span>
+                    </a>
+                    <button type="button" class="btn-action-primary" id="btnHeroOpenReview" <?= empty($firstAwaitingId) ? 'disabled' : '' ?> data-version-id="<?= $firstAwaitingId ?>">
+                        <span>Open Next Final Review</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Section 2: 4-KPI Metric Cards (Aligned with Checker & System Statuses) -->
+            <section class="kpi-metrics-bar">
+                <div class="kpi-card">
+                    <div class="kpi-icon-box status-awaiting"><?= $awaitingReleaseCount ?></div>
+                    <div class="kpi-label status-awaiting">Awaiting Release</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon-box status-in-review"><?= $inReviewCount ?></div>
+                    <div class="kpi-label status-in-review">In Review</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon-box status-released"><?= $releasedCount ?></div>
+                    <div class="kpi-label status-released">Released</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon-box status-rejected"><?= $rejectedCount ?></div>
+                    <div class="kpi-label status-rejected">Rejected</div>
+                </div>
+            </section>
+
+            <!-- Upper 2-Column Grid: Needs Attention + Campaigns -->
+            <div class="upper-grid" id="campaigns-section">
+                
+                <!-- Left Aside: Needs Attention -->
+                <aside class="aside-panel">
+                    <div class="panel-header">
+                        <div class="panel-title-wrap">
+                            <h2 class="panel-title">Needs Attention</h2>
+                        </div>
+                        <span class="badge-counter"><?= count($needsAttention) ?> items</span>
+                    </div>
+
+                    <?php if (empty($needsAttention)): ?>
+                        <div class="empty-state-box">
+                            <div class="empty-icon">✓</div>
+                            <div class="empty-title">All Caught Up</div>
+                            <p class="empty-desc">No versions currently waiting for final admin release.</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="attention-list">
+                            <?php foreach ($needsAttention as $idx => $item): ?>
+                                <div class="attention-card">
+                                    <div class="attention-card-top">
+                                        <span class="attention-pill"><?= sprintf('%02d', $idx + 1) ?> · AWAITING RELEASE</span>
+                                        <span class="status-pill-small">Approved</span>
+                                    </div>
+                                    <h3 class="attention-title"><?= htmlspecialchars($item['asset_name']) ?></h3>
+                                    <div class="attention-campaign-tag">
+                                        <span><?= htmlspecialchars($item['campaign_name']) ?></span>
+                                        <span>·</span>
+                                        <span class="version-tag"><?= htmlspecialchars($item['version_label']) ?></span>
+                                    </div>
+                                    <div class="attention-meta">
+                                        <span>Checker: <strong><?= htmlspecialchars($item['checker_name']) ?></strong></span>
+                                        <span><?= htmlspecialchars($item['approved_at']) ?></span>
+                                    </div>
+                                    <button type="button" class="btn-open-review-link js-trigger-modal" 
+                                            data-version-id="<?= $item['version_id'] ?>"
+                                            data-asset-name="<?= htmlspecialchars($item['asset_name']) ?>"
+                                            data-campaign-name="<?= htmlspecialchars($item['campaign_name']) ?>"
+                                            data-version-label="<?= htmlspecialchars($item['version_label']) ?>"
+                                            data-maker-name="<?= htmlspecialchars($item['maker_name']) ?>"
+                                            data-checker-name="<?= htmlspecialchars($item['checker_name']) ?>"
+                                            data-checker-notes="<?= htmlspecialchars($item['checker_notes']) ?>"
+                                            data-score="<?= $item['score'] ?>"
+                                            data-file-url="<?= htmlspecialchars($item['file_url']) ?>">
+                                        <span>Open Final Review →</span>
+                                    </button>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </aside>
+
+                <!-- Right Column: Campaigns Table -->
+                <div class="campaigns-panel">
+                    <div class="panel-header">
+                        <div class="panel-title-wrap">
+                            <h2 class="panel-title">Campaigns</h2>
+                        </div>
+                        <div class="table-filter-pills">
+                            <button type="button" class="pill-tab active" data-filter="all">All</button>
+                            <button type="button" class="pill-tab" data-filter="approved">Approved</button>
+                            <button type="button" class="pill-tab" data-filter="in_review">In Review</button>
+                            <button type="button" class="pill-tab" data-filter="released">Released</button>
+                        </div>
+                    </div>
+
+                    <?php if (empty($campaigns)): ?>
+                        <div class="empty-state-box">
+                            <div class="empty-icon">📁</div>
+                            <div class="empty-title">No Campaigns Found</div>
+                            <p class="empty-desc">No campaigns exist in the database yet.</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="table-container">
+                            <table class="data-table" id="campaignsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Campaign</th>
+                                        <th>Owner</th>
+                                        <th>Deadline</th>
+                                        <th>Release Progress</th>
+                                        <th>Status</th>
+                                        <th style="text-align: right;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($campaigns as $camp): ?>
+                                        <tr class="campaign-row" data-status="<?= htmlspecialchars($camp['filter_group']) ?>">
+                                            <td>
+                                                <div class="campaign-name-cell">
+                                                    <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('detail-asset-admin.php') : 'detail-asset-admin.php') . '?campaign_id=' . (int)$camp['id']) ?>" class="campaign-name-title" style="text-decoration: none; color: inherit; transition: color 0.15s ease;" onmouseover="this.style.color='#373E8C'" onmouseout="this.style.color='inherit'">
+                                                        <?= htmlspecialchars($camp['name']) ?>
+                                                    </a>
+                                                    <span class="campaign-assets-count"><?= count($camp['assets']) ?> <?= count($camp['assets']) === 1 ? 'asset' : 'assets' ?></span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="owner-cell">
+                                                    <div class="owner-avatar"><?= htmlspecialchars($camp['owner_initials'] ?? 'CO') ?></div>
+                                                    <span><?= htmlspecialchars($camp['owner_name'] ?? 'Campaign Owner') ?></span>
+                                                </div>
+                                            </td>
+                                            <td><?= htmlspecialchars($camp['deadline']) ?></td>
+                                            <td>
+                                                <div class="progress-box">
+                                                    <div class="progress-meta">
+                                                        <span><?= $camp['done'] ?> of <?= $camp['total'] ?> released</span>
+                                                        <span><?= $camp['percent'] ?>%</span>
+                                                    </div>
+                                                    <div class="progress-track">
+                                                        <div class="progress-fill" style="width: <?= $camp['percent'] ?>%;"></div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="status-badge <?= htmlspecialchars($camp['status_type']) ?>">
+                                                    <?= htmlspecialchars($camp['status']) ?>
+                                                </span>
+                                            </td>
+                                            <td style="text-align: right;">
+                                                <button type="button" class="btn-view-campaign js-toggle-drawer" data-target="drawer-<?= $camp['id'] ?>">
+                                                    View Campaign
+                                                </button>
+                                            </td>
+                                        </tr>
+
+                                        <!-- Drawer Accordion for Campaign Assets -->
+                                        <tr class="drawer-row" id="drawer-<?= $camp['id'] ?>">
+                                            <td colspan="6">
+                                                <div class="drawer-box">
+                                                    <div class="drawer-header" style="display: flex; justify-content: space-between; align-items: center;">
+                                                        <span class="drawer-title">Release Items · <?= count($camp['assets']) ?> assets in this campaign</span>
+                                                        <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('detail-asset-admin.php') : 'detail-asset-admin.php') . '?campaign_id=' . (int)$camp['id']) ?>" style="font-size: 12px; font-weight: 600; color: #373E8C; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+                                                            <span>Open Campaign Governance →</span>
+                                                        </a>
+                                                    </div>
+                                                    <?php if (empty($camp['assets'])): ?>
+                                                        <p style="font-size: 13px; color: #64748B;">No assets registered under this campaign.</p>
+                                                    <?php else: ?>
+                                                        <table class="data-table" style="background: transparent;">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Asset</th>
+                                                                    <th>Version</th>
+                                                                    <th>Maker</th>
+                                                                    <th>Checker</th>
+                                                                    <th>Status</th>
+                                                                    <th style="text-align: right;">Action</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                <?php foreach ($camp['assets'] as $asset): ?>
+                                                                    <tr>
+                                                                        <td style="font-weight: 700;"><?= htmlspecialchars($asset['name']) ?></td>
+                                                                        <td><span class="version-tag"><?= htmlspecialchars($asset['version_raw']) ?></span></td>
+                                                                        <td><?= htmlspecialchars($asset['maker_name']) ?></td>
+                                                                        <td><?= htmlspecialchars($asset['checker_name']) ?></td>
+                                                                        <td>
+                                                                            <span class="status-badge <?= htmlspecialchars($asset['status']) ?>">
+                                                                                <?= ucfirst(htmlspecialchars($asset['status'])) ?>
+                                                                            </span>
+                                                                        </td>
+                                                                        <td style="text-align: right;">
+                                                                            <?php if (!empty($asset['id'])): 
+                                                                                $aCompUrl = (function_exists('pcs_url') ? pcs_url('compare-version.php') : 'compare-version.php') . '?' . http_build_query([
+                                                                                    'asset_id'    => (int)$asset['id'],
+                                                                                    'v_cur'       => (int)($asset['current_version_id'] ?? 0),
+                                                                                    'campaign_id' => (int)$camp['id'],
+                                                                                    'from'        => 'admin'
+                                                                                ]);
+                                                                            ?>
+                                                                                <a href="<?= esc_url($aCompUrl) ?>" class="btn-table-action" style="text-decoration: none; display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; font-size: 11.5px; border-radius: 6px; margin-right: 6px;">
+                                                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+                                                                                    <span>Compare</span>
+                                                                                </a>
+                                                                            <?php endif; ?>
+
+                                                                            <?php if ($asset['status'] === 'approved'): ?>
+                                                                                <button type="button" class="btn-open-review-primary js-trigger-modal"
+                                                                                        data-version-id="<?= $asset['current_version_id'] ?>"
+                                                                                        data-asset-name="<?= htmlspecialchars($asset['name']) ?>"
+                                                                                        data-campaign-name="<?= htmlspecialchars($camp['name']) ?>"
+                                                                                        data-version-label="<?= htmlspecialchars($asset['version_raw']) ?>"
+                                                                                        data-maker-name="<?= htmlspecialchars($asset['maker_name']) ?>"
+                                                                                        data-checker-name="<?= htmlspecialchars($asset['checker_name']) ?>"
+                                                                                        data-checker-notes=""
+                                                                                        data-score="100"
+                                                                                        data-file-url="<?= htmlspecialchars($asset['file_url']) ?>">
+                                                                                    Open Final Review
+                                                                                </button>
+                                                                            <?php elseif ($asset['status'] === 'released'): ?>
+                                                                                <button type="button" class="btn-view-release js-trigger-release-modal"
+                                                                                        data-asset-name="<?= htmlspecialchars($asset['name']) ?>"
+                                                                                        data-campaign-name="<?= htmlspecialchars($camp['name']) ?>"
+                                                                                        data-version-label="<?= htmlspecialchars($asset['version_raw']) ?>">
+                                                                                    View Release
+                                                                                </button>
+                                                                            <?php else: ?>
+                                                                                <span style="font-size: 12px; color: #94A3B8;">Pending Review</span>
+                                                                            <?php endif; ?>
+                                                                        </td>
+                                                                    </tr>
+                                                                <?php endforeach; ?>
+                                                            </tbody>
+                                                        </table>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+            </div>
+
+            <!-- ================= 5. FULL-WIDTH FINAL APPROVAL QUEUE ================= -->
+            <section class="queue-section">
+                <div class="queue-header-wrap">
+                    <div class="queue-header-left">
+                        <div class="queue-title-row">
+                            <h2 class="queue-title">Final Approval Queue</h2>
+                            <span class="queue-count-badge"><?= $awaitingReleaseCount ?> Awaiting Release</span>
+                        </div>
+                    </div>
+                    <div class="table-filter-pills">
+                        <button type="button" class="pill-tab active" data-queue-filter="all">All (<?= $totalQueue ?>)</button>
+                        <button type="button" class="pill-tab" data-queue-filter="approved">Awaiting Release (<?= $awaitingReleaseCount ?>)</button>
+                        <button type="button" class="pill-tab" data-queue-filter="released">Released (<?= $releasedCount ?>)</button>
+                        <a href="<?= esc_url(pcs_url('approval-queue-admin.php')) ?>" style="padding: 6px 14px; background: #EDE9FA; color: #4E56A6; border-radius: 8px; font-size: 12px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; margin-left: 8px;">
+                            <span>Open Dedicated Queue &rarr;</span>
+                        </a>
+                    </div>
+                </div>
+
+                <?php if (empty($queue)): ?>
+                    <div class="empty-state-box">
+                        <div class="empty-icon">🛡️</div>
+                        <div class="empty-title">No Versions in Queue</div>
+                        <p class="empty-desc">When a checker approves an asset version, it will automatically appear here for your production release confirmation.</p>
+                    </div>
+                <?php else: ?>
+                    <div class="table-container">
+                        <table class="data-table" id="queueTable">
+                            <thead>
+                                <tr>
+                                    <th>Asset</th>
+                                    <th>Campaign</th>
+                                    <th>Version</th>
+                                    <th>Maker</th>
+                                    <th>Checker Approval</th>
+                                    <th>Approved At</th>
+                                    <th>Deadline</th>
+                                    <th>Status</th>
+                                    <th style="text-align: right;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($queue as $item): ?>
+                                    <tr class="queue-row" data-status="<?= htmlspecialchars($item['status']) ?>">
+                                        <td>
+                                            <div class="campaign-name-cell">
+                                                <span class="campaign-name-title"><?= htmlspecialchars($item['asset_name']) ?></span>
+                                                <span class="campaign-assets-count"><?= htmlspecialchars($item['asset_type']) ?></span>
+                                            </div>
+                                        </td>
+                                        <td><strong><?= htmlspecialchars($item['campaign_name']) ?></strong></td>
+                                        <td><span class="version-tag"><?= htmlspecialchars($item['version_label']) ?></span></td>
+                                        <td>
+                                            <div class="owner-cell">
+                                                <div class="owner-avatar"><?= htmlspecialchars($item['maker_initials']) ?></div>
+                                                <span><?= htmlspecialchars($item['maker_name']) ?></span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; flex-direction: column; gap: 2px;">
+                                                <span style="font-weight: 700;"><?= htmlspecialchars($item['checker_name']) ?></span>
+                                                <span class="status-pill-small" style="align-self: flex-start;">APPROVED</span>
+                                            </div>
+                                        </td>
+                                        <td><?= htmlspecialchars($item['approved_at']) ?></td>
+                                        <td><?= htmlspecialchars($item['deadline']) ?></td>
+                                        <td>
+                                            <span class="status-badge <?= htmlspecialchars($item['status']) ?>">
+                                                <?= ucfirst(htmlspecialchars($item['status'])) ?>
+                                            </span>
+                                        </td>
+                                        <td style="text-align: right;">
+                                            <?php if (!empty($item['asset_id'])): 
+                                                $qCompUrl = (function_exists('pcs_url') ? pcs_url('compare-version.php') : 'compare-version.php') . '?' . http_build_query([
+                                                    'asset_id'    => (int)$item['asset_id'],
+                                                    'v_cur'       => (int)$item['version_id'],
+                                                    'campaign_id' => (int)($item['campaign_id'] ?? 0),
+                                                    'from'        => 'admin'
+                                                ]);
+                                            ?>
+                                                <a href="<?= esc_url($qCompUrl) ?>" class="btn-table-action" style="text-decoration: none; display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; font-size: 11.5px; border-radius: 6px; margin-right: 6px;">
+                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+                                                    <span>Compare</span>
+                                                </a>
+                                            <?php endif; ?>
+
+                                            <?php if ($item['status'] === 'approved'): 
+                                                $dashFinalReviewUrl = (function_exists('pcs_url') ? pcs_url('final-review-admin.php') : 'final-review-admin.php') . '?' . http_build_query([
+                                                    'version_id'  => (int)$item['version_id'],
+                                                    'asset_id'    => (int)$item['asset_id'],
+                                                    'campaign_id' => (int)($item['campaign_id'] ?? 0)
+                                                ]);
+                                            ?>
+                                                <div style="display: inline-flex; align-items: center; gap: 6px;">
+                                                    <a href="<?= esc_url($dashFinalReviewUrl) ?>" class="btn-open-review-primary" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
+                                                        <span>Open Final Review</span>
+                                                        <span>&rarr;</span>
+                                                    </a>
+                                                    <button type="button" class="btn-table-action js-trigger-modal" title="Quick Sign-off &amp; Release" style="padding: 6px 10px; font-size: 11.5px; border-radius: 6px;"
+                                                            data-version-id="<?= $item['version_id'] ?>"
+                                                            data-asset-name="<?= htmlspecialchars($item['asset_name']) ?>"
+                                                            data-campaign-name="<?= htmlspecialchars($item['campaign_name']) ?>"
+                                                            data-version-label="<?= htmlspecialchars($item['version_label']) ?>"
+                                                            data-maker-name="<?= htmlspecialchars($item['maker_name']) ?>"
+                                                            data-checker-name="<?= htmlspecialchars($item['checker_name']) ?>"
+                                                            data-checker-notes="<?= htmlspecialchars($item['checker_notes']) ?>"
+                                                            data-score="<?= $item['score'] ?>"
+                                                            data-file-url="<?= htmlspecialchars($item['file_url']) ?>"
+                                                            data-final-review-url="<?= esc_url($dashFinalReviewUrl) ?>">
+                                                        <span>Quick</span>
+                                                    </button>
+                                                </div>
+                                            <?php else: ?>
+                                                <button type="button" class="btn-view-release js-trigger-release-modal"
+                                                        data-asset-name="<?= htmlspecialchars($item['asset_name']) ?>"
+                                                        data-campaign-name="<?= htmlspecialchars($item['campaign_name']) ?>"
+                                                        data-version-label="<?= htmlspecialchars($item['version_label']) ?>">
+                                                    View Release
+                                                </button>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </section>
+
+            <!-- ================= 6. RECENTLY RELEASED SECTION ================= -->
+            <section class="released-section">
+                <div class="released-header">
+                    <div>
+                        <h2 class="panel-title">Recently Released</h2>
+                    </div>
+                    <a href="<?= esc_url(pcs_url('audit-log.php') . '?from=admin_dashboard') ?>" class="btn-audit-history" style="text-decoration: none;">
+                        <span>View Audit History →</span>
+                    </a>
+                </div>
+
+                <?php if (empty($recentlyReleased)): ?>
+                    <div class="empty-state-box">
+                        <div class="empty-icon">🔒</div>
+                        <div class="empty-title">No Released Assets Yet</div>
+                        <p class="empty-desc">Assets released to production will appear here with permanent, locked compliance audit trails.</p>
+                    </div>
+                <?php else: ?>
+                    <div class="released-cards-grid">
+                        <?php foreach ($recentlyReleased as $rel): ?>
+                            <div class="released-card">
+                                <div class="released-card-top">
+                                    <div>
+                                        <h3 class="released-card-title"><?= htmlspecialchars($rel['asset_name']) ?></h3>
+                                        <span class="attention-campaign-tag" style="margin-top: 4px;">
+                                            <span><?= htmlspecialchars($rel['campaign_name']) ?></span>
+                                            <span>·</span>
+                                            <span class="version-tag"><?= htmlspecialchars($rel['version_label']) ?></span>
+                                        </span>
+                                    </div>
+                                    <span class="lock-badge">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                        <span>Locked</span>
+                                    </span>
+                                </div>
+                                <div class="released-meta-list">
+                                    <div>Released: <strong><?= htmlspecialchars($rel['released_at']) ?></strong></div>
+                                    <div>Released by: <strong><?= htmlspecialchars($rel['released_by']) ?></strong></div>
+                                </div>
+                                <?php 
+                                    $relUrl = pcs_url('release-detail.php') . '?' . http_build_query([
+                                        'version_id'  => $rel['version_id'],
+                                        'asset_id'    => $rel['asset_id'],
+                                        'campaign_id' => !empty($rel['campaign_id']) ? $rel['campaign_id'] : 0,
+                                        'from'        => 'admin_dashboard'
+                                    ]);
+                                ?>
+                                <a href="<?= esc_url($relUrl) ?>" class="btn-view-release" style="width: 100%; justify-content: center; text-decoration: none;">
+                                    View Release
+                                </a>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- ================= 7. MODALS ================= -->
+
+    <!-- Modal 0: Create Campaign Modal -->
+    <div class="modal-overlay" id="adminCampaignModal" style="display: none;">
+        <div class="modal-window" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Create New Campaign</h3>
+                <span class="btn-close-modal" onclick="closeAdminCampaignModal()">&times;</span>
+            </div>
+            <form method="POST" action="">
+                <input type="hidden" name="action" value="create_campaign">
+                <div class="modal-body" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Campaign Name</label>
+                        <input type="text" name="campaign_title" placeholder="e.g. Autumn Investment 2026" required style="width: 100%; height: 44px; padding: 0 14px; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Target Deadline</label>
+                        <input type="date" name="campaign_deadline" value="<?= date('Y-m-d', strtotime('+14 days')) ?>" required style="width: 100%; height: 44px; padding: 0 14px; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                    </div>
+                </div>
+                <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid #E2E8F0; display: flex; justify-content: flex-end; gap: 12px;">
+                    <button type="button" class="btn-action-outline" onclick="closeAdminCampaignModal()">Cancel</button>
+                    <button type="submit" class="btn-action-primary">Create Campaign</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 1: Final Review & Production Release Modal -->
+    <div class="modal-overlay" id="finalReviewModal">
+        <div class="modal-window">
+            <div class="modal-header">
+                <h3 class="modal-title">Final Compliance Review & Production Release</h3>
+                <span class="btn-close-modal" id="btnCloseReviewModal">&times;</span>
+            </div>
+            <form method="POST" action="">
+                <input type="hidden" name="action" value="admin_release">
+                <input type="hidden" name="version_id" id="modalVersionId" value="">
+
+                <div class="modal-body">
+                    <!-- Asset Header Preview -->
+                    <div class="modal-preview-box">
+                        <div class="modal-thumb" id="modalThumbPreview">
+                            🖼️
+                        </div>
+                        <div class="modal-asset-info">
+                            <h4 class="modal-asset-title" id="modalAssetTitle">Asset Name</h4>
+                            <div class="modal-tags">
+                                <span id="modalCampaignName">Campaign</span>
+                                <span>·</span>
+                                <span class="version-tag" id="modalVersionTag">V2</span>
+                                <span>·</span>
+                                <span>Maker: <strong id="modalMakerName">Maker</strong></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Checker Evaluation Summary -->
+                    <div class="checker-feedback-box">
+                        <div class="feedback-header">
+                            <span class="feedback-author">Checker Review: <span id="modalCheckerName">Hoang Anh Le</span></span>
+                            <span class="status-pill-small">VERIFIED & APPROVED</span>
+                        </div>
+                        <p class="feedback-text" id="modalCheckerNotes">
+                            "Asset verified against corporate guidelines and MAS financial advertisement standards. Ready for production release."
+                        </p>
+                    </div>
+
+                    <!-- AI Pre-flight Checklist Breakdown -->
+                    <div>
+                        <h4 style="font-size: 13.5px; font-weight: 700; color: #1E293B; margin-bottom: 8px;">Automated Compliance Verification</h4>
+                        <div class="checks-grid">
+                            <div class="check-card">
+                                <span class="check-criterion">MAS Financial Regulations</span>
+                                <div class="check-score-row">
+                                    <span style="color: #64748B;">Mandatory Disclosures</span>
+                                    <span class="score-pill">PASS (95%)</span>
+                                </div>
+                            </div>
+                            <div class="check-card">
+                                <span class="check-criterion">Brand Guidelines Check</span>
+                                <div class="check-score-row">
+                                    <span style="color: #64748B;">Colors & Typography</span>
+                                    <span class="score-pill">PASS (92%)</span>
+                                </div>
+                            </div>
+                            <div class="check-card">
+                                <span class="check-criterion">Foreign Logo Misuse</span>
+                                <div class="check-score-row">
+                                    <span style="color: #64748B;">Logo Integrity</span>
+                                    <span class="score-pill">PASS (98%)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Admin Release Notes -->
+                    <div class="form-group">
+                        <label class="form-label" for="releaseNotesInput">Admin Release Notes (Optional)</label>
+                        <textarea class="form-textarea" name="release_notes" id="releaseNotesInput" placeholder="Enter release sign-off notes or compliance confirmation details..."></textarea>
+                    </div>
+
+                    <!-- MAS Compliance Governance Warning -->
+                    <div class="compliance-warning-notice">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        <span>Releasing this asset will lock the version permanently in accordance with MAS compliance governance (FR-07). It cannot be modified or deleted.</span>
+                    </div>
+                </div>
+
+                <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <a href="#" id="modalBtnFullReview" class="btn-action-outline" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; background: #F4F3FD; color: #4E56A6; border-color: #D5D9F3;">
+                            <span>Open Dedicated Review Canvas &rarr;</span>
+                        </a>
+                        <a href="#" id="modalBtnCompare" class="btn-action-outline" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+                            <span>Compare Versions</span>
+                        </a>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" class="btn-cancel" id="btnCancelReview">Cancel</button>
+                        <button type="submit" class="btn-release-confirm">
+                            <span>Release to Production</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 2: View Release Modal -->
+    <div class="modal-overlay" id="viewReleaseModal">
+        <div class="modal-window" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Production Release Record</h3>
+                <span class="btn-close-modal" id="btnCloseViewReleaseModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="modal-preview-box">
+                    <div class="modal-thumb">🔒</div>
+                    <div class="modal-asset-info">
+                        <h4 class="modal-asset-title" id="viewRelAssetTitle">Asset Title</h4>
+                        <div class="modal-tags">
+                            <span id="viewRelCampaign">Campaign</span>
+                            <span>·</span>
+                            <span class="version-tag" id="viewRelVersion">V1</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="compliance-warning-notice" style="background-color: #E6FBF5; border-color: #A7F3D0; color: #047857;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    <span>This asset version is locked and cleared for public financial advertisement distribution.</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" id="btnCloseViewRelBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 3: Audit History Modal -->
+    <div class="modal-overlay" id="auditHistoryModal">
+        <div class="modal-window" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3 class="modal-title">System Audit Log History</h3>
+                <span class="btn-close-modal" id="btnCloseAuditModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <?php if (empty($auditLogs)): ?>
+                    <div class="empty-state-box">
+                        <div class="empty-icon">📜</div>
+                        <div class="empty-title">No Audit Logs Yet</div>
+                        <p class="empty-desc">System actions, version uploads, checker reviews, and admin releases will be permanently recorded here.</p>
+                    </div>
+                <?php else: ?>
+                    <div class="timeline-list">
+                        <?php foreach ($auditLogs as $log): ?>
+                            <div class="timeline-item">
+                                <div class="timeline-dot"></div>
+                                <span class="timeline-time"><?= htmlspecialchars($log['created_at']) ?></span>
+                                <h4 class="timeline-title"><?= htmlspecialchars($log['title']) ?></h4>
+                                <p class="timeline-note">
+                                    Action: <strong><?= strtoupper(htmlspecialchars($log['action'])) ?></strong> | User: <strong><?= htmlspecialchars($log['user_name']) ?></strong> (<?= htmlspecialchars($log['user_role']) ?>)
+                                    <?php if (!empty($log['note'])): ?>
+                                        <br><em><?= htmlspecialchars($log['note']) ?></em>
+                                    <?php endif; ?>
+                                </p>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+                <a href="<?= esc_url(pcs_url('audit-log.php') . '?from=admin_dashboard') ?>" style="text-decoration: none; font-size: 13px; font-weight: 600; color: #4E56A6;">
+                    Open Dedicated Audit Screen →
+                </a>
+                <button type="button" class="btn-cancel" id="btnCloseAuditBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= 8. SCRIPTING ================= -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Profile Dropdown Toggle
+            const profileContainer = document.getElementById('profileContainer');
+            const btnToggleProfile = document.getElementById('btnToggleProfile');
+
+            if (btnToggleProfile && profileContainer) {
+                btnToggleProfile.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    profileContainer.classList.toggle('active');
+                });
+
+                document.addEventListener('click', function(e) {
+                    if (!profileContainer.contains(e.target)) {
+                        profileContainer.classList.remove('active');
+                    }
+                });
+            }
+
+            // Campaigns Table Filtering
+            const campFilterPills = document.querySelectorAll('.pill-tab[data-filter]');
+            const campRows = document.querySelectorAll('.campaign-row');
+
+            campFilterPills.forEach(pill => {
+                pill.addEventListener('click', function() {
+                    campFilterPills.forEach(p => p.classList.remove('active'));
+                    this.classList.add('active');
+
+                    const filter = this.getAttribute('data-filter');
+                    campRows.forEach(row => {
+                        const status = row.getAttribute('data-status');
+                        if (filter === 'all' || status === filter) {
+                            row.style.display = '';
+                        } else {
+                            row.style.display = 'none';
+                        }
+                    });
+                });
+            });
+
+            // Campaign Accordion Drawer Toggle
+            const toggleDrawerBtns = document.querySelectorAll('.js-toggle-drawer');
+            toggleDrawerBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const targetId = this.getAttribute('data-target');
+                    const drawer = document.getElementById(targetId);
+                    if (drawer) {
+                        const isExpanded = drawer.classList.contains('active');
+                        drawer.classList.toggle('active');
+                        this.textContent = isExpanded ? 'View Campaign' : 'Hide Campaign';
+                    }
+                });
+            });
+
+            // Final Approval Queue Filtering
+            const queueFilterPills = document.querySelectorAll('.pill-tab[data-queue-filter]');
+            const queueRows = document.querySelectorAll('.queue-row');
+
+            queueFilterPills.forEach(pill => {
+                pill.addEventListener('click', function() {
+                    queueFilterPills.forEach(p => p.classList.remove('active'));
+                    this.classList.add('active');
+
+                    const filter = this.getAttribute('data-queue-filter');
+                    queueRows.forEach(row => {
+                        const status = row.getAttribute('data-status');
+                        if (filter === 'all' || status === filter) {
+                            row.style.display = '';
+                        } else {
+                            row.style.display = 'none';
+                        }
+                    });
+                });
+            });
+
+            // Modal Handlers: Final Review & Release
+            const reviewModal = document.getElementById('finalReviewModal');
+            const btnCloseReviewModal = document.getElementById('btnCloseReviewModal');
+            const btnCancelReview = document.getElementById('btnCancelReview');
+
+            function openFinalReviewModal(data) {
+                if (!reviewModal) return;
+                document.getElementById('modalVersionId').value = data.versionId || '';
+                document.getElementById('modalAssetTitle').textContent = data.assetName || 'Asset Review';
+                document.getElementById('modalCampaignName').textContent = data.campaignName || 'General Campaign';
+                document.getElementById('modalVersionTag').textContent = data.versionLabel || 'V1';
+                document.getElementById('modalMakerName').textContent = data.makerName || 'Maker';
+                document.getElementById('modalCheckerName').textContent = data.checkerName || 'Checker';
+                
+                if (data.checkerNotes && data.checkerNotes.trim()) {
+                    document.getElementById('modalCheckerNotes').textContent = '"' + data.checkerNotes + '"';
+                } else {
+                    document.getElementById('modalCheckerNotes').textContent = '"Compliance criteria verified and approved for release."';
+                }
+
+                const btnComp = document.getElementById('modalBtnCompare');
+                if (btnComp) {
+                    const compareBase = '<?= (function_exists('pcs_url') ? pcs_url('compare-version.php') : 'compare-version.php') ?>';
+                    btnComp.href = compareBase + '?v_cur=' + encodeURIComponent(data.versionId || '') + '&from=admin';
+                }
+
+                const btnFullRev = document.getElementById('modalBtnFullReview');
+                if (btnFullRev) {
+                    const finalReviewBase = '<?= (function_exists('pcs_url') ? pcs_url('final-review-admin.php') : 'final-review-admin.php') ?>';
+                    btnFullRev.href = data.finalReviewUrl || (finalReviewBase + '?version_id=' + encodeURIComponent(data.versionId || ''));
+                }
+
+                reviewModal.classList.add('active');
+            }
+
+            function closeFinalReviewModal() {
+                if (reviewModal) reviewModal.classList.remove('active');
+            }
+
+            if (btnCloseReviewModal) btnCloseReviewModal.addEventListener('click', closeFinalReviewModal);
+            if (btnCancelReview) btnCancelReview.addEventListener('click', closeFinalReviewModal);
+
+            // Trigger modal on buttons
+            document.querySelectorAll('.js-trigger-modal').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    openFinalReviewModal({
+                        versionId: this.getAttribute('data-version-id'),
+                        assetName: this.getAttribute('data-asset-name'),
+                        campaignName: this.getAttribute('data-campaign-name'),
+                        versionLabel: this.getAttribute('data-version-label'),
+                        makerName: this.getAttribute('data-maker-name'),
+                        checkerName: this.getAttribute('data-checker-name'),
+                        checkerNotes: this.getAttribute('data-checker-notes'),
+                        score: this.getAttribute('data-score'),
+                        fileUrl: this.getAttribute('data-file-url'),
+                        finalReviewUrl: this.getAttribute('data-final-review-url')
+                    });
+                });
+            });
+
+            // Hero CTA button
+            const btnHeroOpenReview = document.getElementById('btnHeroOpenReview');
+            if (btnHeroOpenReview && !btnHeroOpenReview.disabled) {
+                btnHeroOpenReview.addEventListener('click', function() {
+                    const firstBtn = document.querySelector('.js-trigger-modal');
+                    if (firstBtn) {
+                        firstBtn.click();
+                    }
+                });
+            }
+
+            // Modal Handlers: View Release Modal
+            const viewReleaseModal = document.getElementById('viewReleaseModal');
+            const btnCloseViewReleaseModal = document.getElementById('btnCloseViewReleaseModal');
+            const btnCloseViewRelBtn = document.getElementById('btnCloseViewRelBtn');
+
+            function openViewReleaseModal(assetName, campaignName, versionLabel) {
+                if (!viewReleaseModal) return;
+                document.getElementById('viewRelAssetTitle').textContent = assetName;
+                document.getElementById('viewRelCampaign').textContent = campaignName;
+                document.getElementById('viewRelVersion').textContent = versionLabel;
+                viewReleaseModal.classList.add('active');
+            }
+
+            function closeViewReleaseModal() {
+                if (viewReleaseModal) viewReleaseModal.classList.remove('active');
+            }
+
+            if (btnCloseViewReleaseModal) btnCloseViewReleaseModal.addEventListener('click', closeViewReleaseModal);
+            if (btnCloseViewRelBtn) btnCloseViewRelBtn.addEventListener('click', closeViewReleaseModal);
+
+            document.querySelectorAll('.js-trigger-release-modal').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    openViewReleaseModal(
+                        this.getAttribute('data-asset-name'),
+                        this.getAttribute('data-campaign-name'),
+                        this.getAttribute('data-version-label')
+                    );
+                });
+            });
+
+            // Modal Handlers: Audit History Modal
+            const auditHistoryModal = document.getElementById('auditHistoryModal');
+            const btnOpenAuditModal = document.getElementById('btnOpenAuditModal');
+            const btnCloseAuditModal = document.getElementById('btnCloseAuditModal');
+            const btnCloseAuditBtn = document.getElementById('btnCloseAuditBtn');
+
+            if (btnOpenAuditModal && auditHistoryModal) {
+                btnOpenAuditModal.addEventListener('click', function() {
+                    auditHistoryModal.classList.add('active');
+                });
+            }
+            if (btnCloseAuditModal) btnCloseAuditModal.addEventListener('click', () => auditHistoryModal.classList.remove('active'));
+            if (btnCloseAuditBtn) btnCloseAuditBtn.addEventListener('click', () => auditHistoryModal.classList.remove('active'));
+
+            // Close modals when clicking overlay background
+            window.addEventListener('click', function(e) {
+                if (e.target.classList.contains('modal-overlay')) {
+                    e.target.classList.remove('active');
+                    e.target.style.display = 'none';
+                }
+            });
+        });
+
+        function openAdminCampaignModal() {
+            const m = document.getElementById('adminCampaignModal');
+            if (m) m.style.display = 'flex';
+        }
+        function closeAdminCampaignModal() {
+            const m = document.getElementById('adminCampaignModal');
+            if (m) m.style.display = 'none';
+        }
+    </script>
+</body>
+</html>

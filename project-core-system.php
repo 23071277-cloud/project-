@@ -204,8 +204,8 @@ function pcs_register_custom_post_types() {
     // Đăng ký meta để dùng được qua REST API (cho Frontend / Backend job).
     // Lưu ý: việc GHI vẫn bị các bộ chặn ở mục 4 kiểm soát.
     $meta = [
-        'campaign'      => ['_campaign_deadline', '_guideline_file_id', '_owner_id', '_maker_ids', '_checker_ids'],
-        'asset'         => ['_campaign_id', '_current_version_id'],
+        'campaign'      => ['_campaign_deadline', '_guideline_file_id', '_guideline_file_url', '_priority', '_owner_id', '_maker_ids', '_checker_ids'],
+        'asset'         => ['_campaign_id', '_current_version_id', '_format'],
         'asset_version' => ['_asset_id', '_version_number', '_file_url', '_status', '_uploaded_by',
                             '_reviewed_by', '_reviewed_at', '_review_note', '_released_by', '_released_at'],
         'check_result'  => ['_version_id', '_criterion', '_checker_type', '_checker_id', '_score', '_verdict',
