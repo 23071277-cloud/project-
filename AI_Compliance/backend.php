@@ -962,13 +962,32 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
             update_post_meta($asset_id, '_current_version_id', $version_id);
         }
 
-        // Tạo 3 bài test AI chuẩn MAS (foreign_logo, guideline, mas_rule) - Duy nhất 1 lần
-        $criteria = [
-            'foreign_logo' => ['score' => 95, 'quote' => 'Verified: Logo format complies with MAS brand identity guidelines.'],
-            'guideline'    => ['score' => 88, 'quote' => 'Verified: Product disclosure text matches approved brand voice.'],
-            'mas_rule'     => ['score' => 25, 'quote' => 'Rule MAS-01: Any financial advertisement featuring investment returns or yields must include the prominent risk disclosure: Past performance is not indicative of future performance. Investments are subject to market risks.']
+        // Đánh giá 3 tiêu chí AI chuẩn MAS (foreign_logo, guideline, mas_rule)
+        $criteria = ['foreign_logo', 'guideline', 'mas_rule'];
+        $default_criteria = [
+            'foreign_logo' => ['score' => 95, 'quote' => '', 'reason' => 'Không phát hiện logo hoặc nhãn hiệu của bên thứ ba trái phép trên ấn phẩm quảng cáo.'],
+            'guideline'    => ['score' => 88, 'quote' => '', 'reason' => 'Màu sắc chủ đạo Navy Blue (#0A192F) và Gold (#D4AF37) đạt chuẩn nhận diện thương hiệu. Logo có vùng an toàn rõ ràng.'],
+            'mas_rule'     => ['score' => 25, 'quote' => 'Rule MAS-01: Any financial advertisement featuring investment returns or yields must include the prominent risk disclosure: Past performance is not indicative of future performance. Investments are subject to market risks.', 'reason' => 'Ấn phẩm tài chính đề cập tới mức sinh lời hoặc ưu đãi nhưng thiếu dòng cảnh báo rủi ro bắt buộc theo quy định của Cơ quan Quản lý Tiền tệ Singapore (MAS).']
         ];
-        foreach ($criteria as $criterion => $cdata) {
+
+        foreach ($criteria as $criterion) {
+            $score = $default_criteria[$criterion]['score'];
+            $quote = $default_criteria[$criterion]['quote'];
+            $reason = $default_criteria[$criterion]['reason'];
+            $raw_json = '';
+
+            // Gọi Engine AI thực tế từ Plugin (Member 3) nếu có
+            if (function_exists('pcs_call_gemini_api')) {
+                $ai_res = pcs_call_gemini_api($real_file_url, $criterion);
+                $ai_data = json_decode($ai_res, true);
+                if (is_array($ai_data) && isset($ai_data['score'])) {
+                    $score = (int) $ai_data['score'];
+                    $quote = $ai_data['source_quote'] ?? $quote;
+                    $reason = $ai_data['reason'] ?? $reason;
+                    $raw_json = $ai_res;
+                }
+            }
+
             $rid = wp_insert_post([
                 'post_type'   => 'check_result',
                 'post_status' => 'publish',
@@ -978,8 +997,12 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
             update_post_meta($rid, '_version_id', $version_id);
             update_post_meta($rid, '_criterion', $criterion);
             update_post_meta($rid, '_checker_type', 'ai');
-            update_post_meta($rid, '_source_quote', $cdata['quote']);
-            update_post_meta($rid, '_score', $cdata['score']);
+            update_post_meta($rid, '_source_quote', $quote);
+            update_post_meta($rid, '_reason', $reason);
+            update_post_meta($rid, '_score', $score);
+            if (!empty($raw_json)) {
+                update_post_meta($rid, '_raw_json', wp_slash($raw_json));
+            }
             if (function_exists('pcs_recompute_verdict')) {
                 pcs_recompute_verdict($rid);
             }

@@ -15,6 +15,7 @@ function ai_compliance_setup_core_system() {
     $possible_paths = [
         ABSPATH . 'wp-content/plugins/project-core-system.php',
         dirname(get_template_directory()) . '/../project-core-system.php',
+        ABSPATH . 'project-core-system.php',
     ];
 
     foreach ($possible_paths as $path) {
@@ -43,6 +44,17 @@ function ai_compliance_setup_core_system() {
     foreach ($poc_paths as $poc) {
         if (!function_exists('pcs_call_gemini_api') && file_exists($poc)) {
             require_once $poc;
+            break;
+        }
+    }
+
+    $api_paths = [
+        dirname(get_template_directory()) . '/../pcs-rest-api-campaign.php',
+        ABSPATH . 'wp-content/plugins/pcs-rest-api-campaign.php',
+    ];
+    foreach ($api_paths as $api) {
+        if (!function_exists('pcs_register_campaign_endpoints') && file_exists($api)) {
+            require_once $api;
             break;
         }
     }
