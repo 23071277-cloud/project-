@@ -34,11 +34,11 @@ if (!isset($currentUser) || empty($currentUser)) {
 }
 
 // Logo URL
-$unavLogoUrl = 'images/logo.png';
+$unavLogoUrl = 'images/logo.png?v=2';
 if (function_exists('get_template_directory_uri')) {
-    $unavLogoUrl = get_template_directory_uri() . '/images/logo.png';
+    $unavLogoUrl = get_template_directory_uri() . '/images/logo.png?v=2';
 } elseif (function_exists('get_stylesheet_directory_uri')) {
-    $unavLogoUrl = get_stylesheet_directory_uri() . '/images/logo.png';
+    $unavLogoUrl = get_stylesheet_directory_uri() . '/images/logo.png?v=2';
 }
 
 // Home URL

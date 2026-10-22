@@ -823,6 +823,26 @@ function pcs_format_status_badge($status) {
 }
 
 /**
+ * Robust helper to extract user ID, display name, and email from either WP_User object or array
+ */
+if (!function_exists('pcs_extract_user_info')) {
+    function pcs_extract_user_info($user) {
+        if (is_object($user)) {
+            $id = $user->ID ?? ($user->id ?? 0);
+            $name = $user->display_name ?? ($user->name ?? ($user->user_login ?? 'User #' . $id));
+            $email = $user->user_email ?? ($user->email ?? '');
+            return [(int)$id, (string)$name, (string)$email];
+        } elseif (is_array($user)) {
+            $id = $user['ID'] ?? ($user['id'] ?? 0);
+            $name = $user['display_name'] ?? ($user['name'] ?? ($user['user_login'] ?? 'User #' . $id));
+            $email = $user['user_email'] ?? ($user['email'] ?? '');
+            return [(int)$id, (string)$name, (string)$email];
+        }
+        return [0, 'User', ''];
+    }
+}
+
+/**
  * Lấy danh sách thành viên hệ thống theo Role phục vụ gán quyền Campaign (Maker / Checker / Admin)
  */
 if (!function_exists('pcs_get_system_users_by_role')) {

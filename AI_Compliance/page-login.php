@@ -42,11 +42,11 @@ if (isset($_GET['action']) && in_array($_GET['action'], ['logout', 'signout', 's
 }
 
 $homeUrl = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-page.php';
-$loginLogoUrl = 'images/logo.png';
+$loginLogoUrl = 'images/logo.png?v=2';
 if (function_exists('get_template_directory_uri')) {
-    $loginLogoUrl = get_template_directory_uri() . '/images/logo.png';
+    $loginLogoUrl = get_template_directory_uri() . '/images/logo.png?v=2';
 } elseif (function_exists('get_stylesheet_directory_uri')) {
-    $loginLogoUrl = get_stylesheet_directory_uri() . '/images/logo.png';
+    $loginLogoUrl = get_stylesheet_directory_uri() . '/images/logo.png?v=2';
 }
 
 $loginError = '';

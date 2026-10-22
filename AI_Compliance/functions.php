@@ -8,6 +8,26 @@ if (!defined('ABSPATH')) {
     // If accessed directly outside WordPress, exit or handle standalone
 }
 
+/**
+ * Robust helper to extract user ID, display name, and email from either WP_User object or array
+ */
+if (!function_exists('pcs_extract_user_info')) {
+    function pcs_extract_user_info($user) {
+        if (is_object($user)) {
+            $id = $user->ID ?? ($user->id ?? 0);
+            $name = $user->display_name ?? ($user->name ?? ($user->user_login ?? 'User #' . $id));
+            $email = $user->user_email ?? ($user->email ?? '');
+            return [(int)$id, (string)$name, (string)$email];
+        } elseif (is_array($user)) {
+            $id = $user['ID'] ?? ($user['id'] ?? 0);
+            $name = $user['display_name'] ?? ($user['name'] ?? ($user['user_login'] ?? 'User #' . $id));
+            $email = $user['user_email'] ?? ($user['email'] ?? '');
+            return [(int)$id, (string)$name, (string)$email];
+        }
+        return [0, 'User', ''];
+    }
+}
+
 // 1. Tự động kiểm tra và nạp plugin Project Core nếu chưa được kích hoạt
 add_action('after_setup_theme', 'ai_compliance_setup_core_system');
 function ai_compliance_setup_core_system() {

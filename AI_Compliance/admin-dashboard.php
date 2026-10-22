@@ -34,19 +34,38 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     exit;
 }
 
-// 3. HANDLE ACTIONS (PRODUCTION RELEASE & CAMPAIGN CREATION)
+// 3. HANDLE ACTIONS (PRODUCTION RELEASE & CAMPAIGN CREATION & TEAM EDIT & GUIDELINES)
 $releaseAlert = '';
 $releaseSuccess = false;
 $reqMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 if ($reqMethod === 'POST' && isset($_POST['action']) && $_POST['action'] === 'create_campaign') {
     $campTitle = trim($_POST['campaign_title'] ?? '');
     $campDeadline = trim($_POST['campaign_deadline'] ?? '');
-    if (!empty($campTitle) && function_exists('handle_create_campaign')) {
-        $cid = handle_create_campaign($campTitle, $campDeadline);
+    $campOwnerId = isset($_POST['owner_id']) ? absint($_POST['owner_id']) : 0;
+    $maker_ids = isset($_POST['maker_ids']) ? array_map('absint', (array) $_POST['maker_ids']) : [];
+    $checker_ids = isset($_POST['checker_ids']) ? array_map('absint', (array) $_POST['checker_ids']) : [];
+
+    // Validation: Target Deadline must be a future date (tomorrow or later)
+    $today = date('Y-m-d');
+    if (!empty($campDeadline) && $campDeadline <= $today) {
+        $releaseAlert = 'Error: Target Deadline must be a future date (cannot be today or in the past).';
+        $releaseSuccess = false;
+    } elseif (!empty($campTitle) && function_exists('handle_create_campaign')) {
+        $cid = handle_create_campaign($campTitle, $campDeadline, $maker_ids, $checker_ids, $campOwnerId);
         if ($cid) {
-            $releaseAlert = 'Campaign "' . htmlspecialchars($campTitle) . '" created successfully in WordPress!';
+            $releaseAlert = 'Campaign "' . htmlspecialchars($campTitle) . '" created successfully with assigned team and attached guidelines!';
             $releaseSuccess = true;
         }
+    }
+} elseif ($reqMethod === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_campaign_team') {
+    $campId = absint($_POST['campaign_id'] ?? 0);
+    $campOwnerId = absint($_POST['owner_id'] ?? 0);
+    $maker_ids = isset($_POST['maker_ids']) ? array_map('absint', (array) $_POST['maker_ids']) : [];
+    $checker_ids = isset($_POST['checker_ids']) ? array_map('absint', (array) $_POST['checker_ids']) : [];
+    if ($campId && function_exists('handle_update_campaign_team')) {
+        handle_update_campaign_team($campId, $maker_ids, $checker_ids, $campOwnerId);
+        $releaseAlert = 'Campaign team assignments updated successfully!';
+        $releaseSuccess = true;
     }
 } elseif ($reqMethod === 'POST' && isset($_POST['action']) && $_POST['action'] === 'admin_release') {
     $version_id = (int) ($_POST['version_id'] ?? 0);
@@ -113,6 +132,11 @@ $totalQueue           = count($queue);
 
 // First awaiting release item for "Open Next Final Review" CTA
 $firstAwaitingId = !empty($needsAttention) ? $needsAttention[0]['version_id'] : (!empty($queue) ? $queue[0]['version_id'] : 0);
+
+// Retrieve all Admins, Makers and Checkers for dynamic interactive assignment
+$allAdminsList = function_exists('pcs_get_system_users_by_role') ? pcs_get_system_users_by_role('ADMIN') : [];
+$allMakersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_system_users_by_role('MAKER') : [];
+$allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_system_users_by_role('CHECKER') : [];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1574,6 +1598,146 @@ $firstAwaitingId = !empty($needsAttention) ? $needsAttention[0]['version_id'] : 
             font-size: 12.5px;
             color: #64748B;
         }
+
+        /* ================= USER PICKER MULTI-SELECT STYLES ================= */
+        .user-picker-wrap {
+            position: relative;
+            width: 100%;
+        }
+        .user-picker-box {
+            min-height: 44px;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            padding: 6px 10px;
+            background: #FFFFFF;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+            cursor: text;
+            transition: border-color 0.15s ease;
+        }
+        .user-picker-box:focus-within {
+            border-color: #6366F1;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+        }
+        .user-picker-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .user-picker-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #EEF2FF;
+            color: #373E8C;
+            border: 1px solid #C7D2FE;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .user-picker-tag-remove {
+            cursor: pointer;
+            font-weight: 800;
+            font-size: 14px;
+            color: #6366F1;
+            line-height: 1;
+        }
+        .user-picker-tag-remove:hover {
+            color: #EF4444;
+        }
+        .user-picker-input {
+            border: none;
+            outline: none;
+            font-size: 13px;
+            font-family: inherit;
+            flex: 1 1 120px;
+            min-width: 100px;
+            padding: 4px 0;
+            background: transparent;
+        }
+        .user-picker-dropdown {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            max-height: 200px;
+            overflow-y: auto;
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            padding: 6px;
+        }
+        .user-dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        .user-dropdown-item:hover {
+            background: #F8FAFC;
+        }
+        .user-dropdown-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            color: #FFF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .user-dropdown-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: #0F172A;
+        }
+        .user-dropdown-email {
+            font-size: 11.5px;
+            color: #64748B;
+        }
+
+        /* Guideline Multi-File Items */
+        .guideline-file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 6px;
+            font-size: 12.5px;
+        }
+        .guideline-file-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #1E293B;
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .guideline-file-remove {
+            color: #EF4444;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .guideline-file-remove:hover {
+            background: #FEE2E2;
+        }
     </style>
 </head>
 <body>
@@ -1733,10 +1897,10 @@ $firstAwaitingId = !empty($needsAttention) ? $needsAttention[0]['version_id'] : 
                                 <thead>
                                     <tr>
                                         <th>Campaign</th>
+                                        <th>Status</th>
                                         <th>Owner</th>
                                         <th>Deadline</th>
                                         <th>Release Progress</th>
-                                        <th>Status</th>
                                         <th style="text-align: right;">Action</th>
                                     </tr>
                                 </thead>
@@ -1750,6 +1914,11 @@ $firstAwaitingId = !empty($needsAttention) ? $needsAttention[0]['version_id'] : 
                                                     </a>
                                                     <span class="campaign-assets-count"><?= count($camp['assets']) ?> <?= count($camp['assets']) === 1 ? 'asset' : 'assets' ?></span>
                                                 </div>
+                                            </td>
+                                            <td>
+                                                <span class="status-badge <?= htmlspecialchars($camp['status_type']) ?>">
+                                                    <?= htmlspecialchars($camp['status']) ?>
+                                                </span>
                                             </td>
                                             <td>
                                                 <div class="owner-cell">
@@ -1769,14 +1938,9 @@ $firstAwaitingId = !empty($needsAttention) ? $needsAttention[0]['version_id'] : 
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td>
-                                                <span class="status-badge <?= htmlspecialchars($camp['status_type']) ?>">
-                                                    <?= htmlspecialchars($camp['status']) ?>
-                                                </span>
-                                            </td>
                                             <td style="text-align: right;">
                                                 <button type="button" class="btn-view-campaign js-toggle-drawer" data-target="drawer-<?= $camp['id'] ?>">
-                                                    View Campaign
+                                                    View
                                                 </button>
                                             </td>
                                         </tr>
@@ -1806,6 +1970,9 @@ $firstAwaitingId = !empty($needsAttention) ? $needsAttention[0]['version_id'] : 
                                                             <?php endif; ?>
                                                             <button type="button" class="btn-action-outline" style="padding: 4px 10px; font-size: 11.5px; border-radius: 6px;" onclick="openUploadGuidelineModal(<?= (int)$camp['id'] ?>, '<?= esc_js($camp['name']) ?>', <?= esc_attr(json_encode($gList)) ?>)">
                                                                 Manage Guidelines
+                                                            </button>
+                                                            <button type="button" class="btn-action-outline" style="padding: 4px 10px; font-size: 11.5px; border-radius: 6px;" onclick="openEditTeamModal(<?= (int)$camp['id'] ?>, '<?= esc_js($camp['name']) ?>', <?= (int)($camp['owner_id'] ?? 0) ?>, <?= esc_attr(json_encode($camp['maker_ids'] ?? [])) ?>, <?= esc_attr(json_encode($camp['checker_ids'] ?? [])) ?>)">
+                                                                Edit Team
                                                             </button>
                                                             <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('detail-asset-admin.php') : 'detail-asset-admin.php') . '?campaign_id=' . (int)$camp['id']) ?>" style="font-size: 12px; font-weight: 600; color: #373E8C; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
                                                                 <span>Open Campaign Governance →</span>
@@ -2084,28 +2251,222 @@ $firstAwaitingId = !empty($needsAttention) ? $needsAttention[0]['version_id'] : 
 
     <!-- ================= 7. MODALS ================= -->
 
-    <!-- Modal 0: Create Campaign Modal -->
+    <!-- Modal 0: Create Campaign Modal (Multi-Guideline Attachment & Role Assign Tag Pickers) -->
     <div class="modal-overlay" id="adminCampaignModal" style="display: none;">
-        <div class="modal-window" style="max-width: 500px;">
+        <div class="modal-window" style="max-width: 620px; max-height: 90vh; overflow-y: auto;">
             <div class="modal-header">
-                <h3 class="modal-title">Create New Campaign</h3>
+                <div>
+                    <h3 class="modal-title">Create New Campaign</h3>
+                    <p style="font-size: 13px; color: #64748B; margin-top: 2px;">Setup campaign workspace, attach compliance guidelines, and assign team roles</p>
+                </div>
                 <span class="btn-close-modal" onclick="closeAdminCampaignModal()">&times;</span>
             </div>
-            <form method="POST" action="">
+            <form method="POST" action="" enctype="multipart/form-data" id="adminCreateCampaignForm">
                 <input type="hidden" name="action" value="create_campaign">
                 <div class="modal-body" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
                     <div>
-                        <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Campaign Name</label>
-                        <input type="text" name="campaign_title" placeholder="e.g. Autumn Investment 2026" required style="width: 100%; height: 44px; padding: 0 14px; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                        <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Campaign Name <span style="color: #EF4444;">*</span></label>
+                        <input type="text" name="campaign_title" placeholder="e.g. DBS Spring Investment 2026" required style="width: 100%; height: 44px; padding: 0 14px; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
                     </div>
+
+                    <!-- Campaign Owner Selector -->
                     <div>
-                        <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Target Deadline</label>
-                        <input type="date" name="campaign_deadline" value="<?= date('Y-m-d', strtotime('+14 days')) ?>" required style="width: 100%; height: 44px; padding: 0 14px; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                        <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Campaign Owner <span style="color: #EF4444;">*</span></label>
+                        <select name="owner_id" required style="width: 100%; height: 44px; padding: 0 14px; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 14px; background: #fff; box-sizing: border-box;">
+                            <?php foreach ($allAdminsList as $adm): 
+                                list($admId, $admName, $admEmail) = pcs_extract_user_info($adm);
+                            ?>
+                                <option value="<?= esc_attr($admId) ?>" <?= ($admId == ($currentUser['id'] ?? 0)) ? 'selected' : '' ?>>
+                                    <?= esc_html($admName) ?> (<?= esc_html($admEmail) ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <span style="font-size: 11px; color: #64748B; margin-top: 4px; display: block;">Select the Campaign Owner (Admin/Lead) responsible for approving releases.</span>
+                    </div>
+
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Target Deadline <span style="color: #EF4444;">*</span></label>
+                        <input type="date" name="campaign_deadline" id="campaignDeadlineInput" min="<?= date('Y-m-d', strtotime('+1 day')) ?>" value="<?= date('Y-m-d', strtotime('+14 days')) ?>" required style="width: 100%; height: 44px; padding: 0 14px; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                        <span style="font-size: 11px; color: #64748B; margin-top: 4px; display: block;">Must be a future date (cannot be today or in the past).</span>
+                    </div>
+
+                    <!-- Multiple Guideline Documents Attachment -->
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Campaign Guideline Documents (PDF / DOCX / Images)</label>
+                        <div id="guidelineDropArea" style="border: 2px dashed #CBD5E1; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; background: #F8FAFC; transition: all 0.2s ease;">
+                            <div style="pointer-events: none;">
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6366F1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 6px; display: inline-block;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                <div id="guidelineFileLabel" style="font-size: 13px; font-weight: 600; color: #334155;">Drag &amp; drop multiple guideline files here, or <span style="color: #6366F1; text-decoration: underline;">browse</span></div>
+                                <div style="font-size: 11px; color: #94A3B8; margin-top: 4px;">Upload multiple guidelines (.pdf, .docx, .doc, .txt, .png, .jpg). AI checks will cite these files.</div>
+                            </div>
+                            <input type="file" name="guideline_files[]" id="guidelineFileInput" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" multiple style="display: none;">
+                        </div>
+                        <div id="guidelineSelectedList" style="margin-top: 10px; display: flex; flex-direction: column; gap: 6px;"></div>
+                    </div>
+
+                    <!-- Interactive Assigned Team Members with Searchable Tag Pickers -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;" class="assignee-grid">
+                        <!-- Assign Makers -->
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Assign Maker(s)</label>
+                            <div class="user-picker-wrap" id="makerPicker">
+                                <div class="user-picker-box" onclick="focusPickerInput('makerPicker')">
+                                    <div class="user-picker-tags" id="makerPickerTags">
+                                        <?php if (!empty($allMakersList)): 
+                                            $firstMaker = $allMakersList[0];
+                                            list($fmId, $fmName, $fmEmail) = pcs_extract_user_info($firstMaker);
+                                        ?>
+                                            <span class="user-picker-tag" data-id="<?= esc_attr($fmId) ?>">
+                                                <span><?= esc_html($fmName) ?></span>
+                                                <span class="user-picker-tag-remove" onclick="removePickerUser('makerPicker', '<?= esc_attr($fmId) ?>')">&times;</span>
+                                                <input type="hidden" name="maker_ids[]" value="<?= esc_attr($fmId) ?>">
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <input type="text" class="user-picker-input" id="makerPickerInput" placeholder="Type name..." onfocus="openPickerDropdown('makerPicker')" oninput="filterPickerUsers('makerPicker', this.value)">
+                                </div>
+                                <div class="user-picker-dropdown" id="makerPickerDropdown" style="display: none;">
+                                    <?php foreach ($allMakersList as $mUser): 
+                                        list($uId, $uName, $uEmail) = pcs_extract_user_info($mUser);
+                                    ?>
+                                        <div class="user-dropdown-item" data-id="<?= esc_attr($uId) ?>" data-name="<?= esc_attr($uName) ?>" data-email="<?= esc_attr($uEmail) ?>" onclick="addPickerUser('makerPicker', '<?= esc_attr($uId) ?>', '<?= esc_js($uName) ?>', 'maker_ids[]')">
+                                            <div class="user-dropdown-avatar" style="background: #373E8C;"><?= strtoupper(substr($uName, 0, 2)) ?></div>
+                                            <div>
+                                                <div class="user-dropdown-name"><?= esc_html($uName) ?></div>
+                                                <div class="user-dropdown-email"><?= esc_html($uEmail) ?></div>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                            <span style="font-size: 11px; color: #64748B; margin-top: 4px; display: block;">Makers upload assets and fix flagged issues.</span>
+                        </div>
+
+                        <!-- Assign Checkers -->
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Assign Checker(s)</label>
+                            <div class="user-picker-wrap" id="checkerPicker">
+                                <div class="user-picker-box" onclick="focusPickerInput('checkerPicker')">
+                                    <div class="user-picker-tags" id="checkerPickerTags">
+                                        <?php if (!empty($allCheckersList)): 
+                                            $firstChecker = $allCheckersList[0];
+                                            list($fcId, $fcName, $fcEmail) = pcs_extract_user_info($firstChecker);
+                                        ?>
+                                            <span class="user-picker-tag" data-id="<?= esc_attr($fcId) ?>">
+                                                <span><?= esc_html($fcName) ?></span>
+                                                <span class="user-picker-tag-remove" onclick="removePickerUser('checkerPicker', '<?= esc_attr($fcId) ?>')">&times;</span>
+                                                <input type="hidden" name="checker_ids[]" value="<?= esc_attr($fcId) ?>">
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <input type="text" class="user-picker-input" id="checkerPickerInput" placeholder="Type name..." onfocus="openPickerDropdown('checkerPicker')" oninput="filterPickerUsers('checkerPicker', this.value)">
+                                </div>
+                                <div class="user-picker-dropdown" id="checkerPickerDropdown" style="display: none;">
+                                    <?php foreach ($allCheckersList as $cUser): 
+                                        list($uId, $uName, $uEmail) = pcs_extract_user_info($cUser);
+                                    ?>
+                                        <div class="user-dropdown-item" data-id="<?= esc_attr($uId) ?>" data-name="<?= esc_attr($uName) ?>" data-email="<?= esc_attr($uEmail) ?>" onclick="addPickerUser('checkerPicker', '<?= esc_attr($uId) ?>', '<?= esc_js($uName) ?>', 'checker_ids[]')">
+                                            <div class="user-dropdown-avatar" style="background: #00B894;"><?= strtoupper(substr($uName, 0, 2)) ?></div>
+                                            <div>
+                                                <div class="user-dropdown-name"><?= esc_html($uName) ?></div>
+                                                <div class="user-dropdown-email"><?= esc_html($uEmail) ?></div>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                            <span style="font-size: 11px; color: #64748B; margin-top: 4px; display: block;">Checkers review scores and approve/reject assets.</span>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid #E2E8F0; display: flex; justify-content: flex-end; gap: 12px;">
                     <button type="button" class="btn-action-outline" onclick="closeAdminCampaignModal()">Cancel</button>
                     <button type="submit" class="btn-action-primary">Create Campaign</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 0B: Edit Campaign Team Modal -->
+    <div class="modal-overlay" id="editTeamModal" style="display: none;">
+        <div class="modal-window" style="max-width: 580px; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <div>
+                    <h3 class="modal-title">Edit Campaign Team</h3>
+                    <p style="font-size: 13px; color: #64748B; margin-top: 2px;" id="editTeamCampaignTitle">Update team assignments</p>
+                </div>
+                <span class="btn-close-modal" onclick="closeEditTeamModal()">&times;</span>
+            </div>
+            <form method="POST" action="">
+                <input type="hidden" name="action" value="update_campaign_team">
+                <input type="hidden" name="campaign_id" id="editTeamCampaignId" value="">
+                
+                <div class="modal-body" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+                    <!-- Edit Owner -->
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Campaign Owner</label>
+                        <select name="owner_id" id="editTeamOwnerSelect" required style="width: 100%; height: 44px; padding: 0 14px; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 14px; background: #fff; box-sizing: border-box;">
+                            <?php foreach ($allAdminsList as $adm): 
+                                list($admId, $admName, $admEmail) = pcs_extract_user_info($adm);
+                            ?>
+                                <option value="<?= esc_attr($admId) ?>">
+                                    <?= esc_html($admName) ?> (<?= esc_html($admEmail) ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <!-- Edit Makers -->
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Assigned Maker(s)</label>
+                        <div class="user-picker-wrap" id="editMakerPicker">
+                            <div class="user-picker-box" onclick="focusPickerInput('editMakerPicker')">
+                                <div class="user-picker-tags" id="editMakerPickerTags"></div>
+                                <input type="text" class="user-picker-input" id="editMakerPickerInput" placeholder="Type to search Makers..." onfocus="openPickerDropdown('editMakerPicker')" oninput="filterPickerUsers('editMakerPicker', this.value)">
+                            </div>
+                            <div class="user-picker-dropdown" id="editMakerPickerDropdown" style="display: none;">
+                                <?php foreach ($allMakersList as $mUser): 
+                                    list($uId, $uName, $uEmail) = pcs_extract_user_info($mUser);
+                                ?>
+                                    <div class="user-dropdown-item" data-id="<?= esc_attr($uId) ?>" data-name="<?= esc_attr($uName) ?>" data-email="<?= esc_attr($uEmail) ?>" onclick="addPickerUser('editMakerPicker', '<?= esc_attr($uId) ?>', '<?= esc_js($uName) ?>', 'maker_ids[]')">
+                                        <div class="user-dropdown-avatar" style="background: #373E8C;"><?= strtoupper(substr($uName, 0, 2)) ?></div>
+                                        <div>
+                                            <div class="user-dropdown-name"><?= esc_html($uName) ?></div>
+                                            <div class="user-dropdown-email"><?= esc_html($uEmail) ?></div>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Edit Checkers -->
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Assigned Checker(s)</label>
+                        <div class="user-picker-wrap" id="editCheckerPicker">
+                            <div class="user-picker-box" onclick="focusPickerInput('editCheckerPicker')">
+                                <div class="user-picker-tags" id="editCheckerPickerTags"></div>
+                                <input type="text" class="user-picker-input" id="editCheckerPickerInput" placeholder="Type to search Checkers..." onfocus="openPickerDropdown('editCheckerPicker')" oninput="filterPickerUsers('editCheckerPicker', this.value)">
+                            </div>
+                            <div class="user-picker-dropdown" id="editCheckerPickerDropdown" style="display: none;">
+                                <?php foreach ($allCheckersList as $cUser): 
+                                    list($uId, $uName, $uEmail) = pcs_extract_user_info($cUser);
+                                ?>
+                                    <div class="user-dropdown-item" data-id="<?= esc_attr($uId) ?>" data-name="<?= esc_attr($uName) ?>" data-email="<?= esc_attr($uEmail) ?>" onclick="addPickerUser('editCheckerPicker', '<?= esc_attr($uId) ?>', '<?= esc_js($uName) ?>', 'checker_ids[]')">
+                                        <div class="user-dropdown-avatar" style="background: #00B894;"><?= strtoupper(substr($uName, 0, 2)) ?></div>
+                                        <div>
+                                            <div class="user-dropdown-name"><?= esc_html($uName) ?></div>
+                                            <div class="user-dropdown-email"><?= esc_html($uEmail) ?></div>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid #E2E8F0; display: flex; justify-content: flex-end; gap: 12px;">
+                    <button type="button" class="btn-action-outline" onclick="closeEditTeamModal()">Cancel</button>
+                    <button type="submit" class="btn-action-primary">Save Team Assignments</button>
                 </div>
             </form>
         </div>
@@ -2376,7 +2737,7 @@ $firstAwaitingId = !empty($needsAttention) ? $needsAttention[0]['version_id'] : 
                     if (drawer) {
                         const isExpanded = drawer.classList.contains('active');
                         drawer.classList.toggle('active');
-                        this.textContent = isExpanded ? 'View Campaign' : 'Hide Campaign';
+                        this.textContent = isExpanded ? 'View' : 'Hide';
                     }
                 });
             });
@@ -2523,7 +2884,235 @@ $firstAwaitingId = !empty($needsAttention) ? $needsAttention[0]['version_id'] : 
                     e.target.classList.remove('active');
                     e.target.style.display = 'none';
                 }
+                // Close user picker dropdowns when clicking outside
+                if (!e.target.closest('.user-picker-wrap')) {
+                    document.querySelectorAll('.user-picker-dropdown').forEach(dd => dd.style.display = 'none');
+                }
             });
+
+            // Multi-file Guideline Dropzone & DataTransfer Management
+            const guidelineDT = new DataTransfer();
+            const guidelineDropArea = document.getElementById('guidelineDropArea');
+            const guidelineFileInput = document.getElementById('guidelineFileInput');
+            const guidelineFileLabel = document.getElementById('guidelineFileLabel');
+            const guidelineSelectedList = document.getElementById('guidelineSelectedList');
+
+            if (guidelineDropArea && guidelineFileInput) {
+                guidelineDropArea.addEventListener('click', function(e) {
+                    guidelineFileInput.click();
+                });
+
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    guidelineDropArea.addEventListener(eventName, function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        guidelineDropArea.style.borderColor = '#6366F1';
+                        guidelineDropArea.style.background = '#EEF2FF';
+                    }, false);
+                });
+
+                ['dragleave', 'drop'].forEach(eventName => {
+                    guidelineDropArea.addEventListener(eventName, function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        guidelineDropArea.style.borderColor = '#CBD5E1';
+                        guidelineDropArea.style.background = '#F8FAFC';
+                    }, false);
+                });
+
+                guidelineDropArea.addEventListener('drop', function(e) {
+                    const dt = e.dataTransfer;
+                    if (dt && dt.files && dt.files.length > 0) {
+                        for (let i = 0; i < dt.files.length; i++) {
+                            guidelineDT.items.add(dt.files[i]);
+                        }
+                        guidelineFileInput.files = guidelineDT.files;
+                        renderGuidelineList();
+                    }
+                });
+
+                guidelineFileInput.addEventListener('change', function() {
+                    if (guidelineFileInput.files && guidelineFileInput.files.length > 0) {
+                        for (let i = 0; i < guidelineFileInput.files.length; i++) {
+                            guidelineDT.items.add(guidelineFileInput.files[i]);
+                        }
+                        guidelineFileInput.files = guidelineDT.files;
+                        renderGuidelineList();
+                    }
+                });
+
+                function renderGuidelineList() {
+                    if (!guidelineSelectedList) return;
+                    guidelineSelectedList.innerHTML = '';
+                    const files = guidelineDT.files;
+                    if (files.length === 0) {
+                        guidelineFileLabel.innerHTML = 'Drag &amp; drop multiple guideline files here, or <span style="color: #6366F1; text-decoration: underline;">browse</span>';
+                        guidelineDropArea.style.borderColor = '#CBD5E1';
+                        guidelineDropArea.style.background = '#F8FAFC';
+                        return;
+                    }
+
+                    guidelineFileLabel.innerHTML = '<span style="color: #059669; font-weight: 700;">' + files.length + ' file(s) attached</span> (click or drop to add more)';
+                    guidelineDropArea.style.borderColor = '#10B981';
+                    guidelineDropArea.style.background = '#ECFDF5';
+
+                    for (let i = 0; i < files.length; i++) {
+                        const f = files[i];
+                        const sizeKb = (f.size / 1024).toFixed(1);
+                        const row = document.createElement('div');
+                        row.className = 'guideline-file-item';
+                        row.innerHTML = `
+                            <div class="guideline-file-info">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6366F1" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                <span>${f.name.replace(/</g, '&lt;')} (${sizeKb} KB)</span>
+                            </div>
+                            <span class="guideline-file-remove" onclick="removeGuidelineFile(${i})" title="Remove file">&times;</span>
+                        `;
+                        guidelineSelectedList.appendChild(row);
+                    }
+                }
+
+                window.removeGuidelineFile = function(index) {
+                    const newDT = new DataTransfer();
+                    const files = guidelineDT.files;
+                    for (let i = 0; i < files.length; i++) {
+                        if (i !== index) newDT.items.add(files[i]);
+                    }
+                    guidelineDT.items.clear();
+                    for (let i = 0; i < newDT.files.length; i++) {
+                        guidelineDT.items.add(newDT.files[i]);
+                    }
+                    guidelineFileInput.files = guidelineDT.files;
+                    renderGuidelineList();
+                };
+            }
+
+            // Client-side deadline check on campaign form submit
+            const campForm = document.getElementById('adminCreateCampaignForm');
+            if (campForm) {
+                campForm.addEventListener('submit', function(e) {
+                    const dlInput = document.getElementById('campaignDeadlineInput');
+                    if (dlInput && dlInput.value) {
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        if (dlInput.value <= todayStr) {
+                            e.preventDefault();
+                            alert('Target Deadline must be a future date (cannot be today or in the past).');
+                            dlInput.focus();
+                            return false;
+                        }
+                    }
+                });
+            }
+        });
+
+        // User Picker Multi-Select Functions
+        function focusPickerInput(pickerId) {
+            const input = document.querySelector('#' + pickerId + ' .user-picker-input');
+            if (input) input.focus();
+        }
+
+        function openPickerDropdown(pickerId) {
+            document.querySelectorAll('.user-picker-dropdown').forEach(dd => dd.style.display = 'none');
+            const dd = document.getElementById(pickerId + 'Dropdown');
+            if (dd) dd.style.display = 'block';
+        }
+
+        function filterPickerUsers(pickerId, query) {
+            const q = (query || '').toLowerCase().trim();
+            const items = document.querySelectorAll('#' + pickerId + 'Dropdown .user-dropdown-item');
+            items.forEach(item => {
+                const name = (item.getAttribute('data-name') || '').toLowerCase();
+                const email = (item.getAttribute('data-email') || '').toLowerCase();
+                if (!q || name.includes(q) || email.includes(q)) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        function addPickerUser(pickerId, userId, userName, inputName) {
+            const tagsContainer = document.getElementById(pickerId + 'Tags');
+            if (!tagsContainer) return;
+
+            // Check if already selected
+            const existing = tagsContainer.querySelector('[data-id="' + userId + '"]');
+            if (existing) {
+                const dd = document.getElementById(pickerId + 'Dropdown');
+                if (dd) dd.style.display = 'none';
+                return;
+            }
+
+            const tag = document.createElement('span');
+            tag.className = 'user-picker-tag';
+            tag.setAttribute('data-id', userId);
+            tag.innerHTML = `
+                <span>${userName}</span>
+                <span class="user-picker-tag-remove" onclick="removePickerUser('${pickerId}', '${userId}')">&times;</span>
+                <input type="hidden" name="${inputName}" value="${userId}">
+            `;
+            tagsContainer.appendChild(tag);
+
+            const input = document.querySelector('#' + pickerId + ' .user-picker-input');
+            if (input) {
+                input.value = '';
+                filterPickerUsers(pickerId, '');
+            }
+            const dd = document.getElementById(pickerId + 'Dropdown');
+            if (dd) dd.style.display = 'none';
+        }
+
+        function removePickerUser(pickerId, userId) {
+            const tagsContainer = document.getElementById(pickerId + 'Tags');
+            if (!tagsContainer) return;
+            const tag = tagsContainer.querySelector('[data-id="' + userId + '"]');
+            if (tag) tag.remove();
+        }
+
+        // Edit Campaign Team Modal Functions
+        function openEditTeamModal(campId, campTitle, ownerId, makerIds, checkerIds) {
+            const modal = document.getElementById('editTeamModal');
+            if (!modal) return;
+
+            document.getElementById('editTeamCampaignId').value = campId;
+            document.getElementById('editTeamCampaignTitle').textContent = 'Update team assignments for: ' + campTitle;
+
+            const ownerSelect = document.getElementById('editTeamOwnerSelect');
+            if (ownerSelect) {
+                ownerSelect.value = ownerId || '';
+            }
+
+            // Populate Makers
+            const makerTags = document.getElementById('editMakerPickerTags');
+            if (makerTags) {
+                makerTags.innerHTML = '';
+                const mIds = Array.isArray(makerIds) ? makerIds : [];
+                mIds.forEach(uid => {
+                    const item = document.querySelector('#editMakerPickerDropdown .user-dropdown-item[data-id="' + uid + '"]');
+                    const uName = item ? item.getAttribute('data-name') : ('User #' + uid);
+                    addPickerUser('editMakerPicker', uid, uName, 'maker_ids[]');
+                });
+            }
+
+            // Populate Checkers
+            const checkerTags = document.getElementById('editCheckerPickerTags');
+            if (checkerTags) {
+                checkerTags.innerHTML = '';
+                const cIds = Array.isArray(checkerIds) ? checkerIds : [];
+                cIds.forEach(uid => {
+                    const item = document.querySelector('#editCheckerPickerDropdown .user-dropdown-item[data-id="' + uid + '"]');
+                    const uName = item ? item.getAttribute('data-name') : ('User #' + uid);
+                    addPickerUser('editCheckerPicker', uid, uName, 'checker_ids[]');
+                });
+            }
+
+            modal.style.display = 'flex';
+        }
+
+        function closeEditTeamModal() {
+            const modal = document.getElementById('editTeamModal');
+            if (modal) modal.style.display = 'none';
+        }
         });
 
         function openAdminCampaignModal() {

@@ -30,18 +30,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
 
 $uploadAlert = '';
 
-// Handle Campaign Creation
-if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action']) && $_POST['action'] === 'create_campaign') {
-    $campTitle = trim($_POST['campaign_title'] ?? '');
-    $campDeadline = trim($_POST['campaign_deadline'] ?? '');
-    if (!empty($campTitle) && function_exists('handle_create_campaign')) {
-        $cid = handle_create_campaign($campTitle, $campDeadline);
-        if ($cid) {
-            $uploadAlert = 'Campaign "' . htmlspecialchars($campTitle) . '" created successfully!';
-        }
-    }
-}
-
 // Handle Guideline Upload & Delete (Full CRUD)
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'upload_guideline') {
@@ -1442,7 +1430,9 @@ unset($camp);
                                                         <div class="asset-item-row" style="flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 16px; border-bottom: 1px solid #F1F5F9;">
                                                             <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
                                                                 <div class="asset-item-left" style="display: flex; align-items: center; gap: 10px;">
-                                                                    <span class="asset-name" style="font-weight: 700; color: #1E293B;"><?= htmlspecialchars($asset['name']) ?></span>
+                                                                    <a href="<?= esc_url(pcs_url('detail-asset-maker.php') . '?campaign_id=' . (int)$camp['id'] . '&asset_id=' . (int)$asset['id']) ?>" class="asset-name" style="font-weight: 700; color: #1E293B; text-decoration: none;" onmouseover="this.style.color='#4F56A6'" onmouseout="this.style.color='#1E293B'" title="View Asset Detail">
+                                                                        <?= htmlspecialchars($asset['name']) ?>
+                                                                    </a>
                                                                     <span class="status-pill-small <?= $asset['badge_type'] ?>"><?= htmlspecialchars($asset['version']) ?></span>
                                                                     <span class="asset-next-step" style="font-size: 12px; color: #64748B;"><?= htmlspecialchars($asset['next_step']) ?></span>
                                                                 </div>

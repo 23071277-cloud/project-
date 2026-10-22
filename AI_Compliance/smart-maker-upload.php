@@ -1316,21 +1316,31 @@ endif;
             }, false);
         });
 
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropArea.addEventListener(eventName, function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                dropArea.classList.remove('drag-over');
-            }, false);
-        });
+        dropArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropArea.classList.remove('drag-over');
+        }, false);
 
         dropArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropArea.classList.remove('drag-over');
             const dt = e.dataTransfer;
-            const files = dt.files;
-            if (files && files.length > 0) {
+            if (dt && dt.files && dt.files.length > 0) {
                 const input = document.getElementById('realFileInput');
-                input.files = files;
-                handleFileSelect(input);
+                if (input) {
+                    try {
+                        const transfer = new DataTransfer();
+                        for (let i = 0; i < dt.files.length; i++) {
+                            transfer.items.add(dt.files[i]);
+                        }
+                        input.files = transfer.files;
+                    } catch (err) {
+                        input.files = dt.files;
+                    }
+                    handleFileSelect(input);
+                }
             }
         }, false);
     }
