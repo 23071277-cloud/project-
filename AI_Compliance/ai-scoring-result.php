@@ -39,10 +39,10 @@ if (!function_exists('home_url')) {
     function home_url($path = '/') { return $path; }
 }
 
-// 2. Current User & RBAC Authentication (Maker Only)
-$currentUser = function_exists('pcs_enforce_rbac') ? pcs_enforce_rbac(['MAKER']) : (function_exists('get_current_user_profile') ? get_current_user_profile() : null);
+// 2. Current User & RBAC Authentication (Maker, Checker, Admin)
+$currentUser = function_exists('pcs_enforce_rbac') ? pcs_enforce_rbac(['MAKER', 'CHECKER', 'ADMIN']) : (function_exists('get_current_user_profile') ? get_current_user_profile() : null);
 $userRole = strtoupper($currentUser['role'] ?? 'MAKER');
-$isAllowed = ($userRole === 'MAKER' || $userRole === 'AUTHOR' || $userRole === 'CONTRIBUTOR');
+$isAllowed = ($userRole === 'MAKER' || $userRole === 'AUTHOR' || $userRole === 'CONTRIBUTOR' || $userRole === 'ADMIN' || $userRole === 'CHECKER');
 
 // 3. Handle Sign Out
 if (isset($_GET['action']) && $_GET['action'] === 'logout') {

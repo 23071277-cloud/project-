@@ -49,14 +49,24 @@ if (isset($_GET['action']) && $_GET['action'] === 'pcs_sync_heartbeat') {
     exit;
 }
 
+// Synchronous notification read on arrival (when user clicks any notification link)
+if (!empty($_REQUEST['notif_read'])) {
+    $nr_id = (int) $_REQUEST['notif_read'];
+    if ($nr_id > 0 && function_exists('pcs_mark_notification_read')) {
+        $curr_u = function_exists('get_current_user_profile') ? get_current_user_profile() : null;
+        $curr_uid = (int) ($curr_u['id'] ?? 0);
+        pcs_mark_notification_read($nr_id, $curr_uid);
+    }
+}
+
 // Realtime Notification AJAX Handlers
 if (!function_exists('pcs_ajax_mark_notif_read_handler')) {
     function pcs_ajax_mark_notif_read_handler() {
         if (ob_get_length()) ob_clean();
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: no-cache, no-store, must-revalidate');
-        $nid = (int) ($_REQUEST['notif_id'] ?? 0);
-        $uid = (int) ($_REQUEST['user_id'] ?? 0);
+        $nid = (int) ($_REQUEST['notif_id'] ?? $_POST['notif_id'] ?? $_GET['notif_id'] ?? 0);
+        $uid = (int) ($_REQUEST['user_id'] ?? $_POST['user_id'] ?? $_GET['user_id'] ?? 0);
         if ($uid <= 0 && function_exists('get_current_user_id')) {
             $uid = get_current_user_id();
         }
@@ -72,7 +82,7 @@ if (!function_exists('pcs_ajax_mark_all_notifs_read_handler')) {
         if (ob_get_length()) ob_clean();
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: no-cache, no-store, must-revalidate');
-        $uid = (int) ($_REQUEST['user_id'] ?? 0);
+        $uid = (int) ($_REQUEST['user_id'] ?? $_POST['user_id'] ?? $_GET['user_id'] ?? 0);
         if ($uid <= 0 && function_exists('get_current_user_id')) {
             $uid = get_current_user_id();
         }
@@ -630,11 +640,25 @@ function pcs_get_user_notifications($user_id, $limit = 50, $unread_only = false)
     $is_admin = pcs_is_admin_user($user_id);
     $notifications = [];
 
+    // Danh sach cac trang Admin co quyen truy cap
+    $admin_accessible_pages = [
+        'detail-asset-admin',
+        'approval-queue-admin',
+        'final-review-admin',
+        'compare-version',
+        'release-detail',
+        'audit-log',
+        'admin-dashboard'
+    ];
+
     if (pcs_is_wp() && function_exists('get_posts')) {
+        // Voi Admin: truy van pool rong hon de sau khi loc bo cac task Maker/Checker van du $limit bai
+        $query_limit = $is_admin ? max(150, $limit * 3) : $limit;
+
         $args = [
             'post_type'      => 'pcs_notification',
             'post_status'    => 'publish',
-            'posts_per_page' => $limit,
+            'posts_per_page' => $query_limit,
             'orderby'        => 'ID',
             'order'          => 'DESC',
         ];
@@ -654,7 +678,55 @@ function pcs_get_user_notifications($user_id, $limit = 50, $unread_only = false)
             $nid = $p->ID;
             $type = get_post_meta($nid, '_type', true) ?: 'info';
             $link = get_post_meta($nid, '_link', true) ?: '';
-            
+            $recipient_uid = (int) get_post_meta($nid, '_recipient_user_id', true);
+            $cid = (int) get_post_meta($nid, '_campaign_id', true);
+            $aid = (int) get_post_meta($nid, '_asset_id', true);
+            $vid = (int) get_post_meta($nid, '_version_id', true);
+            $title_lower = strtolower($p->post_title);
+
+            // =========================================================================
+            // LOC THONG BAO CHO ADMIN: Chi nhan cac thong bao co quyen xem (Bo het cac trang bi gioi han role)
+            // =========================================================================
+            if ($is_admin) {
+                $is_direct_recipient = ($recipient_uid > 0 && $recipient_uid === $user_id);
+
+                // 1. Bo qua cac thong bao danh rieng cho Maker upload/chinh sua version noi bo
+                if (preg_match('/(smart-maker-upload|ai-upload|maker-dashboard|checker-dashboard)/i', $link)) {
+                    continue; // Bo di! Admin khong co quyen va khong upload thay Maker
+                }
+                if (strpos($title_lower, 'revisions required') !== false && !$is_direct_recipient) {
+                    continue; // Bo di! Day la thong bao Maker phai sua bai
+                }
+                if (in_array($type, ['campaign_assigned_maker', 'campaign_assigned_checker'], true) && !$is_direct_recipient) {
+                    continue; // Bo di!
+                }
+
+                // 2. Tu dong chuyen huong link sang trang Admin neu thong bao tro ve trang checker/maker
+                if (preg_match('/(detail-asset-checker|detail-asset-maker|checker-review)/i', $link)) {
+                    if ($cid > 0) {
+                        $p_args = ['campaign_id' => $cid];
+                        if ($aid > 0) $p_args['asset_id'] = $aid;
+                        if ($vid > 0) $p_args['version_id'] = $vid;
+                        $link = pcs_get_notification_link('detail-asset-admin.php', $p_args);
+                    } else {
+                        continue; // Bo di!
+                    }
+                }
+
+                // 3. Kiem tra bao dam 100% link thuoc cac trang Admin co quyen truy cap
+                $is_allowed_link = false;
+                foreach ($admin_accessible_pages as $page_slug) {
+                    if (strpos($link, $page_slug) !== false) {
+                        $is_allowed_link = true;
+                        break;
+                    }
+                }
+                if (!$is_allowed_link) {
+                    continue; // Bo di! Admin khong co quyen truy cap trang nay
+                }
+            }
+
+            // Trang thai da doc (Read Status)
             $is_read = false;
             if ($is_admin) {
                 $admin_read = get_post_meta($nid, '_read_by_' . $user_id, true);
@@ -672,9 +744,6 @@ function pcs_get_user_notifications($user_id, $limit = 50, $unread_only = false)
             }
 
             $created_at = get_post_meta($nid, '_created_at', true) ?: $p->post_date;
-            $cid = (int) get_post_meta($nid, '_campaign_id', true);
-            $aid = (int) get_post_meta($nid, '_asset_id', true);
-            $vid = (int) get_post_meta($nid, '_version_id', true);
 
             $notifications[] = [
                 'id'          => $nid,
@@ -689,12 +758,52 @@ function pcs_get_user_notifications($user_id, $limit = 50, $unread_only = false)
                 'asset_id'    => $aid,
                 'version_id'  => $vid,
             ];
+
+            if (count($notifications) >= $limit) {
+                break;
+            }
         }
     } else {
         $sess_notifs = $_SESSION['pcs_notifications'] ?? [];
         foreach (array_reverse($sess_notifs) as $sn) {
-            $target_match = ($is_admin || (int)($sn['recipient_user_id'] ?? 0) === $user_id);
+            $recipient_uid = (int)($sn['recipient_user_id'] ?? 0);
+            $target_match = ($is_admin || $recipient_uid === $user_id);
             if ($target_match) {
+                $link = $sn['link'] ?? '';
+                $type = $sn['type'] ?? '';
+                $title_lower = strtolower($sn['title'] ?? '');
+                $cid = (int)($sn['campaign_id'] ?? 0);
+                $aid = (int)($sn['asset_id'] ?? 0);
+                $vid = (int)($sn['version_id'] ?? 0);
+
+                if ($is_admin) {
+                    $is_direct = ($recipient_uid > 0 && $recipient_uid === $user_id);
+                    if (preg_match('/(smart-maker-upload|ai-upload|maker-dashboard|checker-dashboard)/i', $link)) {
+                        continue;
+                    }
+                    if (strpos($title_lower, 'revisions required') !== false && !$is_direct) {
+                        continue;
+                    }
+                    if (in_array($type, ['campaign_assigned_maker', 'campaign_assigned_checker'], true) && !$is_direct) {
+                        continue;
+                    }
+                    if (preg_match('/(detail-asset-checker|detail-asset-maker|checker-review)/i', $link)) {
+                        if ($cid > 0) {
+                            $p_args = ['campaign_id' => $cid];
+                            if ($aid > 0) $p_args['asset_id'] = $aid;
+                            if ($vid > 0) $p_args['version_id'] = $vid;
+                            $link = pcs_get_notification_link('detail-asset-admin.php', $p_args);
+                        } else {
+                            continue;
+                        }
+                    }
+                    $is_allowed = false;
+                    foreach ($admin_accessible_pages as $ap) {
+                        if (strpos($link, $ap) !== false) { $is_allowed = true; break; }
+                    }
+                    if (!$is_allowed) continue;
+                }
+
                 $is_read = false;
                 if ($is_admin) {
                     $is_read = !empty($sn['read_by_' . $user_id]) || !empty($sn['is_read']);
@@ -708,13 +817,13 @@ function pcs_get_user_notifications($user_id, $limit = 50, $unread_only = false)
                     'title'       => $sn['title'],
                     'message'     => $sn['message'],
                     'type'        => $sn['type'],
-                    'link'        => $sn['link'],
+                    'link'        => $link,
                     'is_read'     => $is_read,
                     'time_ago'    => pcs_human_time_diff($sn['created_at']),
                     'created_at'  => $sn['created_at'],
-                    'campaign_id' => (int) ($sn['campaign_id'] ?? 0),
-                    'asset_id'    => (int) ($sn['asset_id'] ?? 0),
-                    'version_id'  => (int) ($sn['version_id'] ?? 0),
+                    'campaign_id' => $cid,
+                    'asset_id'    => $aid,
+                    'version_id'  => $vid,
                 ];
                 if (count($notifications) >= $limit) break;
             }

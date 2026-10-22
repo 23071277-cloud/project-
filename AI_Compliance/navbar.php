@@ -35,6 +35,15 @@ if (!isset($currentUser) || empty($currentUser)) {
 
 // User Notifications Data (Realtime Cross-Role Hub)
 $unavUserId = (int) ($currentUser['id'] ?? 0);
+
+// Xu ly doc thong bao ngay lap tuc va dong bo khi click chuyen trang (chong hoan toan bounce-back)
+if (!empty($_GET['notif_read']) && function_exists('pcs_mark_notification_read')) {
+    $nr_id = (int) $_GET['notif_read'];
+    if ($nr_id > 0) {
+        pcs_mark_notification_read($nr_id, $unavUserId);
+    }
+}
+
 $unavNotifications = ($unavUserId > 0 && function_exists('pcs_get_user_notifications')) ? pcs_get_user_notifications($unavUserId, 50) : [];
 $unavUnreadCount = ($unavUserId > 0 && function_exists('pcs_get_unread_notifications_count')) ? pcs_get_unread_notifications_count($unavUserId) : 0;
 
@@ -1087,22 +1096,34 @@ function handleNotificationClick(e, notifId, targetUrl, el) {
         markItemReadLocally(wrap);
         updateNotifBadges(1);
 
+        // Async AJAX fallback
         if (notifId && unavUserId) {
-            var markUrl = getNotifAjaxUrl('pcs_mark_notif_read', { notif_id: notifId, user_id: unavUserId });
-            if (navigator.sendBeacon) {
-                navigator.sendBeacon(markUrl);
-            }
+            var params = new URLSearchParams();
+            params.append('action', 'pcs_mark_notif_read');
+            params.append('notif_id', notifId);
+            params.append('user_id', unavUserId);
+
             try {
-                fetch(markUrl, { method: 'POST', cache: 'no-store', keepalive: true });
+                fetch(pcsAjaxUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: params.toString(),
+                    keepalive: true
+                });
             } catch(err) {}
         }
     }
 
     if (targetUrl && targetUrl !== '#' && targetUrl !== 'javascript:void(0)') {
         e.preventDefault();
-        setTimeout(function() {
-            window.location.href = targetUrl;
-        }, wasUnread ? 120 : 0);
+        
+        // Them notif_read vao targetUrl de trang dich danh dau doc DONG BO trong PHP ngay truoc khi render
+        if (wasUnread && notifId) {
+            var sep = targetUrl.indexOf('?') !== -1 ? '&' : '?';
+            targetUrl = targetUrl + sep + 'notif_read=' + encodeURIComponent(notifId);
+        }
+        
+        window.location.href = targetUrl;
     }
 }
 
@@ -1118,8 +1139,22 @@ function quickMarkNotifRead(e, notifId, btnEl) {
     updateNotifBadges(1);
 
     if (notifId && unavUserId) {
-        var markUrl = getNotifAjaxUrl('pcs_mark_notif_read', { notif_id: notifId, user_id: unavUserId });
-        fetch(markUrl, { method: 'POST', cache: 'no-store', keepalive: true });
+        var params = new URLSearchParams();
+        params.append('action', 'pcs_mark_notif_read');
+        params.append('notif_id', notifId);
+        params.append('user_id', unavUserId);
+
+        fetch(pcsAjaxUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
+        }).then(function(r) { return r.json(); })
+          .then(function(data) {
+              if (data && typeof data.unread_count !== 'undefined') {
+                  currentUnreadCount = data.unread_count;
+                  updateNotifBadges(0);
+              }
+          }).catch(function(err) {});
     }
 
     if (activeNotifTab === 'unread') {
@@ -1141,13 +1176,30 @@ function markAllNotificationsRead(userId) {
     currentUnreadCount = 0;
     updateNotifBadges();
 
-    var markUrl = getNotifAjaxUrl('pcs_mark_all_notifs_read', { user_id: targetId });
-    fetch(markUrl, { method: 'POST', cache: 'no-store', keepalive: true });
+    var params = new URLSearchParams();
+    params.append('action', 'pcs_mark_all_notifs_read');
+    params.append('user_id', targetId);
+
+    fetch(pcsAjaxUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString()
+    }).catch(function(err) {});
 
     if (activeNotifTab === 'unread') {
         var currentActiveBtn = document.querySelector('.unav-notif-tab.active');
         filterNotifTab('unread', currentActiveBtn);
     }
+}
+
+// Don sach tham so notif_read tren thanh dia chi URL
+if (window.history && window.history.replaceState && window.location.search.indexOf('notif_read=') !== -1) {
+    try {
+        var cleanUrl = window.location.href.replace(/([?&])notif_read=\d+(&|$)/, function(m, p1, p2) {
+            return (p1 === '?' && p2 === '&') ? '?' : (p1 === '?' ? '' : p2);
+        });
+        window.history.replaceState({}, document.title, cleanUrl);
+    } catch(e) {}
 }
 
 window.addEventListener('click', function(e) {
