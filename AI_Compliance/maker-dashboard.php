@@ -463,8 +463,8 @@ unset($camp);
         /* ================= 3. WORKSPACE 2-COLUMN GRID ================= */
         .workspace-grid {
             display: grid;
-            grid-template-columns: minmax(320px, 1fr) minmax(440px, 1.4fr);
-            gap: 28px;
+            grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+            gap: 24px;
             align-items: stretch;
             margin-bottom: 48px;
             transition: all 0.3s ease;
@@ -1344,10 +1344,10 @@ unset($camp);
                         <thead class="table-head">
                             <tr>
                                 <th>CAMPAIGN</th>
-                                <th>DEADLINE</th>
+                                <th style="text-align: center;">DEADLINE</th>
                                 <th>PROGRESS</th>
-                                <th>STATUS</th>
-                                <th style="text-align: right;">ACTION</th>
+                                <th style="text-align: center;">STATUS</th>
+                                <th style="text-align: center;">ACTION</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1360,7 +1360,7 @@ unset($camp);
                                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.6;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                                             </a>
                                         </td>
-                                        <td class="deadline-cell"><?= htmlspecialchars($camp['deadline']) ?></td>
+                                        <td class="deadline-cell" style="text-align: center;"><?= htmlspecialchars($camp['deadline']) ?></td>
                                         <td>
                                             <div class="progress-box">
                                                 <div class="progress-labels">
@@ -1372,7 +1372,7 @@ unset($camp);
                                                 </div>
                                             </div>
                                         </td>
-                                        <td>
+                                        <td style="text-align: center;">
                                             <?php if ($camp['has_action_required']): ?>
                                                 <span class="status-badge-lg danger">Action Required</span>
                                             <?php elseif ($camp['has_awaiting_review']): ?>
@@ -1383,8 +1383,8 @@ unset($camp);
                                                 <span class="status-badge-lg neutral"><?= htmlspecialchars($camp['status']) ?></span>
                                             <?php endif; ?>
                                         </td>
-                                        <td style="text-align: right; white-space: nowrap;">
-                                            <div style="display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px;">
+                                        <td style="text-align: center; white-space: nowrap;">
+                                            <div style="display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
                                                 <button class="btn-table-action" onclick="toggleDetails(<?= $camp['id'] ?>, this)">
                                                     <?= $camp['expanded'] ? 'Close' : 'Open' ?>
                                                 </button>

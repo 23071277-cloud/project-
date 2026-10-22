@@ -1337,9 +1337,11 @@ foreach ($campaigns as $c) {
         }
 
         .maker-cell-wrap {
-            display: flex;
+            display: inline-flex;
             align-items: center;
             gap: 8px;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .maker-mini-avatar {
@@ -1353,12 +1355,14 @@ foreach ($campaigns as $c) {
             display: flex;
             align-items: center;
             justify-content: center;
+            flex-shrink: 0;
         }
 
         .maker-name-text {
             font-size: 12.5px;
             color: #475569;
             font-weight: 500;
+            white-space: nowrap;
         }
 
         .btn-open-review-primary {
@@ -1785,9 +1789,9 @@ foreach ($campaigns as $c) {
                                 <tr>
                                     <th>CAMPAIGN</th>
                                     <th style="text-align: center;">ASSETS TO REVIEW</th>
-                                    <th>DEADLINE</th>
+                                    <th style="text-align: center;">DEADLINE</th>
                                     <th>PROGRESS</th>
-                                    <th>STATUS</th>
+                                    <th style="text-align: center;">STATUS</th>
                                     <th style="text-align: center;">ACTION</th>
                                 </tr>
                             </thead>
@@ -1808,7 +1812,7 @@ foreach ($campaigns as $c) {
                                             <td style="text-align: center;">
                                                 <span class="asset-count-badge"><?= $assetsToReview ?></span>
                                             </td>
-                                            <td class="deadline-text"><?= htmlspecialchars($camp['deadline']) ?></td>
+                                            <td class="deadline-text" style="text-align: center;"><?= htmlspecialchars($camp['deadline']) ?></td>
                                             <td>
                                                 <div class="progress-box">
                                                     <div class="progress-bar-track">
@@ -1817,7 +1821,7 @@ foreach ($campaigns as $c) {
                                                     <span class="progress-label-text"><?= $camp['done'] ?>/<?= $camp['total'] ?> (<?= $camp['percent'] ?>%)</span>
                                                 </div>
                                             </td>
-                                            <td>
+                                            <td style="text-align: center;">
                                                 <?= function_exists('pcs_format_status_badge') ? pcs_format_status_badge($camp['status']) : '<span class="status-pill-badge ' . $statusKey . '"><span class="status-dot"></span><span>' . htmlspecialchars($camp['status']) . '</span></span>' ?>
                                             </td>
                                             <td style="text-align: center; white-space: nowrap;">
@@ -1940,10 +1944,10 @@ foreach ($campaigns as $c) {
                                 <th>CAMPAIGN</th>
                                 <th style="text-align: center;">VERSION</th>
                                 <th>MAKER</th>
-                                <th>AI ASSESSMENT</th>
-                                <th>SUBMITTED</th>
-                                <th>DEADLINE</th>
-                                <th>STATUS</th>
+                                <th style="text-align: center;">AI ASSESSMENT</th>
+                                <th style="text-align: center;">SUBMITTED</th>
+                                <th style="text-align: center;">DEADLINE</th>
+                                <th style="text-align: center;">STATUS</th>
                                 <th style="text-align: center;">ACTION</th>
                             </tr>
                         </thead>
@@ -1978,7 +1982,7 @@ foreach ($campaigns as $c) {
                                                 <span class="maker-name-text"><?= htmlspecialchars($item['maker_name']) ?></span>
                                             </div>
                                         </td>
-                                        <td>
+                                        <td style="text-align: center;">
                                             <span class="ai-pill <?= $aiClass ?>">
                                                 <?php if ($aiClass === 'pass'): ?>
                                                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
@@ -1990,13 +1994,13 @@ foreach ($campaigns as $c) {
                                                 <span><?= htmlspecialchars($item['ai_status']) ?></span>
                                             </span>
                                         </td>
-                                        <td style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #64748B;">
+                                        <td style="text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #64748B;">
                                             <?= htmlspecialchars($item['submitted']) ?>
                                         </td>
-                                        <td style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #1E293B;">
+                                        <td style="text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #1E293B;">
                                             <?= htmlspecialchars($item['deadline']) ?>
                                         </td>
-                                        <td>
+                                        <td style="text-align: center;">
                                             <span class="status-pill-badge in_review">
                                                 <span class="status-dot"></span>
                                                 <span>In Review</span>

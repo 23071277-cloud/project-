@@ -713,10 +713,19 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
         /* ================= 4. UPPER TWO-COLUMN WORKSPACE ================= */
         .upper-grid {
             display: grid;
-            grid-template-columns: 380px 1fr;
+            grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
             gap: 24px;
             margin-bottom: 40px;
-            align-items: start;
+            align-items: stretch;
+            transition: all 0.3s ease;
+        }
+
+        .upper-grid.campaigns-expanded {
+            grid-template-columns: 1fr;
+        }
+
+        .upper-grid.campaigns-expanded .aside-panel {
+            display: none !important;
         }
 
         @media (max-width: 1100px) {
@@ -731,8 +740,11 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             padding: 24px;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 16px;
+            height: 540px;
+            max-height: 540px;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+            overflow: hidden;
         }
 
         .panel-header {
@@ -773,6 +785,18 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             display: flex;
             flex-direction: column;
             gap: 14px;
+            overflow-y: auto;
+            flex: 1;
+            padding-right: 6px;
+            scrollbar-width: thin;
+            scrollbar-color: #CBD5E1 #FAF8FF;
+        }
+        .attention-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .attention-list::-webkit-scrollbar-thumb {
+            background-color: #CBD5E1;
+            border-radius: 4px;
         }
 
         .attention-card {
@@ -879,9 +903,38 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             padding: 24px;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 16px;
+            height: 540px;
+            max-height: 540px;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
             overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .upper-grid.campaigns-expanded .campaigns-panel {
+            height: auto;
+            max-height: none;
+            width: 100%;
+        }
+
+        .btn-toggle-expand {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #373E8C;
+            background: #FAF8FF;
+            border: 1px solid #E0E0FF;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+        .btn-toggle-expand:hover {
+            background: #EDE9FA;
+            border-color: #373E8C;
         }
 
         .table-filter-pills {
@@ -917,6 +970,22 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
         .table-container {
             width: 100%;
             overflow-x: auto;
+            overflow-y: auto;
+            max-height: 430px;
+            scrollbar-width: thin;
+            scrollbar-color: #CBD5E1 #F8FAFC;
+        }
+        .table-container::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .table-container::-webkit-scrollbar-thumb {
+            background-color: #CBD5E1;
+            border-radius: 4px;
+        }
+
+        .upper-grid.campaigns-expanded .campaigns-panel .table-container {
+            max-height: 640px;
         }
 
         .data-table {
@@ -965,9 +1034,14 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
         }
 
         .owner-cell {
-            display: flex;
+            display: inline-flex;
             align-items: center;
             gap: 8px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .owner-cell span {
+            white-space: nowrap;
         }
 
         .owner-avatar {
@@ -981,6 +1055,7 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             display: flex;
             align-items: center;
             justify-content: center;
+            flex-shrink: 0;
         }
 
         .progress-box {
@@ -1777,7 +1852,11 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
 
             <?php if (!empty($releaseAlert)): ?>
                 <div class="alert-toast <?= $releaseSuccess ? 'success' : 'danger' ?>">
-                    <span><?= $releaseSuccess ? '✓' : '⚠' ?></span>
+                    <?php if ($releaseSuccess): ?>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    <?php else: ?>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <?php endif; ?>
                     <span><?= htmlspecialchars($releaseAlert) ?></span>
                 </div>
             <?php endif; ?>
@@ -1840,7 +1919,9 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
 
                     <?php if (empty($needsAttention)): ?>
                         <div class="empty-state-box">
-                            <div class="empty-icon">✓</div>
+                            <div class="empty-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
+                            </div>
                             <div class="empty-title">All Caught Up</div>
                             <p class="empty-desc">No versions currently waiting for final admin release.</p>
                         </div>
@@ -1886,11 +1967,19 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                         <div class="panel-title-wrap">
                             <h2 class="panel-title">Campaigns</h2>
                         </div>
-                        <div class="table-filter-pills">
-                            <button type="button" class="pill-tab active" data-filter="all">All</button>
-                            <button type="button" class="pill-tab" data-filter="approved">Approved</button>
-                            <button type="button" class="pill-tab" data-filter="in_review">In Review</button>
-                            <button type="button" class="pill-tab" data-filter="released">Released</button>
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <div class="table-filter-pills">
+                                <button type="button" class="pill-tab active" data-filter="all">All</button>
+                                <button type="button" class="pill-tab" data-filter="in_review">In Review</button>
+                                <button type="button" class="pill-tab" data-filter="rejected">Rejected</button>
+                                <button type="button" class="pill-tab" data-filter="approved">Approved</button>
+                                <button type="button" class="pill-tab" data-filter="released">Released</button>
+                            </div>
+                            <button type="button" class="btn-toggle-expand" id="btnToggleCampaignsView" onclick="toggleCampaignsExpansion()" title="Toggle full width table view">
+                                <svg class="icon-expand" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                                <svg class="icon-compress" style="display:none;" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>
+                                <span id="btnToggleCampaignsText">Full Width</span>
+                            </button>
                         </div>
                     </div>
 
@@ -1908,11 +1997,11 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                 <thead>
                                     <tr>
                                         <th>Campaign</th>
-                                        <th>Status</th>
+                                        <th style="text-align: center;">Status</th>
                                         <th>Owner</th>
-                                        <th>Deadline</th>
+                                        <th style="text-align: center;">Deadline</th>
                                         <th>Release Progress</th>
-                                        <th style="text-align: right;">Action</th>
+                                        <th style="text-align: center;">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1926,7 +2015,7 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                                     <span class="campaign-assets-count"><?= count($camp['assets']) ?> <?= count($camp['assets']) === 1 ? 'asset' : 'assets' ?></span>
                                                 </div>
                                             </td>
-                                            <td>
+                                            <td style="text-align: center;">
                                                 <span class="status-badge <?= htmlspecialchars($camp['status_type']) ?>">
                                                     <?= htmlspecialchars($camp['status']) ?>
                                                 </span>
@@ -1937,7 +2026,7 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                                     <span><?= htmlspecialchars($camp['owner_name'] ?? 'Campaign Owner') ?></span>
                                                 </div>
                                             </td>
-                                            <td><?= htmlspecialchars($camp['deadline']) ?></td>
+                                            <td style="text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 12px;"><?= htmlspecialchars($camp['deadline']) ?></td>
                                             <td>
                                                 <div class="progress-box">
                                                     <div class="progress-meta">
@@ -1949,10 +2038,15 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td style="text-align: right;">
-                                                <button type="button" class="btn-view-campaign js-toggle-drawer" data-target="drawer-<?= $camp['id'] ?>">
-                                                    View
-                                                </button>
+                                            <td style="text-align: center; white-space: nowrap;">
+                                                <div style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                                                    <button type="button" class="btn-action-outline" style="padding: 5px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;" onclick="openEditTeamModal(<?= (int)$camp['id'] ?>, '<?= esc_js($camp['name']) ?>', <?= (int)($camp['owner_id'] ?? 0) ?>, <?= esc_attr(json_encode($camp['maker_ids'] ?? [])) ?>, <?= esc_attr(json_encode($camp['checker_ids'] ?? [])) ?>)">
+                                                        <span>Team</span>
+                                                    </button>
+                                                    <button type="button" class="btn-view-campaign js-toggle-drawer" data-target="drawer-<?= $camp['id'] ?>">
+                                                        View
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
 
@@ -1997,63 +2091,65 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                                             <thead>
                                                                 <tr>
                                                                     <th>Asset</th>
-                                                                    <th>Version</th>
+                                                                    <th style="text-align: center;">Version</th>
                                                                     <th>Maker</th>
                                                                     <th>Checker</th>
-                                                                    <th>Status</th>
-                                                                    <th style="text-align: right;">Action</th>
+                                                                    <th style="text-align: center;">Status</th>
+                                                                    <th style="text-align: center;">Action</th>
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
                                                                 <?php foreach ($camp['assets'] as $asset): ?>
                                                                     <tr>
                                                                         <td style="font-weight: 700;"><?= htmlspecialchars($asset['name']) ?></td>
-                                                                        <td><span class="version-tag"><?= htmlspecialchars($asset['version_raw']) ?></span></td>
-                                                                        <td><?= htmlspecialchars($asset['maker_name']) ?></td>
-                                                                        <td><?= htmlspecialchars($asset['checker_name']) ?></td>
-                                                                        <td>
+                                                                        <td style="text-align: center;"><span class="version-tag"><?= htmlspecialchars($asset['version_raw']) ?></span></td>
+                                                                        <td style="white-space: nowrap;"><?= htmlspecialchars($asset['maker_name']) ?></td>
+                                                                        <td style="white-space: nowrap;"><?= htmlspecialchars($asset['checker_name']) ?></td>
+                                                                        <td style="text-align: center;">
                                                                             <span class="status-badge <?= htmlspecialchars($asset['status']) ?>">
                                                                                 <?= ucfirst(htmlspecialchars($asset['status'])) ?>
                                                                             </span>
                                                                         </td>
-                                                                        <td style="text-align: right;">
-                                                                            <?php if (!empty($asset['id'])): 
-                                                                                $aCompUrl = (function_exists('pcs_url') ? pcs_url('compare-version.php') : 'compare-version.php') . '?' . http_build_query([
-                                                                                    'asset_id'    => (int)$asset['id'],
-                                                                                    'v_cur'       => (int)($asset['current_version_id'] ?? 0),
-                                                                                    'campaign_id' => (int)$camp['id'],
-                                                                                    'from'        => 'admin'
-                                                                                ]);
-                                                                            ?>
-                                                                                <a href="<?= esc_url($aCompUrl) ?>" class="btn-table-action" style="text-decoration: none; display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; font-size: 11.5px; border-radius: 6px; margin-right: 6px;">
-                                                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
-                                                                                    <span>Compare</span>
-                                                                                </a>
-                                                                            <?php endif; ?>
+                                                                        <td style="text-align: center; white-space: nowrap;">
+                                                                            <div style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap;">
+                                                                                <?php if (!empty($asset['id'])): 
+                                                                                    $aCompUrl = (function_exists('pcs_url') ? pcs_url('compare-version.php') : 'compare-version.php') . '?' . http_build_query([
+                                                                                        'asset_id'    => (int)$asset['id'],
+                                                                                        'v_cur'       => (int)($asset['current_version_id'] ?? 0),
+                                                                                        'campaign_id' => (int)$camp['id'],
+                                                                                        'from'        => 'admin'
+                                                                                    ]);
+                                                                                ?>
+                                                                                    <a href="<?= esc_url($aCompUrl) ?>" class="btn-table-action" style="text-decoration: none; display: inline-flex; align-items: center; gap: 4px; padding: 5px 9px; font-size: 11.5px; border-radius: 6px; white-space: nowrap;">
+                                                                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+                                                                                        <span>Compare</span>
+                                                                                    </a>
+                                                                                <?php endif; ?>
 
-                                                                            <?php if ($asset['status'] === 'approved'): ?>
-                                                                                <button type="button" class="btn-open-review-primary js-trigger-modal"
-                                                                                        data-version-id="<?= $asset['current_version_id'] ?>"
-                                                                                        data-asset-name="<?= htmlspecialchars($asset['name']) ?>"
-                                                                                        data-campaign-name="<?= htmlspecialchars($camp['name']) ?>"
-                                                                                        data-version-label="<?= htmlspecialchars($asset['version_raw']) ?>"
-                                                                                        data-maker-name="<?= htmlspecialchars($asset['maker_name']) ?>"
-                                                                                        data-checker-name="<?= htmlspecialchars($asset['checker_name']) ?>"
-                                                                                        data-checker-notes=""
-                                                                                        data-score="100"
-                                                                                        data-file-url="<?= htmlspecialchars($asset['file_url']) ?>">
-                                                                                    Open Final Review
-                                                                                </button>
-                                                                            <?php elseif ($asset['status'] === 'released'): ?>
-                                                                                <button type="button" class="btn-view-release js-trigger-release-modal"
-                                                                                        data-asset-name="<?= htmlspecialchars($asset['name']) ?>"
-                                                                                        data-campaign-name="<?= htmlspecialchars($camp['name']) ?>"
-                                                                                        data-version-label="<?= htmlspecialchars($asset['version_raw']) ?>">
-                                                                                    View Release
-                                                                                </button>
-                                                                            <?php else: ?>
-                                                                                <span style="font-size: 12px; color: #94A3B8;">Pending Review</span>
-                                                                            <?php endif; ?>
+                                                                                <?php if ($asset['status'] === 'approved'): ?>
+                                                                                    <button type="button" class="btn-open-review-primary js-trigger-modal" style="padding: 5px 10px; font-size: 11.5px; border-radius: 6px; white-space: nowrap;"
+                                                                                            data-version-id="<?= $asset['current_version_id'] ?>"
+                                                                                            data-asset-name="<?= htmlspecialchars($asset['name']) ?>"
+                                                                                            data-campaign-name="<?= htmlspecialchars($camp['name']) ?>"
+                                                                                            data-version-label="<?= htmlspecialchars($asset['version_raw']) ?>"
+                                                                                            data-maker-name="<?= htmlspecialchars($asset['maker_name']) ?>"
+                                                                                            data-checker-name="<?= htmlspecialchars($asset['checker_name']) ?>"
+                                                                                            data-checker-notes=""
+                                                                                            data-score="100"
+                                                                                            data-file-url="<?= htmlspecialchars($asset['file_url']) ?>">
+                                                                                        <span>Review &rarr;</span>
+                                                                                    </button>
+                                                                                <?php elseif ($asset['status'] === 'released'): ?>
+                                                                                    <button type="button" class="btn-view-release js-trigger-release-modal" style="padding: 5px 10px; font-size: 11.5px; border-radius: 6px; white-space: nowrap;"
+                                                                                            data-asset-name="<?= htmlspecialchars($asset['name']) ?>"
+                                                                                            data-campaign-name="<?= htmlspecialchars($camp['name']) ?>"
+                                                                                            data-version-label="<?= htmlspecialchars($asset['version_raw']) ?>">
+                                                                                        View Release
+                                                                                    </button>
+                                                                                <?php else: ?>
+                                                                                    <span style="font-size: 12px; color: #94A3B8;">Pending Review</span>
+                                                                                <?php endif; ?>
+                                                                            </div>
                                                                         </td>
                                                                     </tr>
                                                                 <?php endforeach; ?>
@@ -2106,13 +2202,13 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                 <tr>
                                     <th>Asset</th>
                                     <th>Campaign</th>
-                                    <th>Version</th>
+                                    <th style="text-align: center;">Version</th>
                                     <th>Maker</th>
-                                    <th>Checker Approval</th>
-                                    <th>Approved At</th>
-                                    <th>Deadline</th>
-                                    <th>Status</th>
-                                    <th style="text-align: right;">Action</th>
+                                    <th style="text-align: center;">Checker Approval</th>
+                                    <th style="text-align: center;">Approved At</th>
+                                    <th style="text-align: center;">Deadline</th>
+                                    <th style="text-align: center;">Status</th>
+                                    <th style="text-align: center;">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -2125,54 +2221,53 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                             </div>
                                         </td>
                                         <td><strong><?= htmlspecialchars($item['campaign_name']) ?></strong></td>
-                                        <td><span class="version-tag"><?= htmlspecialchars($item['version_label']) ?></span></td>
+                                        <td style="text-align: center;"><span class="version-tag"><?= htmlspecialchars($item['version_label']) ?></span></td>
                                         <td>
                                             <div class="owner-cell">
                                                 <div class="owner-avatar"><?= htmlspecialchars($item['maker_initials']) ?></div>
                                                 <span><?= htmlspecialchars($item['maker_name']) ?></span>
                                             </div>
                                         </td>
-                                        <td>
-                                            <div style="display: flex; flex-direction: column; gap: 2px;">
-                                                <span style="font-weight: 700;"><?= htmlspecialchars($item['checker_name']) ?></span>
-                                                <span class="status-pill-small" style="align-self: flex-start;">APPROVED</span>
+                                        <td style="text-align: center;">
+                                            <div style="display: inline-flex; flex-direction: column; align-items: center; gap: 2px;">
+                                                <span style="font-weight: 700; white-space: nowrap;"><?= htmlspecialchars($item['checker_name']) ?></span>
+                                                <span class="status-pill-small" style="align-self: center;">APPROVED</span>
                                             </div>
                                         </td>
-                                        <td><?= htmlspecialchars($item['approved_at']) ?></td>
-                                        <td><?= htmlspecialchars($item['deadline']) ?></td>
-                                        <td>
+                                        <td style="text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 12px;"><?= htmlspecialchars($item['approved_at']) ?></td>
+                                        <td style="text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 12px;"><?= htmlspecialchars($item['deadline']) ?></td>
+                                        <td style="text-align: center;">
                                             <span class="status-badge <?= htmlspecialchars($item['status']) ?>">
                                                 <?= ucfirst(htmlspecialchars($item['status'])) ?>
                                             </span>
                                         </td>
-                                        <td style="text-align: right;">
-                                            <?php if (!empty($item['asset_id'])): 
-                                                $qCompUrl = (function_exists('pcs_url') ? pcs_url('compare-version.php') : 'compare-version.php') . '?' . http_build_query([
-                                                    'asset_id'    => (int)$item['asset_id'],
-                                                    'v_cur'       => (int)$item['version_id'],
-                                                    'campaign_id' => (int)($item['campaign_id'] ?? 0),
-                                                    'from'        => 'admin'
-                                                ]);
-                                            ?>
-                                                <a href="<?= esc_url($qCompUrl) ?>" class="btn-table-action" style="text-decoration: none; display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; font-size: 11.5px; border-radius: 6px; margin-right: 6px;">
-                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
-                                                    <span>Compare</span>
-                                                </a>
-                                            <?php endif; ?>
-
-                                            <?php if ($item['status'] === 'approved'): 
-                                                $dashFinalReviewUrl = (function_exists('pcs_url') ? pcs_url('final-review-admin.php') : 'final-review-admin.php') . '?' . http_build_query([
-                                                    'version_id'  => (int)$item['version_id'],
-                                                    'asset_id'    => (int)$item['asset_id'],
-                                                    'campaign_id' => (int)($item['campaign_id'] ?? 0)
-                                                ]);
-                                            ?>
-                                                <div style="display: inline-flex; align-items: center; gap: 6px;">
-                                                    <a href="<?= esc_url($dashFinalReviewUrl) ?>" class="btn-open-review-primary" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
-                                                        <span>Open Final Review</span>
-                                                        <span>&rarr;</span>
+                                        <td style="text-align: center; white-space: nowrap;">
+                                            <div style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap;">
+                                                <?php if (!empty($item['asset_id'])): 
+                                                    $qCompUrl = (function_exists('pcs_url') ? pcs_url('compare-version.php') : 'compare-version.php') . '?' . http_build_query([
+                                                        'asset_id'    => (int)$item['asset_id'],
+                                                        'v_cur'       => (int)$item['version_id'],
+                                                        'campaign_id' => (int)($item['campaign_id'] ?? 0),
+                                                        'from'        => 'admin'
+                                                    ]);
+                                                ?>
+                                                    <a href="<?= esc_url($qCompUrl) ?>" class="btn-table-action" style="text-decoration: none; display: inline-flex; align-items: center; gap: 4px; padding: 5px 9px; font-size: 11.5px; border-radius: 6px; white-space: nowrap;">
+                                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+                                                        <span>Compare</span>
                                                     </a>
-                                                    <button type="button" class="btn-table-action js-trigger-modal" title="Quick Sign-off &amp; Release" style="padding: 6px 10px; font-size: 11.5px; border-radius: 6px;"
+                                                <?php endif; ?>
+
+                                                <?php if ($item['status'] === 'approved'): 
+                                                    $dashFinalReviewUrl = (function_exists('pcs_url') ? pcs_url('final-review-admin.php') : 'final-review-admin.php') . '?' . http_build_query([
+                                                        'version_id'  => (int)$item['version_id'],
+                                                        'asset_id'    => (int)$item['asset_id'],
+                                                        'campaign_id' => (int)($item['campaign_id'] ?? 0)
+                                                    ]);
+                                                ?>
+                                                    <a href="<?= esc_url($dashFinalReviewUrl) ?>" class="btn-open-review-primary" title="Open Final Review" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 5px 10px; font-size: 11.5px; border-radius: 6px; white-space: nowrap;">
+                                                        <span>Review &rarr;</span>
+                                                    </a>
+                                                    <button type="button" class="btn-table-action js-trigger-modal" title="Quick Sign-off &amp; Release" style="padding: 5px 9px; font-size: 11.5px; border-radius: 6px; white-space: nowrap;"
                                                             data-version-id="<?= $item['version_id'] ?>"
                                                             data-asset-name="<?= htmlspecialchars($item['asset_name']) ?>"
                                                             data-campaign-name="<?= htmlspecialchars($item['campaign_name']) ?>"
@@ -2185,15 +2280,15 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                                             data-final-review-url="<?= esc_url($dashFinalReviewUrl) ?>">
                                                         <span>Quick</span>
                                                     </button>
-                                                </div>
-                                            <?php else: ?>
-                                                <button type="button" class="btn-view-release js-trigger-release-modal"
-                                                        data-asset-name="<?= htmlspecialchars($item['asset_name']) ?>"
-                                                        data-campaign-name="<?= htmlspecialchars($item['campaign_name']) ?>"
-                                                        data-version-label="<?= htmlspecialchars($item['version_label']) ?>">
-                                                    View Release
-                                                </button>
-                                            <?php endif; ?>
+                                                <?php else: ?>
+                                                    <button type="button" class="btn-view-release js-trigger-release-modal" style="padding: 5px 10px; font-size: 11.5px; border-radius: 6px; white-space: nowrap;"
+                                                            data-asset-name="<?= htmlspecialchars($item['asset_name']) ?>"
+                                                            data-campaign-name="<?= htmlspecialchars($item['campaign_name']) ?>"
+                                                            data-version-label="<?= htmlspecialchars($item['version_label']) ?>">
+                                                        View Release
+                                                    </button>
+                                                <?php endif; ?>
+                                            </div>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -3150,7 +3245,41 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             const modal = document.getElementById('editTeamModal');
             if (modal) modal.style.display = 'none';
         }
-        });
+
+        // Toggle Campaigns Expansion (Split View <-> Full Width)
+        function toggleCampaignsExpansion(forceExpand) {
+            const grid = document.getElementById('campaigns-section');
+            const btn = document.getElementById('btnToggleCampaignsView');
+            const text = document.getElementById('btnToggleCampaignsText');
+            if (!grid) return;
+
+            let shouldExpand;
+            if (typeof forceExpand === 'boolean') {
+                shouldExpand = forceExpand;
+            } else {
+                shouldExpand = !grid.classList.contains('campaigns-expanded');
+            }
+
+            if (shouldExpand) {
+                grid.classList.add('campaigns-expanded');
+                if (text) text.textContent = 'Split View';
+                if (btn) {
+                    const exp = btn.querySelector('.icon-expand');
+                    const comp = btn.querySelector('.icon-compress');
+                    if (exp) exp.style.display = 'none';
+                    if (comp) comp.style.display = 'inline-block';
+                }
+            } else {
+                grid.classList.remove('campaigns-expanded');
+                if (text) text.textContent = 'Full Width';
+                if (btn) {
+                    const exp = btn.querySelector('.icon-expand');
+                    const comp = btn.querySelector('.icon-compress');
+                    if (exp) exp.style.display = 'inline-block';
+                    if (comp) comp.style.display = 'none';
+                }
+            }
+        }
 
         function openAdminCampaignModal() {
             const m = document.getElementById('adminCampaignModal');

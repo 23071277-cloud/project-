@@ -1085,7 +1085,7 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
             color: #464651;
             font-size: 12px;
             letter-spacing: 0.7px;
-            text-align: right;
+            text-align: center;
             text-transform: uppercase;
         }
 
@@ -1290,7 +1290,7 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
         .table-action-cell {
             display: flex;
             align-items: center;
-            justify-content: flex-end;
+            justify-content: center;
             gap: 8px;
         }
 
@@ -2035,12 +2035,12 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
 
                 <div class="table-header">
                     <div class="text-17">ASSET</div>
-                    <div class="text-17">VERSION</div>
-                    <div class="text-17">AI ASSESSMENT</div>
-                    <div class="text-17">STATUS</div>
-                    <div class="text-17">SUBMITTED</div>
-                    <div class="text-17">NEXT</div>
-                    <div class="text-18">ACTION</div>
+                    <div class="text-17" style="text-align: center;">VERSION</div>
+                    <div class="text-17" style="text-align: center;">AI ASSESSMENT</div>
+                    <div class="text-17" style="text-align: center;">STATUS</div>
+                    <div class="text-17" style="text-align: center;">SUBMITTED</div>
+                    <div class="text-17" style="text-align: center;">NEXT</div>
+                    <div class="text-18" style="text-align: center;">ACTION</div>
                 </div>
 
                 <div id="assetsTableBody" style="width: 100%;">
@@ -2089,14 +2089,14 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
                                 </div>
 
                                 <!-- VERSION -->
-                                <div>
+                                <div style="text-align: center;">
                                     <span class="<?= $isSelected ? 'background-10 text-20' : 'background-14 text-23' ?>">
                                         <?= htmlspecialchars($ast['version_label']) ?>
                                     </span>
                                 </div>
 
                                 <!-- AI ASSESSMENT -->
-                                <div>
+                                <div style="text-align: center;">
                                     <span class="ai-pill <?= $aiPillClass ?>">
                                         <span class="dot"></span>
                                         <span><?= htmlspecialchars($ast['ai_verdict']) ?></span>
@@ -2104,7 +2104,7 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
                                 </div>
 
                                 <!-- STATUS -->
-                                <div>
+                                <div style="text-align: center;">
                                     <span class="status-pill-table <?= $statusPillClass ?>">
                                         <span class="dot"></span>
                                         <span><?= htmlspecialchars($ast['status_label']) ?></span>
@@ -2112,13 +2112,13 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
                                 </div>
 
                                 <!-- SUBMITTED -->
-                                <div class="div-3">
+                                <div class="div-3" style="text-align: center;">
                                     <div class="text-wrapper-8"><?= htmlspecialchars($ast['submitted_date']) ?></div>
-                                    <div class="text-wrapper-9"><?= htmlspecialchars($ast['maker_name']) ?></div>
+                                    <div class="text-wrapper-9" style="white-space: nowrap;"><?= htmlspecialchars($ast['maker_name']) ?></div>
                                 </div>
 
                                 <!-- NEXT -->
-                                <div>
+                                <div style="text-align: center;">
                                     <span class="<?= $ast['status'] === 'in_review' ? 'text-21' : 'text-29' ?>">
                                         <?= htmlspecialchars($ast['next_label']) ?>
                                     </span>

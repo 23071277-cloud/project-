@@ -1376,7 +1376,7 @@ endif;
             const btn = document.getElementById('btnSubmitCheck');
             if (btn) {
                 btn.disabled = true;
-                btn.innerHTML = '<span style="display: inline-block; animation: spin 1s infinite linear;">⚙️</span> <span>Uploading & Initializing AI...</span>';
+                btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="animation: spin 1s infinite linear; display: inline-block;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> <span>Uploading & Initializing AI...</span>';
             }
         });
     }

@@ -623,6 +623,7 @@ $nextVersionNum = $currentVersionNum + 1;
         .status-cell {
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 6px;
             font-size: 12px;
             font-weight: 600;
@@ -637,16 +638,18 @@ $nextVersionNum = $currentVersionNum + 1;
             font-size: 12px;
             font-weight: 600;
             color: #18224B;
+            text-align: center;
         }
         .updated-date-cell {
             font-size: 12px;
             color: #464651;
+            text-align: center;
         }
 
         .action-cell {
             display: flex;
             align-items: center;
-            justify-content: flex-end;
+            justify-content: center;
             gap: 8px;
         }
 
@@ -1375,10 +1378,10 @@ endif;
 
                 <div class="table-header-grid">
                     <div>ASSET</div>
-                    <div>STATUS</div>
-                    <div>NEXT</div>
-                    <div>UPDATED</div>
-                    <div style="text-align: right;">ACTION</div>
+                    <div style="text-align: center;">STATUS</div>
+                    <div style="text-align: center;">NEXT</div>
+                    <div style="text-align: center;">UPDATED</div>
+                    <div style="text-align: center;">ACTION</div>
                 </div>
 
                 <div class="assets-table-container" id="assetsContainer">

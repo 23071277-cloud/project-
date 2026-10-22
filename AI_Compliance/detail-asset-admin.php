@@ -1341,13 +1341,13 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                                 <thead>
                                     <tr>
                                         <th>ASSET</th>
-                                        <th>VERSION</th>
+                                        <th style="text-align: center;">VERSION</th>
                                         <th>MAKER</th>
                                         <th>CHECKER</th>
-                                        <th>REVIEW STATUS</th>
-                                        <th>RELEASE STATUS</th>
-                                        <th>NEXT</th>
-                                        <th style="text-align: right;">ACTION</th>
+                                        <th style="text-align: center;">REVIEW STATUS</th>
+                                        <th style="text-align: center;">RELEASE STATUS</th>
+                                        <th style="text-align: center;">NEXT</th>
+                                        <th style="text-align: center;">ACTION</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1390,12 +1390,12 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                                                     <span class="asset-format"><?= esc_html($ast['format']) ?></span>
                                                 </div>
                                             </td>
-                                            <td>
+                                            <td style="text-align: center;">
                                                 <span class="version-badge"><?= esc_html($ast['version_label']) ?></span>
                                             </td>
-                                            <td class="user-cell"><?= esc_html($ast['maker_name']) ?></td>
-                                            <td class="user-cell"><?= esc_html($ast['checker_name']) ?></td>
-                                            <td>
+                                            <td class="user-cell" style="white-space: nowrap;"><?= esc_html($ast['maker_name']) ?></td>
+                                            <td class="user-cell" style="white-space: nowrap;"><?= esc_html($ast['checker_name']) ?></td>
+                                            <td style="text-align: center;">
                                                 <?php if ($ast['review_status'] === 'Approved'): ?>
                                                     <span class="status-pill approved">
                                                         <span class="status-dot dot-teal"></span>
@@ -1415,7 +1415,7 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                                                     <span class="status-pill draft"><?= esc_html($ast['review_status']) ?></span>
                                                 <?php endif; ?>
                                             </td>
-                                            <td>
+                                            <td style="text-align: center;">
                                                 <?php if ($ast['release_status'] === 'Awaiting Release' || $ast['release_status'] === 'Approved'): ?>
                                                     <span class="release-pill awaiting">Approved</span>
                                                 <?php elseif ($ast['release_status'] === 'Released'): ?>
@@ -1424,44 +1424,46 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                                                     <span class="release-pill pending">—</span>
                                                 <?php endif; ?>
                                             </td>
-                                            <td>
+                                            <td style="text-align: center;">
                                                 <span style="font-weight: 500; color: #64748B;"><?= esc_html($ast['next_label']) ?></span>
                                             </td>
-                                            <td style="text-align: right;" onclick="event.stopPropagation()">
-                                                <?php if ($ast['status'] === 'approved'): ?>
-                                                    <button type="button" class="btn-table-action primary"
-                                                            onclick="openReleaseModal(<?= htmlspecialchars(json_encode([
-                                                                'version_id'    => $ast['current_version_id'],
-                                                                'asset_id'      => $ast['id'],
-                                                                'asset_name'    => $ast['name'],
-                                                                'version_label' => $ast['version_label'],
-                                                                'campaign_name' => $campaignName,
-                                                                'maker_name'    => $ast['maker_name'],
-                                                                'checker_name'  => $ast['checker_name'],
-                                                                'review_note'   => $ast['review_note'] ?: 'Asset verified against corporate guidelines and MAS financial advertisement standards. Ready for production release.',
-                                                                'file_url'      => $ast['file_url']
-                                                            ]), ENT_QUOTES, 'UTF-8') ?>)">
-                                                        Open Final Review
-                                                    </button>
-                                                <?php elseif ($ast['status'] === 'released'): ?>
-                                                    <?php 
-                                                    $relUrl = pcs_url('release-detail.php') . '?' . http_build_query([
-                                                        'version_id'  => $ast['version_id'],
-                                                        'asset_id'    => $ast['id'],
-                                                        'campaign_id' => $campaignId,
-                                                        'from'        => 'admin_assets'
-                                                    ]);
-                                                    ?>
-                                                    <a href="<?= esc_url($relUrl) ?>" class="btn-table-action" style="text-decoration: none;">
-                                                        View Release
-                                                    </a>
-                                                <?php elseif ($ast['status'] === 'in_review'): ?>
-                                                    <a href="<?= esc_url($checkerReviewUrl) ?>" class="btn-table-action">
-                                                        View Version
-                                                    </a>
-                                                <?php else: ?>
-                                                    <span style="color: #94A3B8;">—</span>
-                                                <?php endif; ?>
+                                            <td style="text-align: center; white-space: nowrap;" onclick="event.stopPropagation()">
+                                                <div style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap;">
+                                                    <?php if ($ast['status'] === 'approved'): ?>
+                                                        <button type="button" class="btn-table-action primary" style="padding: 5px 12px; font-size: 11.5px; border-radius: 6px; white-space: nowrap;"
+                                                                onclick="openReleaseModal(<?= htmlspecialchars(json_encode([
+                                                                    'version_id'    => $ast['current_version_id'],
+                                                                    'asset_id'      => $ast['id'],
+                                                                    'asset_name'    => $ast['name'],
+                                                                    'version_label' => $ast['version_label'],
+                                                                    'campaign_name' => $campaignName,
+                                                                    'maker_name'    => $ast['maker_name'],
+                                                                    'checker_name'  => $ast['checker_name'],
+                                                                    'review_note'   => $ast['review_note'] ?: 'Asset verified against corporate guidelines and MAS financial advertisement standards. Ready for production release.',
+                                                                    'file_url'      => $ast['file_url']
+                                                                ]), ENT_QUOTES, 'UTF-8') ?>)">
+                                                            <span>Review &rarr;</span>
+                                                        </button>
+                                                    <?php elseif ($ast['status'] === 'released'): ?>
+                                                        <?php 
+                                                        $relUrl = pcs_url('release-detail.php') . '?' . http_build_query([
+                                                            'version_id'  => $ast['version_id'],
+                                                            'asset_id'    => $ast['id'],
+                                                            'campaign_id' => $campaignId,
+                                                            'from'        => 'admin_assets'
+                                                        ]);
+                                                        ?>
+                                                        <a href="<?= esc_url($relUrl) ?>" class="btn-table-action" style="text-decoration: none; padding: 5px 12px; font-size: 11.5px; border-radius: 6px; white-space: nowrap;">
+                                                            View Release
+                                                        </a>
+                                                    <?php elseif ($ast['status'] === 'in_review'): ?>
+                                                        <a href="<?= esc_url($checkerReviewUrl) ?>" class="btn-table-action" style="padding: 5px 12px; font-size: 11.5px; border-radius: 6px; white-space: nowrap;">
+                                                            View Version
+                                                        </a>
+                                                    <?php else: ?>
+                                                        <span style="color: #94A3B8;">—</span>
+                                                    <?php endif; ?>
+                                                </div>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
@@ -1684,7 +1686,7 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                                         <tr>
                                             <th>DOCUMENT</th>
                                             <th>TYPE</th>
-                                            <th style="text-align: right;">ACTION</th>
+                                            <th style="text-align: center;">ACTION</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1697,7 +1699,7 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                                             <tr>
                                                 <td style="font-weight: 600; color: #1F2A5A;"><?= esc_html($g['name']) ?></td>
                                                 <td><span class="type-tag <?= $tagClass ?>"><?= esc_html($tag) ?></span></td>
-                                                <td style="text-align: right;">
+                                                <td style="text-align: center;">
                                                     <?php if (!empty($g['url'])): ?>
                                                         <a href="<?= esc_url($g['url']) ?>" target="_blank" class="link-text-arrow">View</a>
                                                     <?php else: ?>
@@ -1899,7 +1901,7 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                             <tr>
                                 <th>DOCUMENT</th>
                                 <th>TYPE</th>
-                                <th style="text-align: right;">ACTIONS</th>
+                                <th style="text-align: center;">ACTIONS</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1907,8 +1909,8 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                                 <tr>
                                     <td style="font-weight: 600; color: #1F2A5A;"><?= esc_html($g['name']) ?></td>
                                     <td><span class="type-tag internal"><?= esc_html($g['tag'] ?? 'Standard') ?></span></td>
-                                    <td style="text-align: right; white-space: nowrap;">
-                                        <div style="display: inline-flex; align-items: center; justify-content: flex-end; gap: 8px;">
+                                    <td style="text-align: center; white-space: nowrap;">
+                                        <div style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
                                             <?php if (!empty($g['url'])): ?>
                                                 <a href="<?= esc_url($g['url']) ?>" target="_blank" class="link-text-arrow">View File</a>
                                             <?php else: ?>

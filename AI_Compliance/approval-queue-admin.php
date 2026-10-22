@@ -465,12 +465,12 @@ sort($uniqueCheckers);
             white-space: nowrap;
         }
         .queue-th.col-asset { width: 30%; padding-left: 20px; }
-        .queue-th.col-version { width: 8%; }
+        .queue-th.col-version { width: 8%; text-align: center; }
         .queue-th.col-users { width: 20%; }
-        .queue-th.col-approved { width: 16%; }
-        .queue-th.col-deadline { width: 10%; }
-        .queue-th.col-status { width: 14%; }
-        .queue-th.col-action { width: 16%; text-align: right; padding-right: 20px; }
+        .queue-th.col-approved { width: 16%; text-align: center; }
+        .queue-th.col-deadline { width: 10%; text-align: center; }
+        .queue-th.col-status { width: 14%; text-align: center; }
+        .queue-th.col-action { width: 16%; text-align: center; }
 
         /* Section Subheaders */
         .sub-header-row td {
@@ -676,9 +676,12 @@ sort($uniqueCheckers);
             transform: translateY(-1px);
         }
 
+        .queue-td.col-version { text-align: center; }
+        .queue-td.col-approved { text-align: center; }
+        .queue-td.col-deadline { text-align: center; }
+        .queue-td.col-status { text-align: center; }
         .queue-td.col-action {
-            text-align: right;
-            padding-right: 20px;
+            text-align: center;
         }
 
         /* Empty State */
@@ -1291,11 +1294,11 @@ sort($uniqueCheckers);
                                             </td>
 
                                             <td class="queue-td col-action">
-                                                <div style="display: inline-flex; align-items: center; justify-content: flex-end; gap: 8px;">
-                                                    <a href="<?php echo esc_url($finalReviewUrl); ?>" class="btn-open-review">
-                                                        <span>Open Final Review &rarr;</span>
+                                                <div style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                                                    <a href="<?php echo esc_url($finalReviewUrl); ?>" class="btn-open-review" title="Open Final Review" style="padding: 6px 12px; font-size: 12px; white-space: nowrap;">
+                                                        <span>Review &rarr;</span>
                                                     </a>
-                                                    <button type="button" class="btn-quick-release btn-launch-release" title="Quick Sign-off &amp; Release"
+                                                    <button type="button" class="btn-quick-release btn-launch-release" title="Quick Sign-off &amp; Release" style="padding: 6px 12px; font-size: 12px; white-space: nowrap;"
                                                             data-version-id="<?php echo esc_attr($vId); ?>"
                                                             data-asset-id="<?php echo esc_attr($aId); ?>"
                                                             data-campaign-id="<?php echo esc_attr($cId); ?>"
@@ -1311,7 +1314,7 @@ sort($uniqueCheckers);
                                                         <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
                                                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                                                         </svg>
-                                                        <span>Quick Release</span>
+                                                        <span>Quick</span>
                                                     </button>
                                                 </div>
                                             </td>
@@ -1412,11 +1415,11 @@ sort($uniqueCheckers);
                                             </td>
 
                                             <td class="queue-td col-action">
-                                                <div style="display: inline-flex; align-items: center; justify-content: flex-end; gap: 8px;">
-                                                    <a href="<?php echo esc_url($finalReviewUrl); ?>" class="btn-open-review">
-                                                        <span>Open Final Review &rarr;</span>
+                                                <div style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                                                    <a href="<?php echo esc_url($finalReviewUrl); ?>" class="btn-open-review" title="Open Final Review" style="padding: 6px 12px; font-size: 12px; white-space: nowrap;">
+                                                        <span>Review &rarr;</span>
                                                     </a>
-                                                    <button type="button" class="btn-quick-release btn-launch-release" title="Quick Sign-off &amp; Release"
+                                                    <button type="button" class="btn-quick-release btn-launch-release" title="Quick Sign-off &amp; Release" style="padding: 6px 12px; font-size: 12px; white-space: nowrap;"
                                                             data-version-id="<?php echo esc_attr($vId); ?>"
                                                             data-asset-id="<?php echo esc_attr($aId); ?>"
                                                             data-campaign-id="<?php echo esc_attr($cId); ?>"
@@ -1432,7 +1435,7 @@ sort($uniqueCheckers);
                                                         <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
                                                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                                                         </svg>
-                                                        <span>Quick Release</span>
+                                                        <span>Quick</span>
                                                     </button>
                                                 </div>
                                             </td>
