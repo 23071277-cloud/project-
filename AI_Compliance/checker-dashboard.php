@@ -92,12 +92,12 @@ $campRejectedCount = 0;
 $campApprovedCount = 0;
 $campReleasedCount = 0;
 foreach ($campaigns as $c) {
-    $fg = $c['filter_group'] ?? 'draft';
-    if ($fg === 'draft') $campDraftCount++;
-    elseif ($fg === 'in_review') $campInReviewCount++;
-    elseif ($fg === 'rejected') $campRejectedCount++;
-    elseif ($fg === 'approved') $campApprovedCount++;
-    elseif ($fg === 'released') $campReleasedCount++;
+    $fgs = $c['filter_groups'] ?? [$c['filter_group'] ?? 'draft'];
+    if (in_array('draft', $fgs, true)) $campDraftCount++;
+    if (in_array('in_review', $fgs, true)) $campInReviewCount++;
+    if (in_array('rejected', $fgs, true)) $campRejectedCount++;
+    if (in_array('approved', $fgs, true)) $campApprovedCount++;
+    if (in_array('released', $fgs, true)) $campReleasedCount++;
 }
 ?>
 <!DOCTYPE html>
@@ -1807,7 +1807,7 @@ foreach ($campaigns as $c) {
                                             $statusKey = 'in_review';
                                         }
                                     ?>
-                                        <tr class="camp-row" data-group="<?= $camp['filter_group'] ?>">
+                                        <tr class="camp-row" data-group="<?= $camp['filter_group'] ?>" data-groups="<?= htmlspecialchars($camp['filter_groups_str'] ?? $camp['filter_group']) ?>">
                                             <td class="campaign-name-cell"><?= htmlspecialchars($camp['name']) ?></td>
                                             <td style="text-align: center;">
                                                 <span class="asset-count-badge"><?= $assetsToReview ?></span>
@@ -2128,8 +2128,8 @@ foreach ($campaigns as $c) {
 
             const rows = document.querySelectorAll('.camp-row');
             rows.forEach(row => {
-                const rowGroup = row.getAttribute('data-group');
-                if (group === 'all' || rowGroup === group) {
+                const rowGroups = (row.getAttribute('data-groups') || row.getAttribute('data-group') || '').split(',').map(s => s.trim().toLowerCase());
+                if (group === 'all' || rowGroups.includes(group.toLowerCase())) {
                     row.style.display = '';
                 } else {
                     row.style.display = 'none';

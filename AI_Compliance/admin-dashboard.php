@@ -645,6 +645,13 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             gap: 14px;
             padding: 12px 24px;
             border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .kpi-card:hover {
+            background-color: #F8FAFC;
+            transform: translateY(-1px);
         }
 
         .kpi-card:not(:last-child) {
@@ -2007,6 +2014,8 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                             <div class="table-filter-pills">
                                 <button type="button" class="pill-tab active" data-filter="all">All</button>
+                                <button type="button" class="pill-tab" data-filter="draft">Draft</button>
+                                <button type="button" class="pill-tab" data-filter="scoring">Scoring</button>
                                 <button type="button" class="pill-tab" data-filter="in_review">In Review</button>
                                 <button type="button" class="pill-tab" data-filter="rejected">Rejected</button>
                                 <button type="button" class="pill-tab" data-filter="approved">Approved</button>
@@ -2043,7 +2052,7 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                 </thead>
                                 <tbody>
                                     <?php foreach ($campaigns as $camp): ?>
-                                        <tr class="campaign-row" data-status="<?= htmlspecialchars($camp['filter_group']) ?>">
+                                        <tr class="campaign-row" data-status="<?= htmlspecialchars($camp['filter_group']) ?>" data-statuses="<?= htmlspecialchars($camp['filter_groups_str'] ?? $camp['filter_group']) ?>">
                                             <td>
                                                 <div class="campaign-name-cell">
                                                     <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('detail-asset-admin.php') : 'detail-asset-admin.php') . '?campaign_id=' . (int)$camp['id']) ?>" class="campaign-name-title" style="text-decoration: none; color: inherit; transition: color 0.15s ease;" onmouseover="this.style.color='#373E8C'" onmouseout="this.style.color='inherit'">
@@ -2135,7 +2144,7 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                                             </thead>
                                                             <tbody>
                                                                 <?php foreach ($camp['assets'] as $asset): ?>
-                                                                    <tr>
+                                                                    <tr class="drawer-asset-row" data-asset-status="<?= htmlspecialchars(strtolower($asset['status'] ?? 'draft')) ?>">
                                                                         <td style="font-weight: 700;"><?= htmlspecialchars($asset['name']) ?></td>
                                                                         <td style="text-align: center;"><span class="version-tag"><?= htmlspecialchars($asset['version_raw']) ?></span></td>
                                                                         <td style="white-space: nowrap;"><?= htmlspecialchars($asset['maker_name']) ?></td>
@@ -2193,6 +2202,12 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
+                                    <tr id="noCampaignsFilterRow" style="display: none;">
+                                        <td colspan="6" style="text-align: center; padding: 40px 20px; color: #64748B;">
+                                            <div style="font-size: 14px; font-weight: 600; color: #334155; margin-bottom: 4px;">No campaigns found</div>
+                                            <div style="font-size: 12.5px; color: #94A3B8;">There are no campaigns matching the selected status filter.</div>
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -2852,24 +2867,78 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                 });
             }
 
-            // Campaigns Table Filtering
+            // Campaigns Table Filtering & Top KPI Sync
             const campFilterPills = document.querySelectorAll('.pill-tab[data-filter]');
             const campRows = document.querySelectorAll('.campaign-row');
+            const noCampFilterRow = document.getElementById('noCampaignsFilterRow');
+
+            function applyCampaignFilter(filter) {
+                campFilterPills.forEach(p => {
+                    if (p.getAttribute('data-filter') === filter) {
+                        p.classList.add('active');
+                    } else {
+                        p.classList.remove('active');
+                    }
+                });
+
+                let visibleCount = 0;
+                campRows.forEach(row => {
+                    const statuses = (row.getAttribute('data-statuses') || row.getAttribute('data-status') || '').split(',').map(s => s.trim().toLowerCase());
+                    const matches = (filter === 'all' || statuses.includes(filter.toLowerCase()));
+                    row.style.display = matches ? '' : 'none';
+                    if (matches) visibleCount++;
+
+                    // Drawer sync
+                    const drawerBtn = row.querySelector('.js-toggle-drawer');
+                    const drawerId = drawerBtn ? drawerBtn.getAttribute('data-target') : null;
+                    if (drawerId) {
+                        const drawer = document.getElementById(drawerId);
+                        if (drawer) {
+                            if (!matches) {
+                                drawer.style.display = 'none';
+                            } else {
+                                drawer.style.removeProperty('display');
+                                const assetRows = drawer.querySelectorAll('.drawer-asset-row');
+                                assetRows.forEach(aRow => {
+                                    const aStatus = (aRow.getAttribute('data-asset-status') || '').trim().toLowerCase();
+                                    if (filter === 'all' || aStatus === filter.toLowerCase()) {
+                                        aRow.style.display = '';
+                                    } else {
+                                        aRow.style.display = 'none';
+                                    }
+                                });
+                            }
+                        }
+                    }
+                });
+
+                if (noCampFilterRow) {
+                    noCampFilterRow.style.display = visibleCount === 0 ? '' : 'none';
+                }
+            }
 
             campFilterPills.forEach(pill => {
                 pill.addEventListener('click', function() {
-                    campFilterPills.forEach(p => p.classList.remove('active'));
-                    this.classList.add('active');
+                    applyCampaignFilter(this.getAttribute('data-filter'));
+                });
+            });
 
-                    const filter = this.getAttribute('data-filter');
-                    campRows.forEach(row => {
-                        const status = row.getAttribute('data-status');
-                        if (filter === 'all' || status === filter) {
-                            row.style.display = '';
-                        } else {
-                            row.style.display = 'none';
+            // Interactive Top KPI Metric Cards: Click to Filter Table
+            document.querySelectorAll('.kpi-metrics-bar .kpi-card').forEach(card => {
+                card.style.cursor = 'pointer';
+                card.setAttribute('title', 'Click to filter campaigns by this status');
+                card.addEventListener('click', function() {
+                    const labelElem = this.querySelector('.kpi-label');
+                    if (!labelElem) return;
+                    const labelText = labelElem.textContent.trim().toLowerCase().replace(/\s+/g, '_');
+                    const targetPill = document.querySelector(`.pill-tab[data-filter="${labelText}"]`);
+                    if (targetPill) {
+                        applyCampaignFilter(labelText);
+                        const campSec = document.getElementById('campaigns-section');
+                        if (campSec) {
+                            campSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
                         }
-                    });
+                    }
                 });
             });
 
