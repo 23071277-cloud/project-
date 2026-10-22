@@ -76,6 +76,15 @@ if ($reqMethod === 'POST' && isset($_POST['action']) && $_POST['action'] === 'cr
         $releaseAlert = $res['message'];
         $releaseSuccess = $res['success'];
     }
+} elseif ($reqMethod === 'POST' && isset($_POST['action']) && $_POST['action'] === 'admin_reject') {
+    $version_id = (int) ($_POST['version_id'] ?? 0);
+    $reject_notes = sanitize_text_field($_POST['reject_notes'] ?? ($_POST['release_notes'] ?? ''));
+    
+    if (function_exists('handle_admin_reject')) {
+        $res = handle_admin_reject($version_id, $reject_notes);
+        $releaseAlert = $res['message'];
+        $releaseSuccess = $res['success'];
+    }
 } elseif ($reqMethod === 'POST' && isset($_POST['action']) && $_POST['action'] === 'upload_guideline') {
     $cId = absint($_POST['campaign_id'] ?? 0);
     if ($cId && function_exists('handle_upload_campaign_guideline')) {
@@ -1887,7 +1896,9 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
 
                     <?php if (empty($campaigns)): ?>
                         <div class="empty-state-box">
-                            <div class="empty-icon">📁</div>
+                            <div class="empty-icon">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                            </div>
                             <div class="empty-title">No Campaigns Found</div>
                             <p class="empty-desc">No campaigns exist in the database yet.</p>
                         </div>
@@ -1930,7 +1941,7 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                             <td>
                                                 <div class="progress-box">
                                                     <div class="progress-meta">
-                                                        <span><?= $camp['done'] ?> of <?= $camp['total'] ?> released</span>
+                                                        <span><?= $camp['done'] ?> of <?= $camp['total'] ?> released<?php if (!empty($camp['approved_count']) && $camp['approved_count'] > $camp['done']): ?> <span style="font-size: 11px; color: #D97706; font-weight: 600;">(<?= ($camp['approved_count'] - $camp['done']) ?> awaiting release)</span><?php endif; ?></span>
                                                         <span><?= $camp['percent'] ?>%</span>
                                                     </div>
                                                     <div class="progress-track">
@@ -2082,7 +2093,9 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
 
                 <?php if (empty($queue)): ?>
                     <div class="empty-state-box">
-                        <div class="empty-icon">🛡️</div>
+                        <div class="empty-icon">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        </div>
                         <div class="empty-title">No Versions in Queue</div>
                         <p class="empty-desc">When a checker approves an asset version, it will automatically appear here for your production release confirmation.</p>
                     </div>
@@ -2203,7 +2216,9 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
 
                 <?php if (empty($recentlyReleased)): ?>
                     <div class="empty-state-box">
-                        <div class="empty-icon">🔒</div>
+                        <div class="empty-icon">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        </div>
                         <div class="empty-title">No Released Assets Yet</div>
                         <p class="empty-desc">Assets released to production will appear here with permanent, locked compliance audit trails.</p>
                     </div>
@@ -2479,15 +2494,15 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                 <h3 class="modal-title">Final Compliance Review & Production Release</h3>
                 <span class="btn-close-modal" id="btnCloseReviewModal">&times;</span>
             </div>
-            <form method="POST" action="">
-                <input type="hidden" name="action" value="admin_release">
+            <form method="POST" action="" id="finalReviewForm">
+                <input type="hidden" name="action" id="modalReviewAction" value="admin_release">
                 <input type="hidden" name="version_id" id="modalVersionId" value="">
 
                 <div class="modal-body">
                     <!-- Asset Header Preview -->
                     <div class="modal-preview-box">
-                        <div class="modal-thumb" id="modalThumbPreview">
-                            🖼️
+                        <div class="modal-thumb" id="modalThumbPreview" style="display: flex; align-items: center; justify-content: center; background: #EEF0FB; color: #1F2A5A; border-radius: 8px;">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                         </div>
                         <div class="modal-asset-info">
                             <h4 class="modal-asset-title" id="modalAssetTitle">Asset Name</h4>
@@ -2542,8 +2557,8 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
 
                     <!-- Admin Release Notes -->
                     <div class="form-group">
-                        <label class="form-label" for="releaseNotesInput">Admin Release Notes (Optional)</label>
-                        <textarea class="form-textarea" name="release_notes" id="releaseNotesInput" placeholder="Enter release sign-off notes or compliance confirmation details..."></textarea>
+                        <label class="form-label" for="releaseNotesInput">Admin Decision Notes (Feedback / Release Sign-off)</label>
+                        <textarea class="form-textarea" name="release_notes" id="releaseNotesInput" placeholder="Enter release sign-off notes or revision feedback if rejecting..."></textarea>
                     </div>
 
                     <!-- MAS Compliance Governance Warning -->
@@ -2563,9 +2578,13 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                             <span>Compare Versions</span>
                         </a>
                     </div>
-                    <div style="display: flex; gap: 10px;">
+                    <div style="display: flex; gap: 10px; align-items: center;">
                         <button type="button" class="btn-cancel" id="btnCancelReview">Cancel</button>
-                        <button type="submit" class="btn-release-confirm">
+                        <button type="button" class="btn-action-outline" style="color: #BA1A1A; border-color: #FECDD3; background: #FFF1F2; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;" onclick="submitAdminRejectFromModal()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                            <span>Reject / Request Revisions</span>
+                        </button>
+                        <button type="submit" class="btn-release-confirm" onclick="document.getElementById('modalReviewAction').value='admin_release'">
                             <span>Release to Production</span>
                         </button>
                     </div>
@@ -2801,6 +2820,24 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             function closeFinalReviewModal() {
                 if (reviewModal) reviewModal.classList.remove('active');
             }
+
+            window.submitAdminRejectFromModal = function() {
+                var notesEl = document.getElementById('releaseNotesInput');
+                var notes = notesEl ? notesEl.value.trim() : '';
+                if (!notes) {
+                    notes = prompt('Please enter the reason for rejecting this asset and requesting revisions:');
+                    if (notes === null) return;
+                    if (!notes.trim()) {
+                        alert('Rejection feedback is required.');
+                        return;
+                    }
+                    if (notesEl) notesEl.value = notes;
+                }
+                var actEl = document.getElementById('modalReviewAction');
+                if (actEl) actEl.value = 'admin_reject';
+                var formEl = document.getElementById('finalReviewForm');
+                if (formEl) formEl.submit();
+            };
 
             if (btnCloseReviewModal) btnCloseReviewModal.addEventListener('click', closeFinalReviewModal);
             if (btnCancelReview) btnCancelReview.addEventListener('click', closeFinalReviewModal);

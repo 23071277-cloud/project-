@@ -49,6 +49,26 @@ if (isset($_GET['action']) && $_GET['action'] === 'pcs_sync_heartbeat') {
     exit;
 }
 
+// Realtime Notification AJAX Handlers
+if (isset($_REQUEST['action']) && $_REQUEST['action'] === 'pcs_mark_notif_read') {
+    if (ob_get_length()) ob_clean();
+    header('Content-Type: application/json; charset=utf-8');
+    $nid = (int) ($_REQUEST['notif_id'] ?? 0);
+    $uid = (int) ($_REQUEST['user_id'] ?? 0);
+    $res = function_exists('pcs_mark_notification_read') ? pcs_mark_notification_read($nid, $uid) : false;
+    echo json_encode(['success' => (bool)$res]);
+    exit;
+}
+
+if (isset($_REQUEST['action']) && $_REQUEST['action'] === 'pcs_mark_all_notifs_read') {
+    if (ob_get_length()) ob_clean();
+    header('Content-Type: application/json; charset=utf-8');
+    $uid = (int) ($_REQUEST['user_id'] ?? 0);
+    $res = function_exists('pcs_mark_all_notifications_read') ? pcs_mark_all_notifications_read($uid) : false;
+    echo json_encode(['success' => (bool)$res]);
+    exit;
+}
+
 if (!function_exists('pcs_bump_sync_version')) {
     function pcs_bump_sync_version() {
         $ts = time();
@@ -207,6 +227,431 @@ function pcs_get_campaign_guidelines($campaign_id) {
     }
 
     return $guidelines_list;
+}
+}
+
+// =========================================================================
+// NOTIFICATION ENGINE: REALTIME MULTI-ROLE NOTIFICATIONS & CAMPAIGN OWNER HUB
+// =========================================================================
+
+/**
+ * Đăng ký Custom Post Type pcs_notification nếu chưa tồn tại
+ */
+if (!function_exists('pcs_register_notification_cpt')) {
+function pcs_register_notification_cpt() {
+    if (pcs_is_wp() && function_exists('register_post_type') && !post_type_exists('pcs_notification')) {
+        register_post_type('pcs_notification', [
+            'labels' => [
+                'name'          => 'Notifications',
+                'singular_name' => 'Notification',
+            ],
+            'public'          => false,
+            'show_ui'         => true,
+            'show_in_rest'    => true,
+            'supports'        => ['title', 'editor', 'author', 'custom-fields'],
+        ]);
+    }
+}
+}
+if (function_exists('add_action')) {
+    add_action('init', 'pcs_register_notification_cpt');
+}
+
+/**
+ * Định dạng thời gian tương đối thân thiện (VD: Just now, 5 mins ago, 2 hours ago)
+ */
+if (!function_exists('pcs_human_time_diff')) {
+function pcs_human_time_diff($from, $to = '') {
+    if (is_string($from)) {
+        $from = strtotime($from);
+    }
+    if (empty($to)) {
+        $to = time();
+    } elseif (is_string($to)) {
+        $to = strtotime($to);
+    }
+    $diff = abs($to - $from);
+    if ($diff < 45) {
+        return 'Just now';
+    }
+    if ($diff < 3600) {
+        $mins = max(1, round($diff / 60));
+        return $mins . ' min' . ($mins > 1 ? 's' : '') . ' ago';
+    }
+    if ($diff < 86400) {
+        $hours = max(1, round($diff / 3600));
+        return $hours . ' hr' . ($hours > 1 ? 's' : '') . ' ago';
+    }
+    $days = max(1, round($diff / 86400));
+    if ($days === 1) return 'Yesterday';
+    return $days . ' days ago';
+}
+}
+
+/**
+ * Tìm ID thành viên trong Campaign: Owner, Makers, Checkers
+ */
+if (!function_exists('pcs_get_campaign_team_user_ids')) {
+function pcs_get_campaign_team_user_ids($campaign_id) {
+    $cid = (int) $campaign_id;
+    if ($cid <= 0 || !pcs_is_wp()) {
+        return ['owner_id' => 0, 'maker_ids' => [], 'checker_ids' => []];
+    }
+
+    $owner_id = (int) get_post_meta($cid, '_owner_id', true);
+    if ($owner_id <= 0) {
+        $camp_post = get_post($cid);
+        if ($camp_post) {
+            $owner_id = (int) $camp_post->post_author;
+        }
+    }
+
+    $maker_meta = get_post_meta($cid, '_maker_ids', true);
+    $maker_ids = [];
+    if (is_array($maker_meta)) {
+        $maker_ids = array_filter(array_map('absint', $maker_meta));
+    } elseif (is_string($maker_meta) && trim($maker_meta) !== '') {
+        $maker_ids = array_filter(array_map('absint', explode(',', $maker_meta)));
+    }
+
+    $checker_meta = get_post_meta($cid, '_checker_ids', true);
+    $checker_ids = [];
+    if (is_array($checker_meta)) {
+        $checker_ids = array_filter(array_map('absint', $checker_meta));
+    } elseif (is_string($checker_meta) && trim($checker_meta) !== '') {
+        $checker_ids = array_filter(array_map('absint', explode(',', $checker_meta)));
+    }
+
+    return [
+        'owner_id'    => $owner_id,
+        'maker_ids'   => array_values(array_unique($maker_ids)),
+        'checker_ids' => array_values(array_unique($checker_ids)),
+    ];
+}
+}
+
+/**
+ * Lấy tiêu đề ngữ cảnh chiến dịch, asset, version phục vụ nội dung thông báo
+ */
+if (!function_exists('pcs_resolve_context_names')) {
+function pcs_resolve_context_names($campaign_id = 0, $asset_id = 0, $version_id = 0) {
+    $c_title = 'Campaign';
+    $a_title = 'Asset';
+    $v_num = 1;
+    $v_label = 'V1';
+
+    if (pcs_is_wp() && function_exists('get_post')) {
+        if ($version_id > 0) {
+            $v_post = get_post($version_id);
+            if ($v_post) {
+                $v_num = get_post_meta($version_id, '_version_number', true) ?: 1;
+                $v_label = 'V' . $v_num;
+                if (!$asset_id) {
+                    $asset_id = (int) get_post_meta($version_id, '_asset_id', true);
+                }
+            }
+        }
+
+        if ($asset_id > 0) {
+            $a_post = get_post($asset_id);
+            if ($a_post) {
+                $a_title = $a_post->post_title;
+                if (!$campaign_id) {
+                    $campaign_id = (int) get_post_meta($asset_id, '_campaign_id', true);
+                }
+            }
+        }
+
+        if ($campaign_id > 0) {
+            $c_post = get_post($campaign_id);
+            if ($c_post) {
+                $c_title = $c_post->post_title;
+            }
+        }
+    }
+
+    return [
+        'campaign_id'    => (int) $campaign_id,
+        'campaign_title' => $c_title,
+        'asset_id'       => (int) $asset_id,
+        'asset_title'    => $a_title,
+        'version_id'     => (int) $version_id,
+        'version_num'    => (int) $v_num,
+        'version_label'  => $v_label,
+    ];
+}
+}
+
+/**
+ * Gửi thông báo đến 1 User cụ thể
+ */
+if (!function_exists('pcs_send_notification')) {
+function pcs_send_notification($user_id, $title, $message, $type = 'info', $link = '', $campaign_id = 0, $asset_id = 0, $version_id = 0) {
+    $user_id = (int) $user_id;
+    if ($user_id <= 0) return false;
+
+    $title = sanitize_text_field($title);
+    $message = sanitize_text_field($message);
+    $type = sanitize_key($type ?: 'info');
+    $link = esc_url_raw($link);
+    $now = function_exists('current_time') ? current_time('mysql') : date('Y-m-d H:i:s');
+
+    if (pcs_is_wp() && function_exists('wp_insert_post')) {
+        pcs_register_notification_cpt();
+
+        $nid = wp_insert_post([
+            'post_type'    => 'pcs_notification',
+            'post_status'  => 'publish',
+            'post_title'   => $title,
+            'post_content' => $message,
+            'post_author'  => $user_id,
+        ]);
+
+        if ($nid && !is_wp_error($nid)) {
+            update_post_meta($nid, '_recipient_user_id', $user_id);
+            update_post_meta($nid, '_type', $type);
+            update_post_meta($nid, '_link', $link);
+            update_post_meta($nid, '_campaign_id', (int) $campaign_id);
+            update_post_meta($nid, '_asset_id', (int) $asset_id);
+            update_post_meta($nid, '_version_id', (int) $version_id);
+            update_post_meta($nid, '_is_read', '0');
+            update_post_meta($nid, '_created_at', $now);
+
+            if (function_exists('pcs_bump_sync_version')) {
+                pcs_bump_sync_version();
+            }
+            return $nid;
+        }
+    } else {
+        if (!isset($_SESSION['pcs_notifications'])) {
+            $_SESSION['pcs_notifications'] = [];
+        }
+        $nid = time() . rand(100, 999);
+        $_SESSION['pcs_notifications'][] = [
+            'id'                => $nid,
+            'recipient_user_id' => $user_id,
+            'title'             => $title,
+            'message'           => $message,
+            'type'              => $type,
+            'link'              => $link,
+            'campaign_id'       => (int) $campaign_id,
+            'asset_id'          => (int) $asset_id,
+            'version_id'        => (int) $version_id,
+            'is_read'           => false,
+            'created_at'        => date('Y-m-d H:i:s'),
+        ];
+        return $nid;
+    }
+
+    return false;
+}
+}
+
+/**
+ * Gửi thông báo đến Campaign Owner (Central Notification Hub)
+ * Người dùng yêu cầu: "tất cả mọi thứ đều phải chuyển về cho campaign owner"
+ */
+if (!function_exists('pcs_notify_campaign_owner')) {
+function pcs_notify_campaign_owner($campaign_id, $title, $message, $type = 'info', $link = '', $asset_id = 0, $version_id = 0, $exclude_user_id = 0) {
+    $cid = (int) $campaign_id;
+    if ($cid <= 0) return false;
+
+    $team = pcs_get_campaign_team_user_ids($cid);
+    $owner_id = (int) ($team['owner_id'] ?? 0);
+
+    // Fallback: Nếu campaign chưa gán owner, lấy Admin đầu tiên
+    if ($owner_id <= 0 && function_exists('pcs_get_system_users_by_role')) {
+        $admins = pcs_get_system_users_by_role('ADMIN');
+        if (!empty($admins)) {
+            $owner_id = (int) $admins[0]['id'];
+        }
+    }
+
+    if ($owner_id > 0 && $owner_id !== (int) $exclude_user_id) {
+        return pcs_send_notification($owner_id, $title, $message, $type, $link, $cid, $asset_id, $version_id);
+    }
+
+    return false;
+}
+}
+
+/**
+ * Lấy danh sách thông báo của 1 User
+ */
+if (!function_exists('pcs_get_user_notifications')) {
+function pcs_get_user_notifications($user_id, $limit = 25, $unread_only = false) {
+    $user_id = (int) $user_id;
+    if ($user_id <= 0) return [];
+
+    $notifications = [];
+
+    if (pcs_is_wp() && function_exists('get_posts')) {
+        $args = [
+            'post_type'      => 'pcs_notification',
+            'post_status'    => 'publish',
+            'posts_per_page' => $limit,
+            'meta_key'       => '_recipient_user_id',
+            'meta_value'     => (string) $user_id,
+            'orderby'        => 'ID',
+            'order'          => 'DESC',
+        ];
+
+        if ($unread_only) {
+            $args['meta_query'] = [
+                ['key' => '_is_read', 'value' => '0']
+            ];
+        }
+
+        $posts = get_posts($args);
+        foreach ($posts as $p) {
+            $nid = $p->ID;
+            $type = get_post_meta($nid, '_type', true) ?: 'info';
+            $link = get_post_meta($nid, '_link', true) ?: '';
+            $is_read = (get_post_meta($nid, '_is_read', true) == '1');
+            $created_at = get_post_meta($nid, '_created_at', true) ?: $p->post_date;
+            $cid = (int) get_post_meta($nid, '_campaign_id', true);
+            $aid = (int) get_post_meta($nid, '_asset_id', true);
+            $vid = (int) get_post_meta($nid, '_version_id', true);
+
+            $notifications[] = [
+                'id'          => $nid,
+                'title'       => $p->post_title,
+                'message'     => $p->post_content,
+                'type'        => $type,
+                'link'        => $link,
+                'is_read'     => $is_read,
+                'time_ago'    => pcs_human_time_diff($created_at),
+                'created_at'  => $created_at,
+                'campaign_id' => $cid,
+                'asset_id'    => $aid,
+                'version_id'  => $vid,
+            ];
+        }
+    } else {
+        $sess_notifs = $_SESSION['pcs_notifications'] ?? [];
+        foreach (array_reverse($sess_notifs) as $sn) {
+            if ((int) $sn['recipient_user_id'] === $user_id) {
+                if ($unread_only && !empty($sn['is_read'])) continue;
+                $notifications[] = [
+                    'id'          => $sn['id'],
+                    'title'       => $sn['title'],
+                    'message'     => $sn['message'],
+                    'type'        => $sn['type'],
+                    'link'        => $sn['link'],
+                    'is_read'     => !empty($sn['is_read']),
+                    'time_ago'    => pcs_human_time_diff($sn['created_at']),
+                    'created_at'  => $sn['created_at'],
+                    'campaign_id' => (int) ($sn['campaign_id'] ?? 0),
+                    'asset_id'    => (int) ($sn['asset_id'] ?? 0),
+                    'version_id'  => (int) ($sn['version_id'] ?? 0),
+                ];
+                if (count($notifications) >= $limit) break;
+            }
+        }
+    }
+
+    return $notifications;
+}
+}
+
+/**
+ * Đếm số thông báo chưa đọc của 1 User
+ */
+if (!function_exists('pcs_get_unread_notifications_count')) {
+function pcs_get_unread_notifications_count($user_id) {
+    $user_id = (int) $user_id;
+    if ($user_id <= 0) return 0;
+
+    if (pcs_is_wp() && function_exists('get_posts')) {
+        $posts = get_posts([
+            'post_type'      => 'pcs_notification',
+            'post_status'    => 'publish',
+            'posts_per_page' => 100,
+            'fields'         => 'ids',
+            'meta_query'     => [
+                ['key' => '_recipient_user_id', 'value' => (string) $user_id],
+                ['key' => '_is_read', 'value' => '0']
+            ]
+        ]);
+        return count($posts);
+    } else {
+        $sess_notifs = $_SESSION['pcs_notifications'] ?? [];
+        $cnt = 0;
+        foreach ($sess_notifs as $sn) {
+            if ((int) $sn['recipient_user_id'] === $user_id && empty($sn['is_read'])) {
+                $cnt++;
+            }
+        }
+        return $cnt;
+    }
+}
+}
+
+/**
+ * Đánh dấu 1 thông báo đã đọc
+ */
+if (!function_exists('pcs_mark_notification_read')) {
+function pcs_mark_notification_read($notif_id, $user_id = 0) {
+    $nid = (int) $notif_id;
+    if ($nid <= 0) return false;
+
+    if (pcs_is_wp()) {
+        update_post_meta($nid, '_is_read', '1');
+        if (function_exists('pcs_bump_sync_version')) {
+            pcs_bump_sync_version();
+        }
+        return true;
+    } else {
+        if (isset($_SESSION['pcs_notifications'])) {
+            foreach ($_SESSION['pcs_notifications'] as &$sn) {
+                if ($sn['id'] == $nid) {
+                    $sn['is_read'] = true;
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+}
+
+/**
+ * Đánh dấu tất cả thông báo của 1 User đã đọc
+ */
+if (!function_exists('pcs_mark_all_notifications_read')) {
+function pcs_mark_all_notifications_read($user_id) {
+    $user_id = (int) $user_id;
+    if ($user_id <= 0) return false;
+
+    if (pcs_is_wp() && function_exists('get_posts')) {
+        $posts = get_posts([
+            'post_type'      => 'pcs_notification',
+            'post_status'    => 'publish',
+            'posts_per_page' => -1,
+            'fields'         => 'ids',
+            'meta_query'     => [
+                ['key' => '_recipient_user_id', 'value' => (string) $user_id],
+                ['key' => '_is_read', 'value' => '0']
+            ]
+        ]);
+        foreach ($posts as $pid) {
+            update_post_meta($pid, '_is_read', '1');
+        }
+        if (function_exists('pcs_bump_sync_version')) {
+            pcs_bump_sync_version();
+        }
+        return true;
+    } else {
+        if (isset($_SESSION['pcs_notifications'])) {
+            foreach ($_SESSION['pcs_notifications'] as &$sn) {
+                if ((int)$sn['recipient_user_id'] === $user_id) {
+                    $sn['is_read'] = true;
+                }
+            }
+            return true;
+        }
+    }
+    return false;
 }
 }
 
@@ -1133,7 +1578,7 @@ function get_all_campaigns($filter = 'all') {
             ];
         }
 
-        $percent = $total_assets > 0 ? round(($approved_assets / $total_assets) * 100) : 0;
+        $percent = $total_assets > 0 ? round(($released_assets / $total_assets) * 100) : 0;
 
         // Chuẩn hóa trạng thái Campaign theo 6 core status:
         // draft -> scoring -> in_review -> approved / rejected -> released
@@ -1183,7 +1628,9 @@ function get_all_campaigns($filter = 'all') {
             'owner_name'       => $owner_name,
             'owner_initials'   => $owner_initials,
             'deadline'         => $deadline_display,
-            'done'             => $approved_assets,
+            'done'             => $released_assets,
+            'released_count'   => $released_assets,
+            'approved_count'   => $approved_assets,
             'total'            => $total_assets,
             'percent'          => $percent,
             'maker_task'       => $maker_task_summary,
@@ -1358,6 +1805,47 @@ function handle_create_campaign($campaign_name, $deadline = '', $maker_ids = [],
             pcs_log('create_campaign', 0, 0, '', 'active', 'Created campaign: ' . $campaign_name . ' (Owner: ' . $owner_id . ')');
         }
 
+        // Notification: Central Hub (Campaign Owner) + Assigned Makers & Checkers
+        if (function_exists('pcs_notify_campaign_owner')) {
+            pcs_notify_campaign_owner(
+                $cid,
+                'Campaign Created: ' . $campaign_name,
+                'Campaign "' . $campaign_name . '" has been created with assigned team and attached guidelines.',
+                'campaign',
+                function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php',
+                0,
+                0
+            );
+        }
+
+        $m_arr = array_filter(array_map('absint', (array) $maker_ids));
+        foreach ($m_arr as $m_uid) {
+            if ($m_uid !== $current_uid && function_exists('pcs_send_notification')) {
+                pcs_send_notification(
+                    $m_uid,
+                    'Assigned to Campaign: ' . $campaign_name,
+                    'You have been assigned as Maker on campaign "' . $campaign_name . '".',
+                    'team_assigned',
+                    function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php',
+                    $cid
+                );
+            }
+        }
+
+        $c_arr = array_filter(array_map('absint', (array) $checker_ids));
+        foreach ($c_arr as $c_uid) {
+            if ($c_uid !== $current_uid && function_exists('pcs_send_notification')) {
+                pcs_send_notification(
+                    $c_uid,
+                    'Assigned to Campaign: ' . $campaign_name,
+                    'You have been assigned as Compliance Checker on campaign "' . $campaign_name . '".',
+                    'team_assigned',
+                    function_exists('pcs_url') ? pcs_url('checker-dashboard.php') : 'checker-dashboard.php',
+                    $cid
+                );
+            }
+        }
+
         if (function_exists('pcs_bump_sync_version')) {
             pcs_bump_sync_version();
         }
@@ -1394,6 +1882,50 @@ function handle_update_campaign_team($campaign_id, $maker_ids = [], $checker_ids
     if (function_exists('pcs_log')) {
         pcs_log('update_campaign_team', 0, 0, '', '', 'Updated team assignments for campaign #' . $cid);
     }
+
+    $c_post = get_post($cid);
+    $c_name = $c_post ? $c_post->post_title : ('Campaign #' . $cid);
+
+    if (function_exists('pcs_notify_campaign_owner')) {
+        pcs_notify_campaign_owner(
+            $cid,
+            'Team Updated: ' . $c_name,
+            'Team member assignments were updated for campaign "' . $c_name . '".',
+            'team_update',
+            function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php',
+            0,
+            0
+        );
+    }
+
+    $m_arr = array_filter(array_map('absint', (array) $maker_ids));
+    foreach ($m_arr as $m_uid) {
+        if (function_exists('pcs_send_notification')) {
+            pcs_send_notification(
+                $m_uid,
+                'Team Updated: ' . $c_name,
+                'You are assigned as Maker on campaign "' . $c_name . '".',
+                'team_assigned',
+                function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php',
+                $cid
+            );
+        }
+    }
+
+    $c_arr = array_filter(array_map('absint', (array) $checker_ids));
+    foreach ($c_arr as $c_uid) {
+        if (function_exists('pcs_send_notification')) {
+            pcs_send_notification(
+                $c_uid,
+                'Team Updated: ' . $c_name,
+                'You are assigned as Compliance Checker on campaign "' . $c_name . '".',
+                'team_assigned',
+                function_exists('pcs_url') ? pcs_url('checker-dashboard.php') : 'checker-dashboard.php',
+                $cid
+            );
+        }
+    }
+
     if (function_exists('pcs_bump_sync_version')) {
         pcs_bump_sync_version();
     }
@@ -1692,6 +2224,7 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
                 }
             }
 
+            $verd = ($score >= 71) ? 'PASS' : (($score >= 31) ? 'NEEDS LOOK' : 'FAIL');
             $rid = wp_insert_post([
                 'post_type'   => 'check_result',
                 'post_status' => 'publish',
@@ -1704,6 +2237,9 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
             update_post_meta($rid, '_source_quote', $quote);
             update_post_meta($rid, '_reason', $reason);
             update_post_meta($rid, '_score', $score);
+            update_post_meta($rid, '_verdict', $verd);
+            update_post_meta($rid, '_ai_score', $score);
+            update_post_meta($rid, '_ai_verdict', $verd);
             if (!empty($raw_json)) {
                 update_post_meta($rid, '_raw_json', wp_slash($raw_json));
             }
@@ -1718,6 +2254,46 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
 
         if (function_exists('pcs_log')) {
             pcs_log('upload', $asset_id, $version_id, '', 'in_review', 'Uploaded V' . $ver_num . ' via Maker Dashboard');
+        }
+
+        // Notification: Notify Campaign Owner & Checkers
+        $ctx = function_exists('pcs_resolve_context_names') ? pcs_resolve_context_names($campaign_id, $asset_id, $version_id) : [];
+        $camp_name = $ctx['campaign_title'] ?? 'Campaign';
+        $asset_name = $ctx['asset_title'] ?? 'Asset';
+        $maker_display = $current_user['name'] ?? 'Maker';
+
+        if (function_exists('pcs_notify_campaign_owner')) {
+            pcs_notify_campaign_owner(
+                $campaign_id,
+                'Asset Submitted: ' . $asset_name . ' (V' . $ver_num . ')',
+                $maker_display . ' submitted V' . $ver_num . ' for asset "' . $asset_name . '" in "' . $camp_name . '". AI Pre-flight completed, awaiting Checker verification.',
+                'in_review',
+                function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php',
+                $asset_id,
+                $version_id
+            );
+        }
+
+        // Notify assigned checkers
+        $team = function_exists('pcs_get_campaign_team_user_ids') ? pcs_get_campaign_team_user_ids($campaign_id) : [];
+        $checkers = $team['checker_ids'] ?? [];
+        if (empty($checkers) && function_exists('pcs_get_system_users_by_role')) {
+            $ck_users = pcs_get_system_users_by_role('CHECKER');
+            $checkers = wp_list_pluck($ck_users, 'id');
+        }
+        foreach ($checkers as $chk_id) {
+            if ($chk_id != $maker_id && function_exists('pcs_send_notification')) {
+                pcs_send_notification(
+                    $chk_id,
+                    'Asset Ready for Review: ' . $asset_name . ' (V' . $ver_num . ')',
+                    'Maker ' . $maker_display . ' submitted V' . $ver_num . ' of "' . $asset_name . '" in campaign "' . $camp_name . '". Please inspect and sign off.',
+                    'review_ready',
+                    function_exists('pcs_url') ? (pcs_url('checker-detail-asset.php') . '?version_id=' . $version_id . '&campaign_id=' . $campaign_id . '&asset_id=' . $asset_id) : 'checker-detail-asset.php',
+                    $campaign_id,
+                    $asset_id,
+                    $version_id
+                );
+            }
         }
 
         if (function_exists('pcs_bump_sync_version')) {
@@ -2102,6 +2678,82 @@ function handle_checker_decision($version_id, $decision, $review_note = '') {
                 $decision,
                 'Checker ' . ($current_user['name'] ?? 'User') . ' set decision to ' . strtoupper($decision) . ($review_note ? ': ' . $review_note : '')
             );
+        }
+
+        // Notification: Notify Campaign Owner (Central Hub) + Maker + Admins
+        $campaign_id = (int) get_post_meta($asset_id, '_campaign_id', true);
+        $uploader_id = (int) get_post_meta($version_id, '_uploaded_by', true);
+        $ctx = function_exists('pcs_resolve_context_names') ? pcs_resolve_context_names($campaign_id, $asset_id, $version_id) : [];
+        $camp_name = $ctx['campaign_title'] ?? 'Campaign';
+        $asset_name = $ctx['asset_title'] ?? 'Asset';
+        $v_num = $ctx['version_num'] ?? 1;
+        $checker_name = $current_user['name'] ?? 'Checker';
+
+        if ($decision === 'approved') {
+            if (function_exists('pcs_notify_campaign_owner')) {
+                pcs_notify_campaign_owner(
+                    $campaign_id,
+                    'Asset Approved: ' . $asset_name . ' (V' . $v_num . ')',
+                    'Checker ' . $checker_name . ' APPROVED "' . $asset_name . '" (V' . $v_num . ') in campaign "' . $camp_name . '". It has moved to the Final Approval Queue awaiting Admin production release.',
+                    'approved',
+                    function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php',
+                    $asset_id,
+                    $version_id
+                );
+            }
+            if ($uploader_id > 0 && function_exists('pcs_send_notification')) {
+                pcs_send_notification(
+                    $uploader_id,
+                    'Asset Approved: ' . $asset_name . ' (V' . $v_num . ')',
+                    'Checker ' . $checker_name . ' approved your asset version (V' . $v_num . '). It is now in the Final Approval Queue awaiting Admin release to production.',
+                    'approved',
+                    function_exists('pcs_url') ? (pcs_url('detail-asset-maker.php') . '?campaign_id=' . $campaign_id . '&asset_id=' . $asset_id) : 'detail-asset-maker.php',
+                    $campaign_id,
+                    $asset_id,
+                    $version_id
+                );
+            }
+            if (function_exists('pcs_get_system_users_by_role')) {
+                $admins = pcs_get_system_users_by_role('ADMIN');
+                foreach ($admins as $adm) {
+                    if (function_exists('pcs_send_notification')) {
+                        pcs_send_notification(
+                            $adm['id'],
+                            'Ready for Release: ' . $asset_name . ' (V' . $v_num . ')',
+                            'Checker ' . $checker_name . ' approved "' . $asset_name . '" (V' . $v_num . ') in campaign "' . $camp_name . '". Ready for final production release in Admin Dashboard.',
+                            'awaiting_release',
+                            function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php',
+                            $campaign_id,
+                            $asset_id,
+                            $version_id
+                        );
+                    }
+                }
+            }
+        } elseif ($decision === 'rejected') {
+            if (function_exists('pcs_notify_campaign_owner')) {
+                pcs_notify_campaign_owner(
+                    $campaign_id,
+                    'Asset Rejected: ' . $asset_name . ' (V' . $v_num . ')',
+                    'Checker ' . $checker_name . ' REJECTED "' . $asset_name . '" (V' . $v_num . ') in campaign "' . $camp_name . '". Feedback: ' . ($review_note ?: 'Revisions required before approval.'),
+                    'rejected',
+                    function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php',
+                    $asset_id,
+                    $version_id
+                );
+            }
+            if ($uploader_id > 0 && function_exists('pcs_send_notification')) {
+                pcs_send_notification(
+                    $uploader_id,
+                    'Revisions Required: ' . $asset_name . ' (V' . $v_num . ')',
+                    'Checker ' . $checker_name . ' rejected V' . $v_num . ' and requested revisions. Feedback: "' . ($review_note ?: 'Please review and submit revision.') . '". Please upload V' . ($v_num + 1) . '.',
+                    'rejected',
+                    function_exists('pcs_url') ? (pcs_url('smart-maker-upload.php') . '?campaign_id=' . $campaign_id . '&asset_id=' . $asset_id . '&mode=new_version') : 'smart-maker-upload.php',
+                    $campaign_id,
+                    $asset_id,
+                    $version_id
+                );
+            }
         }
 
         if (function_exists('pcs_bump_sync_version')) {
@@ -2958,6 +3610,56 @@ function handle_admin_release($version_id, $release_notes = '') {
             );
         }
 
+        // Notification: Notify Campaign Owner (Central Hub) + Maker + Checkers
+        $campaign_id = (int) get_post_meta($asset_id, '_campaign_id', true);
+        $uploader_id = (int) get_post_meta($version_id, '_uploaded_by', true);
+        $ctx = function_exists('pcs_resolve_context_names') ? pcs_resolve_context_names($campaign_id, $asset_id, $version_id) : [];
+        $camp_name = $ctx['campaign_title'] ?? 'Campaign';
+        $asset_name = $ctx['asset_title'] ?? 'Asset';
+        $admin_name = $current_user['name'] ?? 'Admin';
+
+        if (function_exists('pcs_notify_campaign_owner')) {
+            pcs_notify_campaign_owner(
+                $campaign_id,
+                'Production Released: ' . $asset_name . ' (V' . $v_num . ')',
+                'Admin ' . $admin_name . ' has officially RELEASED "' . $asset_name . '" (V' . $v_num . ') in campaign "' . $camp_name . '" to production. Immutable MAS compliance record locked.',
+                'released',
+                function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php',
+                $asset_id,
+                $version_id
+            );
+        }
+
+        if ($uploader_id > 0 && function_exists('pcs_send_notification')) {
+            pcs_send_notification(
+                $uploader_id,
+                'Asset Released: ' . $asset_name . ' (V' . $v_num . ')',
+                'Congratulations! Admin ' . $admin_name . ' released "' . $asset_name . '" (V' . $v_num . ') to production channels.',
+                'released',
+                function_exists('pcs_url') ? (pcs_url('detail-asset-maker.php') . '?campaign_id=' . $campaign_id . '&asset_id=' . $asset_id) : 'detail-asset-maker.php',
+                $campaign_id,
+                $asset_id,
+                $version_id
+            );
+        }
+
+        $team = function_exists('pcs_get_campaign_team_user_ids') ? pcs_get_campaign_team_user_ids($campaign_id) : [];
+        $checkers = $team['checker_ids'] ?? [];
+        foreach ($checkers as $chk_id) {
+            if (function_exists('pcs_send_notification')) {
+                pcs_send_notification(
+                    $chk_id,
+                    'Production Released: ' . $asset_name . ' (V' . $v_num . ')',
+                    'Admin ' . $admin_name . ' released "' . $asset_name . '" (V' . $v_num . ') in campaign "' . $camp_name . '" to production.',
+                    'released',
+                    function_exists('pcs_url') ? pcs_url('checker-dashboard.php') : 'checker-dashboard.php',
+                    $campaign_id,
+                    $asset_id,
+                    $version_id
+                );
+            }
+        }
+
         if (function_exists('pcs_bump_sync_version')) {
             pcs_bump_sync_version();
         }
@@ -2975,6 +3677,7 @@ function handle_admin_release($version_id, $release_notes = '') {
 
 /**
  * Admin yêu cầu chỉnh sửa (Send Back / Request Revisions)
+ * Khắc phục triệt để: Chuyển trạng thái về 'rejected' để Maker nhận cảnh báo và hiện nút 'Upload V{N+1}'
  */
 if (!function_exists('handle_admin_reject')) {
 function handle_admin_reject($version_id, $reject_notes = '') {
@@ -2991,34 +3694,86 @@ function handle_admin_reject($version_id, $reject_notes = '') {
         $asset_id = (int) get_post_meta($version_id, '_asset_id', true);
         $v_num = get_post_meta($version_id, '_version_number', true) ?: 1;
 
+        if (empty(trim($reject_notes))) {
+            $reject_notes = 'Revisions requested by Admin: Asset does not meet release standard and has been returned for iteration.';
+        }
+
         if (function_exists('pcs_server_meta')) {
-            pcs_server_meta($version_id, '_status', 'changes_requested');
-            if ($reject_notes) {
-                pcs_server_meta($version_id, '_admin_reject_notes', sanitize_text_field($reject_notes));
-            }
+            pcs_server_meta($version_id, '_status', 'rejected');
+            pcs_server_meta($version_id, '_admin_reject_notes', sanitize_text_field($reject_notes));
+            pcs_server_meta($version_id, '_review_note', sanitize_text_field($reject_notes));
         } else {
-            update_post_meta($version_id, '_status', 'changes_requested');
-            if ($reject_notes) {
-                update_post_meta($version_id, '_admin_reject_notes', sanitize_text_field($reject_notes));
-            }
+            update_post_meta($version_id, '_status', 'rejected');
+            update_post_meta($version_id, '_admin_reject_notes', sanitize_text_field($reject_notes));
+            update_post_meta($version_id, '_review_note', sanitize_text_field($reject_notes));
         }
 
         if (function_exists('pcs_log')) {
             pcs_log(
-                'changes_requested',
+                'rejected',
                 $asset_id,
                 $version_id,
                 'approved',
-                'changes_requested',
-                'Admin ' . ($current_user['name'] ?? 'Admin') . ' requested revisions on version V' . $v_num . ($reject_notes ? ': ' . $reject_notes : '')
+                'rejected',
+                'Admin ' . ($current_user['name'] ?? 'Admin') . ' rejected version V' . $v_num . ': ' . $reject_notes
             );
+        }
+
+        // Notification: Notify Campaign Owner (Central Hub) + Maker + Checkers
+        $campaign_id = (int) get_post_meta($asset_id, '_campaign_id', true);
+        $uploader_id = (int) get_post_meta($version_id, '_uploaded_by', true);
+        $ctx = function_exists('pcs_resolve_context_names') ? pcs_resolve_context_names($campaign_id, $asset_id, $version_id) : [];
+        $camp_name = $ctx['campaign_title'] ?? 'Campaign';
+        $asset_name = $ctx['asset_title'] ?? 'Asset';
+        $admin_name = $current_user['name'] ?? 'Admin';
+
+        if (function_exists('pcs_notify_campaign_owner')) {
+            pcs_notify_campaign_owner(
+                $campaign_id,
+                'Asset Rejected by Admin: ' . $asset_name . ' (V' . $v_num . ')',
+                'Admin ' . $admin_name . ' REJECTED "' . $asset_name . '" (V' . $v_num . ') in campaign "' . $camp_name . '". Feedback: "' . $reject_notes . '". Returned to Maker for revision V' . ($v_num + 1) . '.',
+                'rejected',
+                function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php',
+                $asset_id,
+                $version_id
+            );
+        }
+
+        if ($uploader_id > 0 && function_exists('pcs_send_notification')) {
+            pcs_send_notification(
+                $uploader_id,
+                'Action Required: V' . ($v_num + 1) . ' Needed (' . $asset_name . ')',
+                'Admin ' . $admin_name . ' rejected V' . $v_num . ' and requested revisions. Feedback: "' . $reject_notes . '". Please upload V' . ($v_num + 1) . '.',
+                'rejected',
+                function_exists('pcs_url') ? (pcs_url('smart-maker-upload.php') . '?campaign_id=' . $campaign_id . '&asset_id=' . $asset_id . '&mode=new_version') : 'smart-maker-upload.php',
+                $campaign_id,
+                $asset_id,
+                $version_id
+            );
+        }
+
+        $team = function_exists('pcs_get_campaign_team_user_ids') ? pcs_get_campaign_team_user_ids($campaign_id) : [];
+        $checkers = $team['checker_ids'] ?? [];
+        foreach ($checkers as $chk_id) {
+            if (function_exists('pcs_send_notification')) {
+                pcs_send_notification(
+                    $chk_id,
+                    'Admin Rejected Asset: ' . $asset_name . ' (V' . $v_num . ')',
+                    'Admin ' . $admin_name . ' did not release "' . $asset_name . '" (V' . $v_num . ') and returned it to Maker for revisions. Reason: "' . $reject_notes . '".',
+                    'rejected',
+                    function_exists('pcs_url') ? pcs_url('checker-dashboard.php') : 'checker-dashboard.php',
+                    $campaign_id,
+                    $asset_id,
+                    $version_id
+                );
+            }
         }
 
         if (function_exists('pcs_bump_sync_version')) {
             pcs_bump_sync_version();
         }
 
-        return ['success' => true, 'message' => 'Version V' . $v_num . ' sent back for revisions. Changes requested.'];
+        return ['success' => true, 'message' => 'Version V' . $v_num . ' rejected and sent back to Maker for V' . ($v_num + 1) . '.'];
     }
 
     if (function_exists('pcs_bump_sync_version')) {
@@ -3801,6 +4556,15 @@ function handle_checker_override($result_id, $new_verdict, $override_reason = ''
     $vid = (int) get_post_meta($result_id, '_version_id', true);
     $aid = (int) get_post_meta($vid, '_asset_id', true);
 
+    // Lưu trữ điểm & kết luận AI gốc nếu chưa được lưu
+    $existing_ai_verd = get_post_meta($result_id, '_ai_verdict', true);
+    if (empty($existing_ai_verd)) {
+        $old_sc = (int) get_post_meta($result_id, '_score', true);
+        $old_verd = get_post_meta($result_id, '_verdict', true) ?: ($old_sc >= 71 ? 'PASS' : ($old_sc >= 31 ? 'NEEDS LOOK' : 'FAIL'));
+        update_post_meta($result_id, '_ai_score', $old_sc);
+        update_post_meta($result_id, '_ai_verdict', $old_verd);
+    }
+
     if (function_exists('pcs_server_meta')) {
         pcs_server_meta($result_id, '_verdict', sanitize_text_field($new_verdict));
         pcs_server_meta($result_id, '_is_override', '1');
@@ -3821,6 +4585,26 @@ function handle_checker_override($result_id, $new_verdict, $override_reason = ''
             '',
             '',
             'Checker ' . ($current_user['name'] ?? 'User') . ' overrode check result #' . $result_id . ' to ' . strtoupper($new_verdict) . ($override_reason ? ': ' . $override_reason : '')
+        );
+    }
+
+    // Notification: Campaign Owner (Central Hub)
+    $cid = (int) get_post_meta($aid, '_campaign_id', true);
+    $crit = get_post_meta($result_id, '_criterion', true) ?: 'Criterion';
+    $ctx = function_exists('pcs_resolve_context_names') ? pcs_resolve_context_names($cid, $aid, $vid) : [];
+    $camp_name = $ctx['campaign_title'] ?? 'Campaign';
+    $asset_name = $ctx['asset_title'] ?? 'Asset';
+    $v_num = $ctx['version_num'] ?? 1;
+
+    if (function_exists('pcs_notify_campaign_owner')) {
+        pcs_notify_campaign_owner(
+            $cid,
+            'Checker Override on ' . $crit,
+            'Checker ' . ($current_user['name'] ?? 'Checker') . ' overrode "' . $crit . '" on ' . $asset_name . ' (V' . $v_num . ') to ' . strtoupper($new_verdict) . ($override_reason ? ' (Reason: ' . $override_reason . ')' : '') . '.',
+            'override',
+            function_exists('pcs_url') ? (pcs_url('checker-detail-asset.php') . '?version_id=' . $vid) : 'checker-detail-asset.php',
+            $aid,
+            $vid
         );
     }
 
@@ -3919,17 +4703,114 @@ function get_audit_log_screen_data($asset_id = 0, $version_id = 0, $campaign_id 
     }
 
     $version_id_map = [];
+    $version_evaluations = [];
     $v_counter = 1;
     foreach ($version_posts as $vp) {
-        $vnum = get_post_meta($vp->ID, '_version_number', true) ?: $v_counter;
+        $vid = $vp->ID;
+        $vnum = get_post_meta($vid, '_version_number', true) ?: $v_counter;
         $v_lbl = 'V' . $vnum;
-        $version_id_map[$vp->ID] = $v_lbl;
+        $version_id_map[$vid] = $v_lbl;
         $versions_list[] = $v_lbl;
-        if ($vp->ID === $version_id) {
+        $v_status = get_post_meta($vid, '_status', true) ?: 'in_review';
+        $v_note = get_post_meta($vid, '_review_note', true) ?: (get_post_meta($vid, '_admin_reject_notes', true) ?: '');
+        $v_date = date('d M Y, H:i', strtotime($vp->post_date));
+
+        if ($vid === $version_id) {
             $version_label = $v_lbl;
-            $v_status = get_post_meta($vp->ID, '_status', true) ?: 'in_review';
             $current_state = ucwords(str_replace('_', ' ', $v_status));
         }
+
+        // Truy vấn chi tiết AI Check Results & Checker Overrides cho version này
+        $v_chks = get_posts([
+            'post_type'      => 'check_result',
+            'post_status'    => ['publish', 'draft', 'pending', 'any'],
+            'posts_per_page' => -1,
+            'meta_key'       => '_version_id',
+            'meta_value'     => (string) $vid,
+            'orderby'        => 'ID',
+            'order'          => 'ASC'
+        ]);
+
+        $criteria_evaluations = [];
+        $ai_scores = [];
+        $has_ai_fail = false;
+        $has_ai_needs_look = false;
+        $override_count = 0;
+
+        foreach ($v_chks as $chk) {
+            $crit = get_post_meta($chk->ID, '_criterion', true) ?: 'General Compliance';
+            $score = (int) get_post_meta($chk->ID, '_score', true);
+            $verdict = get_post_meta($chk->ID, '_verdict', true) ?: ($score >= 71 ? 'PASS' : ($score >= 31 ? 'NEEDS LOOK' : 'FAIL'));
+
+            // Điểm và kết luận AI ban đầu
+            $ai_sc = get_post_meta($chk->ID, '_ai_score', true);
+            if ($ai_sc === '' || $ai_sc === false) {
+                $ai_sc = $score;
+            } else {
+                $ai_sc = (int) $ai_sc;
+            }
+
+            $ai_verd = get_post_meta($chk->ID, '_ai_verdict', true);
+            if (empty($ai_verd)) {
+                $ai_verd = ($ai_sc >= 71) ? 'PASS' : (($ai_sc >= 31) ? 'NEEDS LOOK' : 'FAIL');
+            }
+
+            $ai_scores[] = $ai_sc;
+            if (strtoupper($ai_verd) === 'FAIL') $has_ai_fail = true;
+            if (strtoupper($ai_verd) === 'NEEDS LOOK' || strtoupper($ai_verd) === 'NEEDS_LOOK') $has_ai_needs_look = true;
+
+            // Đánh giá Checker Override
+            $is_ovr = (get_post_meta($chk->ID, '_is_override', true) == '1');
+            $ovr_by = (int) get_post_meta($chk->ID, '_override_by', true);
+            $ovr_by_name = 'Checker';
+            if ($ovr_by > 0) {
+                $ovr_user = get_userdata($ovr_by);
+                if ($ovr_user) $ovr_by_name = $ovr_user->display_name;
+            }
+            $ovr_reason = get_post_meta($chk->ID, '_override_reason', true) ?: '';
+            if ($is_ovr) {
+                $override_count++;
+            }
+
+            $quote = get_post_meta($chk->ID, '_source_quote', true) ?: '';
+            $observation = get_post_meta($chk->ID, '_reason', true) ?: (get_post_meta($chk->ID, '_observation', true) ?: '');
+            $rule = get_post_meta($chk->ID, '_rule', true) ?: ('Rule ' . strtoupper(substr(sanitize_key($crit), 0, 8)));
+
+            $criteria_evaluations[] = [
+                'id'              => $chk->ID,
+                'criterion'       => $crit,
+                'rule'            => $rule,
+                'ai_score'        => $ai_sc,
+                'ai_verdict'      => strtoupper($ai_verd),
+                'final_score'     => $score,
+                'final_verdict'   => strtoupper($verdict),
+                'is_override'     => $is_ovr,
+                'override_by'     => $ovr_by_name,
+                'override_reason' => $ovr_reason,
+                'source_quote'    => $quote,
+                'observation'     => $observation
+            ];
+        }
+
+        $overall_ai_score = !empty($ai_scores) ? min($ai_scores) : 0;
+        $overall_ai_verdict = $has_ai_fail ? 'FAIL' : ($has_ai_needs_look ? 'NEEDS HUMAN REVIEW' : (!empty($ai_scores) ? 'PASS' : 'PENDING'));
+
+        $version_evaluations[] = [
+            'version_id'          => $vid,
+            'version_num'         => $vnum,
+            'version_label'       => $v_lbl,
+            'is_target'           => ($vid === $version_id),
+            'status'              => $v_status,
+            'status_label'        => ucwords(str_replace('_', ' ', $v_status)),
+            'review_note'         => $v_note,
+            'date'                => $v_date,
+            'ai_score'            => $overall_ai_score,
+            'ai_verdict'          => $overall_ai_verdict,
+            'has_overrides'       => ($override_count > 0),
+            'override_count'      => $override_count,
+            'criteria'            => $criteria_evaluations
+        ];
+
         $v_counter++;
     }
 
@@ -4148,10 +5029,11 @@ function get_audit_log_screen_data($asset_id = 0, $version_id = 0, $campaign_id 
         'current_style'     => $current_style,
         'view_mode'         => $view_mode,
         'events'            => $events,
-        'total_events'      => count($events),
-        'distinct_versions' => array_values($distinct_versions),
-        'distinct_actions'  => array_values($distinct_actions),
-        'distinct_actors'   => array_values($distinct_actors),
+        'total_events'        => count($events),
+        'distinct_versions'   => array_values($distinct_versions),
+        'distinct_actions'    => array_values($distinct_actions),
+        'distinct_actors'     => array_values($distinct_actors),
+        'version_evaluations' => $version_evaluations,
     ];
 }
 }

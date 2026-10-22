@@ -75,6 +75,15 @@ if ($reqMethod === 'POST' && isset($_POST['action']) && $_POST['action'] === 'ad
         $releaseAlert = $res['message'];
         $releaseSuccess = $res['success'];
     }
+} elseif ($reqMethod === 'POST' && isset($_POST['action']) && $_POST['action'] === 'admin_reject') {
+    $version_id = (int) ($_POST['version_id'] ?? 0);
+    $reject_notes = sanitize_text_field($_POST['reject_notes'] ?? ($_POST['release_notes'] ?? ''));
+    
+    if (function_exists('handle_admin_reject')) {
+        $res = handle_admin_reject($version_id, $reject_notes);
+        $releaseAlert = $res['message'];
+        $releaseSuccess = $res['success'];
+    }
 } elseif ($reqMethod === 'POST' && isset($_POST['action']) && $_POST['action'] === 'upload_guideline') {
     $cId = absint($_POST['campaign_id'] ?? ($_GET['campaign_id'] ?? 0));
     if ($cId && function_exists('handle_upload_campaign_guideline')) {
@@ -1762,7 +1771,7 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
 <div class="modal-overlay" id="releaseModal">
     <div class="modal-card">
         <form method="POST" action="" id="releaseForm">
-            <input type="hidden" name="action" value="admin_release" />
+            <input type="hidden" name="action" id="adminActionInput" value="admin_release" />
             <input type="hidden" name="version_id" id="modalVersionId" value="0" />
 
             <div class="modal-header">
@@ -1806,8 +1815,8 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
 
                 <!-- Release Notes Input -->
                 <div>
-                    <label class="form-label" for="releaseNotesTextarea">Admin Release Notes (Optional)</label>
-                    <textarea class="form-textarea" name="release_notes" id="releaseNotesTextarea" placeholder="Enter release sign-off notes or compliance confirmation details..."></textarea>
+                    <label class="form-label" for="releaseNotesTextarea">Admin Decision Notes (Feedback / Release Sign-off)</label>
+                    <textarea class="form-textarea" name="release_notes" id="releaseNotesTextarea" placeholder="Enter release sign-off notes or revision feedback if rejecting..."></textarea>
                 </div>
             </div>
 
@@ -1820,9 +1829,13 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                         <span>Compare Versions</span>
                     </a>
                 </div>
-                <div style="display: flex; gap: 10px;">
+                <div style="display: flex; gap: 10px; align-items: center;">
                     <button type="button" class="btn-secondary" style="height: 36px;" onclick="closeReleaseModal()">Cancel</button>
-                    <button type="submit" class="btn-primary" style="height: 36px;">Release to Production</button>
+                    <button type="button" class="btn-secondary" style="height: 36px; color: #BA1A1A; border-color: #FECDD3; background: #FFF1F2; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;" onclick="submitAdminRejectDetail()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                        <span>Reject / Request Revisions</span>
+                    </button>
+                    <button type="submit" class="btn-primary" style="height: 36px;" onclick="document.getElementById('adminActionInput').value='admin_release'">Release to Production</button>
                 </div>
             </div>
         </form>
@@ -2109,6 +2122,24 @@ function openReleaseModal(data) {
 }
 function closeReleaseModal() {
     document.getElementById('releaseModal').classList.remove('active');
+}
+
+function submitAdminRejectDetail() {
+    var notesEl = document.getElementById('releaseNotesTextarea');
+    var notes = notesEl ? notesEl.value.trim() : '';
+    if (!notes) {
+        notes = prompt('Please enter the reason for rejecting this asset and requesting revisions:');
+        if (notes === null) return;
+        if (!notes.trim()) {
+            alert('Rejection feedback is required.');
+            return;
+        }
+        if (notesEl) notesEl.value = notes;
+    }
+    var actEl = document.getElementById('adminActionInput');
+    if (actEl) actEl.value = 'admin_reject';
+    var formEl = document.getElementById('releaseForm');
+    if (formEl) formEl.submit();
 }
 
 function openViewReleaseModal(data) {

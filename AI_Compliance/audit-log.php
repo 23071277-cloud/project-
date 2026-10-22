@@ -63,6 +63,7 @@ $totalEvents      = count($events);
 $distinctVersions = $auditData['distinct_versions'] ?? [];
 $distinctActions  = $auditData['distinct_actions'] ?? [];
 $distinctActors   = $auditData['distinct_actors'] ?? [];
+$versionEvaluations = $auditData['version_evaluations'] ?? [];
 
 // 5. Source-Aware Return URL and Label
 $returnUrl = '';
@@ -366,6 +367,164 @@ $allActivityUrl  = '?' . http_build_query(array_merge($_GET, ['mode' => 'all']))
             width: 6px;
             height: 6px;
             border-radius: 50%;
+        }
+
+        /* ================= C2. VERSION AI & OVERRIDES CARD ================= */
+        .version-evaluations-card {
+            width: 100%;
+            background: #FFFFFF;
+            border: 1px solid #E2E6FA;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.02);
+            margin-bottom: 20px;
+        }
+
+        .eval-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid #ECEEF8;
+            margin-bottom: 16px;
+        }
+
+        .eval-header-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #161B2E;
+        }
+
+        .eval-version-tabs {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .eval-tab-btn {
+            padding: 5px 14px;
+            border-radius: 6px;
+            border: 1px solid #CBD2EE;
+            background: #F8F9FE;
+            color: #4E56A6;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .eval-tab-btn:hover {
+            background: #EEF1FD;
+        }
+
+        .eval-tab-btn.active {
+            background: #4E56A6;
+            color: #FFFFFF;
+            border-color: #4E56A6;
+            box-shadow: 0 2px 4px rgba(78, 86, 166, 0.2);
+        }
+
+        .eval-version-panel {
+            display: none;
+        }
+
+        .eval-version-panel.active {
+            display: block;
+        }
+
+        .eval-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .eval-summary-box {
+            background: #F8FAFD;
+            border: 1px solid #E2E6FA;
+            border-radius: 10px;
+            padding: 12px 16px;
+        }
+
+        .eval-box-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #5F657B;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .eval-box-value {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #161B2E;
+        }
+
+        .eval-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            border: 1px solid #ECEEF8;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .eval-table th {
+            background: #F3F5FD;
+            padding: 10px 14px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 700;
+            color: #5F657B;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #E2E6FA;
+        }
+
+        .eval-table td {
+            padding: 12px 14px;
+            border-bottom: 1px solid #ECEEF8;
+            vertical-align: top;
+            background: #FFFFFF;
+        }
+
+        .eval-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .badge-override-active {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #FEF3C7;
+            border: 1px solid #FCD34D;
+            color: #92400E;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 4px;
+        }
+
+        .badge-confirmed-ai {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #F0FDF4;
+            border: 1px solid #BBF7D0;
+            color: #166534;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 4px;
         }
 
         /* ================= D. COMPACT SEARCH & FILTER TOOLBAR ================= */
@@ -1136,6 +1295,165 @@ $allActivityUrl  = '?' . http_build_query(array_merge($_GET, ['mode' => 'all']))
                 </div>
             </section>
 
+            <?php if (!empty($versionEvaluations)): ?>
+                <!-- C2. AI SCORING & CHECKER OVERRIDES BY VERSION CARD -->
+                <section class="version-evaluations-card">
+                    <div class="eval-card-header">
+                        <div class="eval-header-title">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4E56A6" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+                            </svg>
+                            <span>AI Compliance Scoring & Reviewer Overrides by Version</span>
+                        </div>
+                        <div class="eval-version-tabs" id="evalVersionTabs">
+                            <?php foreach ($versionEvaluations as $vIdx => $vEval): 
+                                $isActive = !empty($vEval['is_target']) || ($vIdx === count($versionEvaluations) - 1);
+                            ?>
+                                <button type="button" class="eval-tab-btn <?= $isActive ? 'active' : '' ?>" onclick="switchEvalVersionTab(<?= $vIdx ?>)">
+                                    <?= esc_html($vEval['version_label']) ?>
+                                </button>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+
+                    <div class="eval-version-panels" id="evalVersionPanels">
+                        <?php foreach ($versionEvaluations as $vIdx => $vEval): 
+                            $isActive = !empty($vEval['is_target']) || ($vIdx === count($versionEvaluations) - 1);
+                            $aiSc = $vEval['ai_score'];
+                            $aiVerd = strtoupper($vEval['ai_verdict']);
+                            $aiClass = ($aiVerd === 'PASS') ? '#10B981' : (($aiVerd === 'FAIL') ? '#EF4444' : '#F59E0B');
+                            $aiBg = ($aiVerd === 'PASS') ? '#F0FDF4' : (($aiVerd === 'FAIL') ? '#FEF2F2' : '#FEF3C7');
+                        ?>
+                            <div class="eval-version-panel <?= $isActive ? 'active' : '' ?>" id="evalPanel-<?= $vIdx ?>">
+                                <div class="eval-summary-grid">
+                                    <div class="eval-summary-box">
+                                        <div class="eval-box-label">VERSION & CREATION</div>
+                                        <div class="eval-box-value">
+                                            <span class="version-badge" style="font-size: 13px; font-weight: 800;"><?= esc_html($vEval['version_label']) ?></span>
+                                            <span style="color: #64748B; font-size: 12px;"><?= esc_html($vEval['date']) ?></span>
+                                            <span class="state-badge" style="background: #F1F5F9; color: #475569; font-size: 11px; margin-left: auto;">
+                                                <?= esc_html($vEval['status_label']) ?>
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div class="eval-summary-box">
+                                        <div class="eval-box-label">AUTOMATED AI PRE-FLIGHT</div>
+                                        <div class="eval-box-value">
+                                            <span style="background: <?= $aiBg ?>; color: <?= $aiClass ?>; padding: 3px 8px; border-radius: 6px; font-weight: 800;">
+                                                <?= esc_html($aiVerd) ?> (<?= (int)$aiSc ?>%)
+                                            </span>
+                                            <span style="font-size: 11px; color: #64748B;">Gemini 1.5 Compliance Engine</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="eval-summary-box">
+                                        <div class="eval-box-label">CHECKER OVERRIDE STATUS</div>
+                                        <div class="eval-box-value">
+                                            <?php if (!empty($vEval['has_overrides'])): ?>
+                                                <span class="badge-override-active">
+                                                    <?= (int)$vEval['override_count'] ?> Manual <?= $vEval['override_count'] > 1 ? 'Overrides' : 'Override' ?>
+                                                </span>
+                                                <span style="font-size: 11px; color: #92400E;">Adjusted by Checker</span>
+                                            <?php else: ?>
+                                                <span class="badge-confirmed-ai">
+                                                    No Overrides
+                                                </span>
+                                                <span style="font-size: 11px; color: #166534;">Checker accepted AI findings</span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <?php if (!empty($vEval['review_note'])): ?>
+                                    <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 12px; color: #92400E; display: flex; align-items: flex-start; gap: 8px;">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2" style="flex-shrink: 0; margin-top: 1px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                        <div>
+                                            <strong>Reviewer / Feedback Note:</strong> <?= esc_html($vEval['review_note']) ?>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+
+                                <!-- Criteria Breakdown Table -->
+                                <div style="overflow-x: auto;">
+                                    <table class="eval-table">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 25%;">CRITERION & STANDARD</th>
+                                                <th style="width: 20%;">ORIGINAL AI EVALUATION</th>
+                                                <th style="width: 25%;">CHECKER SIGN-OFF / OVERRIDE</th>
+                                                <th style="width: 30%;">REGULATORY CITATION & EVIDENCE</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php if (empty($vEval['criteria'])): ?>
+                                                <tr>
+                                                    <td colspan="4" style="text-align: center; color: #94A3B8; padding: 24px;">No checklist evaluation items recorded for this version.</td>
+                                                </tr>
+                                            <?php else: ?>
+                                                <?php foreach ($vEval['criteria'] as $cItem): 
+                                                    $cAiVerd = strtoupper($cItem['ai_verdict']);
+                                                    $cAiClass = ($cAiVerd === 'PASS') ? '#10B981' : (($cAiVerd === 'FAIL') ? '#EF4444' : '#F59E0B');
+                                                    $cAiBg = ($cAiVerd === 'PASS') ? '#F0FDF4' : (($cAiVerd === 'FAIL') ? '#FEF2F2' : '#FEF3C7');
+                                                ?>
+                                                    <tr>
+                                                        <td>
+                                                            <div style="font-weight: 700; color: #1E293B; margin-bottom: 2px;"><?= esc_html($cItem['criterion']) ?></div>
+                                                            <div style="font-size: 11px; color: #64748B; font-family: monospace;"><?= esc_html($cItem['rule']) ?></div>
+                                                        </td>
+                                                        <td>
+                                                            <span style="background: <?= $cAiBg ?>; color: <?= $cAiClass ?>; padding: 2px 7px; border-radius: 4px; font-weight: 700; font-size: 11px; display: inline-block;">
+                                                                <?= esc_html($cAiVerd) ?> (<?= (int)$cItem['ai_score'] ?>%)
+                                                            </span>
+                                                        </td>
+                                                        <td>
+                                                            <?php if (!empty($cItem['is_override'])): ?>
+                                                                <div>
+                                                                    <span class="badge-override-active">
+                                                                        OVERRIDDEN TO <?= esc_html($cItem['final_verdict']) ?>
+                                                                    </span>
+                                                                </div>
+                                                                <div style="font-size: 11px; color: #64748B; margin-top: 3px;">
+                                                                    By: <strong><?= esc_html($cItem['override_by']) ?></strong>
+                                                                </div>
+                                                                <?php if (!empty($cItem['override_reason'])): ?>
+                                                                    <div style="font-size: 11px; color: #92400E; margin-top: 3px; font-style: italic;">
+                                                                        Reason: "<?= esc_html($cItem['override_reason']) ?>"
+                                                                    </div>
+                                                                <?php endif; ?>
+                                                            <?php else: ?>
+                                                                <span class="badge-confirmed-ai">
+                                                                    CONFIRMED (<?= esc_html($cItem['final_verdict']) ?>)
+                                                                </span>
+                                                                <div style="font-size: 11px; color: #64748B; margin-top: 3px;">
+                                                                    No override required
+                                                                </div>
+                                                            <?php endif; ?>
+                                                        </td>
+                                                        <td>
+                                                            <?php if (!empty($cItem['source_quote'])): ?>
+                                                                <div style="font-size: 11.5px; color: #334155; line-height: 1.4; background: #F8FAFC; border-left: 2px solid #CBD5E1; padding: 4px 8px; border-radius: 0 4px 4px 0;">
+                                                                    <?= esc_html($cItem['source_quote']) ?>
+                                                                </div>
+                                                            <?php endif; ?>
+                                                            <?php if (!empty($cItem['observation'])): ?>
+                                                                <div style="font-size: 11px; color: #64748B; margin-top: 4px;">
+                                                                    <?= esc_html($cItem['observation']) ?>
+                                                                </div>
+                                                            <?php endif; ?>
+                                                        </td>
+                                                    </tr>
+                                                <?php endforeach; ?>
+                                            <?php endif; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </section>
+            <?php endif; ?>
+
             <!-- D. COMPACT SEARCH AND FILTER TOOLBAR -->
             <section class="filter-toolbar">
                 <div class="toolbar-grid">
@@ -1447,6 +1765,20 @@ $allActivityUrl  = '?' . http_build_query(array_merge($_GET, ['mode' => 'all']))
                 // Initial render
                 applyFilters();
             });
+
+            // Version Evaluation Tab Switcher
+            window.switchEvalVersionTab = function(idx) {
+                var tabs = document.querySelectorAll('#evalVersionTabs .eval-tab-btn');
+                var panels = document.querySelectorAll('#evalVersionPanels .eval-version-panel');
+                tabs.forEach(function(t, i) {
+                    if (i === idx) t.classList.add('active');
+                    else t.classList.remove('active');
+                });
+                panels.forEach(function(p, i) {
+                    if (i === idx) p.classList.add('active');
+                    else p.classList.remove('active');
+                });
+            };
 
             // Modal Handlers
             function openEventModal(ev) {

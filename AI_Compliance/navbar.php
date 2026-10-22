@@ -33,6 +33,11 @@ if (!isset($currentUser) || empty($currentUser)) {
     }
 }
 
+// User Notifications Data (Realtime Cross-Role Hub)
+$unavUserId = (int) ($currentUser['id'] ?? 0);
+$unavNotifications = ($unavUserId > 0 && function_exists('pcs_get_user_notifications')) ? pcs_get_user_notifications($unavUserId, 15) : [];
+$unavUnreadCount = ($unavUserId > 0 && function_exists('pcs_get_unread_notifications_count')) ? pcs_get_unread_notifications_count($unavUserId) : 0;
+
 // Logo URL
 $unavLogoUrl = 'images/logo.png?v=2';
 if (function_exists('get_template_directory_uri')) {
@@ -209,6 +214,232 @@ if ($unavIsHome) {
     height: 28px !important;
     background: #E2E8F0 !important;
     margin: 0 4px !important;
+}
+
+/* Notification Bell & Dropdown Styles */
+.unified-top-navbar .unav-notif-wrap {
+    position: relative !important;
+}
+
+.unified-top-navbar .unav-notif-btn {
+    position: relative !important;
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 8px !important;
+    background: #F8FAFC !important;
+    border: 1px solid #E2E8F0 !important;
+    color: #475569 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+    outline: none !important;
+}
+
+.unified-top-navbar .unav-notif-btn:hover {
+    background: #EEF2F6 !important;
+    color: #1F2674 !important;
+    border-color: #CBD5E1 !important;
+}
+
+.unified-top-navbar .unav-notif-badge {
+    position: absolute !important;
+    top: -4px !important;
+    right: -4px !important;
+    background: #EF4444 !important;
+    color: #FFFFFF !important;
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    min-width: 17px !important;
+    height: 17px !important;
+    padding: 0 4px !important;
+    border-radius: 9px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: 2px solid #FFFFFF !important;
+    box-shadow: 0 1px 3px rgba(239, 68, 68, 0.4) !important;
+    line-height: 1 !important;
+}
+
+.unified-top-navbar .unav-notif-dropdown {
+    position: absolute !important;
+    top: calc(100% + 10px) !important;
+    right: 0 !important;
+    width: 360px !important;
+    max-width: 90vw !important;
+    background: #FFFFFF !important;
+    border: 1px solid #E2E8F0 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+    display: none !important;
+    flex-direction: column !important;
+    z-index: 10001 !important;
+    overflow: hidden !important;
+}
+
+.unified-top-navbar .unav-notif-dropdown.active {
+    display: flex !important;
+}
+
+.unified-top-navbar .unav-notif-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 14px 16px !important;
+    border-bottom: 1px solid #ECEEF8 !important;
+    background: #F8FAFD !important;
+}
+
+.unified-top-navbar .unav-notif-title {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    color: #161B2E !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+.unified-top-navbar .unav-notif-count-pill {
+    background: #EEF2FF !important;
+    color: #4F56A6 !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    padding: 2px 7px !important;
+    border-radius: 10px !important;
+}
+
+.unified-top-navbar .unav-notif-mark-all {
+    background: none !important;
+    border: none !important;
+    color: #4F56A6 !important;
+    font-size: 11.5px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+}
+
+.unified-top-navbar .unav-notif-mark-all:hover {
+    text-decoration: underline !important;
+}
+
+.unified-top-navbar .unav-notif-list {
+    max-height: 380px !important;
+    overflow-y: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.unified-top-navbar .unav-notif-empty {
+    padding: 36px 20px !important;
+    text-align: center !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 10px !important;
+    color: #94A3B8 !important;
+    font-size: 12.5px !important;
+}
+
+.unified-top-navbar .unav-notif-item {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+    padding: 12px 16px !important;
+    border-bottom: 1px solid #F1F5F9 !important;
+    text-decoration: none !important;
+    color: inherit !important;
+    transition: background 0.15s ease !important;
+    position: relative !important;
+}
+
+.unified-top-navbar .unav-notif-item:hover {
+    background: #F8FAFC !important;
+}
+
+.unified-top-navbar .unav-notif-item.unread {
+    background: #FBFBFF !important;
+}
+
+.unified-top-navbar .unav-notif-item.unread:hover {
+    background: #F1F3FF !important;
+}
+
+.unified-top-navbar .unav-notif-icon-box {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    background: #F1F5F9 !important;
+    color: #64748B !important;
+}
+
+.unified-top-navbar .unav-notif-icon-box.approved,
+.unified-top-navbar .unav-notif-icon-box.released {
+    background: #ECFDF5 !important;
+    color: #059669 !important;
+}
+
+.unified-top-navbar .unav-notif-icon-box.rejected {
+    background: #FEF2F2 !important;
+    color: #DC2626 !important;
+}
+
+.unified-top-navbar .unav-notif-icon-box.review_ready,
+.unified-top-navbar .unav-notif-icon-box.in_review,
+.unified-top-navbar .unav-notif-icon-box.awaiting_release {
+    background: #FEF3C7 !important;
+    color: #D97706 !important;
+}
+
+.unified-top-navbar .unav-notif-icon-box.team_assigned,
+.unified-top-navbar .unav-notif-icon-box.team_update,
+.unified-top-navbar .unav-notif-icon-box.campaign {
+    background: #EEF2FF !important;
+    color: #4F56A6 !important;
+}
+
+.unified-top-navbar .unav-notif-content {
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+.unified-top-navbar .unav-notif-item-title {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    color: #1E293B !important;
+    margin-bottom: 2px !important;
+    line-height: 1.3 !important;
+}
+
+.unified-top-navbar .unav-notif-item-msg {
+    font-size: 11.5px !important;
+    color: #475569 !important;
+    line-height: 1.4 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+}
+
+.unified-top-navbar .unav-notif-item-time {
+    font-size: 10.5px !important;
+    color: #94A3B8 !important;
+    margin-top: 4px !important;
+}
+
+.unified-top-navbar .unav-notif-unread-dot {
+    width: 7px !important;
+    height: 7px !important;
+    border-radius: 50% !important;
+    background: #4F56A6 !important;
+    flex-shrink: 0 !important;
+    margin-top: 6px !important;
 }
 
 .unified-top-navbar .unav-profile-wrap {
@@ -397,8 +628,80 @@ if ($unavIsHome) {
             </nav>
         </div>
 
-        <!-- Right: Profile Badge (Only Avatar and Name/Role) -->
+        <!-- Right: Notifications & Profile Badge -->
         <div class="unav-right">
+            <!-- Unified Notification Bell & Dropdown -->
+            <div class="unav-notif-wrap">
+                <button type="button" class="unav-notif-btn" onclick="toggleUnifiedNotifDropdown(event)" title="Notifications">
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                    </svg>
+                    <?php if ($unavUnreadCount > 0): ?>
+                        <span class="unav-notif-badge" id="unavNotifBadge"><?= $unavUnreadCount > 9 ? '9+' : $unavUnreadCount ?></span>
+                    <?php endif; ?>
+                </button>
+
+                <div class="unav-notif-dropdown" id="unifiedNotifDropdown">
+                    <div class="unav-notif-header">
+                        <div class="unav-notif-title">
+                            <span>Notifications</span>
+                            <?php if ($unavUnreadCount > 0): ?>
+                                <span class="unav-notif-count-pill" id="unavNotifPill"><?= $unavUnreadCount ?> new</span>
+                            <?php endif; ?>
+                        </div>
+                        <?php if ($unavUnreadCount > 0): ?>
+                            <button type="button" class="unav-notif-mark-all" id="unavMarkAllBtn" onclick="markAllNotificationsRead(<?= $unavUserId ?>)">
+                                Mark all as read
+                            </button>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="unav-notif-list" id="unavNotifList">
+                        <?php if (empty($unavNotifications)): ?>
+                            <div class="unav-notif-empty">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8">
+                                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                                </svg>
+                                <span>All caught up! No notifications yet.</span>
+                            </div>
+                        <?php else: ?>
+                            <?php foreach ($unavNotifications as $notif): 
+                                $targetUrl = !empty($notif['link']) ? $notif['link'] : 'javascript:void(0)';
+                                $isUnread = empty($notif['is_read']);
+                                $type = $notif['type'] ?? 'info';
+                            ?>
+                                <a href="<?= esc_url($targetUrl) ?>" 
+                                   class="unav-notif-item <?= $isUnread ? 'unread' : '' ?>" 
+                                   onclick="handleNotificationClick(event, <?= (int)$notif['id'] ?>, '<?= esc_js($targetUrl) ?>')">
+                                    <div class="unav-notif-icon-box <?= esc_attr($type) ?>">
+                                        <?php if ($type === 'approved' || $type === 'released'): ?>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                        <?php elseif ($type === 'rejected'): ?>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                        <?php elseif ($type === 'review_ready' || $type === 'in_review' || $type === 'awaiting_release'): ?>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                        <?php elseif ($type === 'team_assigned' || $type === 'team_update' || $type === 'campaign'): ?>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                        <?php else: ?>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="unav-notif-content">
+                                        <div class="unav-notif-item-title"><?= esc_html($notif['title']) ?></div>
+                                        <div class="unav-notif-item-msg"><?= esc_html($notif['message']) ?></div>
+                                        <div class="unav-notif-item-time"><?= esc_html($notif['time_ago']) ?></div>
+                                    </div>
+                                    <?php if ($isUnread): ?>
+                                        <span class="unav-notif-unread-dot"></span>
+                                    <?php endif; ?>
+                                </a>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+
             <div class="unav-profile-wrap">
                 <div class="unav-profile-badge" onclick="toggleUnifiedProfileDropdown(event)">
                     <div class="unav-avatar-box">
@@ -431,16 +734,63 @@ if ($unavIsHome) {
 <script>
 function toggleUnifiedProfileDropdown(e) {
     if (e) e.stopPropagation();
+    const notifMenu = document.getElementById('unifiedNotifDropdown');
+    if (notifMenu) notifMenu.classList.remove('active');
     const menu = document.getElementById('unifiedProfileDropdown');
     if (menu) {
         menu.classList.toggle('active');
     }
 }
+
+function toggleUnifiedNotifDropdown(e) {
+    if (e) e.stopPropagation();
+    const profMenu = document.getElementById('unifiedProfileDropdown');
+    if (profMenu) profMenu.classList.remove('active');
+    const notifMenu = document.getElementById('unifiedNotifDropdown');
+    if (notifMenu) {
+        notifMenu.classList.toggle('active');
+    }
+}
+
+function handleNotificationClick(e, notifId, targetUrl) {
+    if (!notifId) return;
+    // Gửi yêu cầu đánh dấu đã đọc ngầm không chặn chuyển hướng
+    var markUrl = window.location.pathname + '?action=pcs_mark_notif_read&notif_id=' + encodeURIComponent(notifId) + '&t=' + Date.now();
+    fetch(markUrl, { method: 'POST', cache: 'no-store' });
+}
+
+function markAllNotificationsRead(userId) {
+    if (!userId) return;
+    var markUrl = window.location.pathname + '?action=pcs_mark_all_notifs_read&user_id=' + encodeURIComponent(userId) + '&t=' + Date.now();
+    fetch(markUrl, { method: 'POST', cache: 'no-store' })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data && data.success) {
+                var badge = document.getElementById('unavNotifBadge');
+                if (badge) badge.style.display = 'none';
+                var pill = document.getElementById('unavNotifPill');
+                if (pill) pill.style.display = 'none';
+                var btn = document.getElementById('unavMarkAllBtn');
+                if (btn) btn.style.display = 'none';
+                var dots = document.querySelectorAll('.unav-notif-unread-dot');
+                dots.forEach(function(d) { d.remove(); });
+                var items = document.querySelectorAll('.unav-notif-item.unread');
+                items.forEach(function(it) { it.classList.remove('unread'); });
+            }
+        });
+}
+
 window.addEventListener('click', function(e) {
     if (!e.target.closest('.unav-profile-wrap')) {
         const menu = document.getElementById('unifiedProfileDropdown');
         if (menu) {
             menu.classList.remove('active');
+        }
+    }
+    if (!e.target.closest('.unav-notif-wrap')) {
+        const notifMenu = document.getElementById('unifiedNotifDropdown');
+        if (notifMenu) {
+            notifMenu.classList.remove('active');
         }
     }
 });
