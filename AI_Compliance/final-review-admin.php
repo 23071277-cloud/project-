@@ -811,16 +811,16 @@ $compareScreenUrl = $data['campaign_id'] ? add_query_arg([
                 <?php if (!empty($data['is_released'])): ?>
                     <div class="status-pill released">
                         <span class="status-dot green"></span>
-                        <span>Released / Locked</span>
+                        <span>Released</span>
                     </div>
-                <?php elseif (!empty($data['is_awaiting_release'])): ?>
+                <?php elseif (!empty($data['is_awaiting_release']) || ($data['status'] ?? '') === 'approved'): ?>
                     <div class="status-pill awaiting">
-                        <span class="status-dot amber"></span>
-                        <span>Awaiting Release</span>
+                        <span class="status-dot green"></span>
+                        <span>Approved</span>
                     </div>
                 <?php else: ?>
-                    <div class="status-pill <?php echo $data['status'] === 'changes_requested' ? 'changes' : 'awaiting'; ?>">
-                        <span class="status-dot <?php echo $data['status'] === 'changes_requested' ? 'red' : 'amber'; ?>"></span>
+                    <div class="status-pill <?php echo ($data['status'] === 'rejected') ? 'changes' : 'awaiting'; ?>">
+                        <span class="status-dot <?php echo ($data['status'] === 'rejected') ? 'red' : 'amber'; ?>"></span>
                         <span><?php echo esc_html($data['status_label'] ?: 'In Review'); ?></span>
                     </div>
                 <?php endif; ?>
@@ -839,7 +839,6 @@ $compareScreenUrl = $data['campaign_id'] ? add_query_arg([
     <?php if (!empty($feedbackAlert)): ?>
         <div class="flash-alert <?php echo $feedbackSuccess ? 'success' : 'error'; ?>">
             <div style="display: flex; align-items: center; gap: 8px;">
-                <span><?php echo $feedbackSuccess ? '✓' : '⚠'; ?></span>
                 <span><?php echo esc_html($feedbackAlert); ?></span>
             </div>
             <button type="button" class="flash-alert-close" onclick="this.parentElement.remove();">&times;</button>

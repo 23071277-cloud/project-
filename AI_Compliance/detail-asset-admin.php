@@ -75,6 +75,31 @@ if ($reqMethod === 'POST' && isset($_POST['action']) && $_POST['action'] === 'ad
         $releaseAlert = $res['message'];
         $releaseSuccess = $res['success'];
     }
+} elseif ($reqMethod === 'POST' && isset($_POST['action']) && $_POST['action'] === 'upload_guideline') {
+    $cId = absint($_POST['campaign_id'] ?? ($_GET['campaign_id'] ?? 0));
+    if ($cId && function_exists('handle_upload_campaign_guideline')) {
+        $uploaded = handle_upload_campaign_guideline($cId);
+        if ($uploaded) {
+            $releaseAlert = 'Guideline document(s) uploaded successfully!';
+            $releaseSuccess = true;
+        } else {
+            $releaseAlert = 'Failed to upload guidelines. Check file formats.';
+            $releaseSuccess = false;
+        }
+    }
+} elseif ($reqMethod === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_guideline') {
+    $cId = absint($_POST['campaign_id'] ?? ($_GET['campaign_id'] ?? 0));
+    $gTarget = sanitize_text_field($_POST['guideline_url'] ?? '');
+    if ($cId && $gTarget && function_exists('handle_delete_campaign_guideline')) {
+        $ok = handle_delete_campaign_guideline($cId, $gTarget);
+        if ($ok) {
+            $releaseAlert = 'Guideline document removed successfully!';
+            $releaseSuccess = true;
+        } else {
+            $releaseAlert = 'Failed to remove guideline document.';
+            $releaseSuccess = false;
+        }
+    }
 }
 
 // 6. Query Campaign & Assets Data from WordPress Database
@@ -1179,7 +1204,6 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
             <!-- Toast Feedback Notification -->
             <?php if (!empty($releaseAlert)): ?>
                 <div class="toast-banner <?= $releaseSuccess ? 'success' : 'danger' ?>">
-                    <span><?= $releaseSuccess ? '✓' : '⚠' ?></span>
                     <span><?= esc_html($releaseAlert) ?></span>
                 </div>
             <?php endif; ?>
@@ -1187,7 +1211,9 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
             <?php if ($isDbEmpty): ?>
                 <!-- EMPTY STATE: DATABASE HAS NO CAMPAIGNS -->
                 <div class="access-denied-card" style="border-style: dashed;">
-                    <div class="empty-state-icon" style="font-size: 40px; margin-bottom: 16px;">📂</div>
+                    <div class="empty-state-icon" style="margin-bottom: 16px;">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    </div>
                     <h2 style="font-size: 19px; font-weight: 700; color: #1F2A5A; margin-bottom: 6px;">No Campaign Found in Database</h2>
                     <p style="font-size: 13.5px; color: #64748B; margin-bottom: 24px;">There are no active campaigns registered in WordPress yet. Create a new campaign from the Admin Dashboard to start the compliance pipeline.</p>
                     <a href="<?= esc_url($adminDashUrl) ?>" class="btn-primary">Open Admin Dashboard</a>
@@ -1249,13 +1275,13 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                             <div class="breakdown-item">
                                 <span class="status-dot dot-indigo"></span>
                                 <strong><?= $awaitingReleaseCount ?></strong>
-                                <span>Awaiting Release</span>
+                                <span>Approved</span>
                             </div>
                             <span class="meta-dot">·</span>
                             <div class="breakdown-item">
                                 <span class="status-dot dot-amber"></span>
                                 <strong><?= $inReviewCount ?></strong>
-                                <span>In Checker Review</span>
+                                <span>In Review</span>
                             </div>
                             <span class="meta-dot">·</span>
                             <div class="breakdown-item">
@@ -1280,7 +1306,7 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                         <div class="workspace-controls">
                             <div class="filter-tabs">
                                 <button type="button" class="tab-btn active" data-filter="all">All</button>
-                                <button type="button" class="tab-btn" data-filter="awaiting">Awaiting Release (<?= $awaitingReleaseCount ?>)</button>
+                                <button type="button" class="tab-btn" data-filter="awaiting">Approved (<?= $awaitingReleaseCount ?>)</button>
                                 <button type="button" class="tab-btn" data-filter="in_review">In Review (<?= $inReviewCount ?>)</button>
                                 <button type="button" class="tab-btn" data-filter="released">Released (<?= $releasedCount ?>)</button>
                             </div>
@@ -1296,7 +1322,9 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                     <div class="workspace-table-card">
                         <?php if (empty($assets)): ?>
                             <div class="empty-state-box">
-                                <div class="empty-state-icon">📄</div>
+                                <div class="empty-state-icon" style="color: #64748B;">
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                </div>
                                 <p>No assets currently registered in this campaign.</p>
                             </div>
                         <?php else: ?>
@@ -1379,8 +1407,8 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                                                 <?php endif; ?>
                                             </td>
                                             <td>
-                                                <?php if ($ast['release_status'] === 'Awaiting Release'): ?>
-                                                    <span class="release-pill awaiting">Awaiting Release</span>
+                                                <?php if ($ast['release_status'] === 'Awaiting Release' || $ast['release_status'] === 'Approved'): ?>
+                                                    <span class="release-pill awaiting">Approved</span>
                                                 <?php elseif ($ast['release_status'] === 'Released'): ?>
                                                     <span class="release-pill released">Released</span>
                                                 <?php else: ?>
@@ -1636,7 +1664,9 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                         <div class="split-table-box">
                             <?php if (empty($guidelines)): ?>
                                 <div class="empty-state-box">
-                                    <div class="empty-state-icon">📋</div>
+                                    <div class="empty-state-icon">
+                                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+                                    </div>
                                     <p>No guidelines attached to this campaign.</p>
                                 </div>
                             <?php else: ?>
@@ -1684,7 +1714,9 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                         <div class="split-table-box">
                             <?php if (empty($activities)): ?>
                                 <div class="empty-state-box">
-                                    <div class="empty-state-icon">🕒</div>
+                                    <div class="empty-state-icon">
+                                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                    </div>
                                     <p>No audit activity recorded yet for this campaign.</p>
                                 </div>
                             <?php else: ?>
@@ -1740,8 +1772,8 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
 
             <div class="modal-body">
                 <div class="modal-asset-preview">
-                    <div style="width: 44px; height: 44px; border-radius: 8px; background: #EEF0FB; display: flex; align-items: center; justify-content: center; font-size: 20px;">
-                        📄
+                    <div style="width: 44px; height: 44px; border-radius: 8px; background: #EEF0FB; display: flex; align-items: center; justify-content: center; color: #1F2A5A;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                     </div>
                     <div>
                         <h4 style="font-size: 14px; font-weight: 700; color: #1F2A5A;" id="modalAssetTitle">Asset Title</h4>
@@ -1806,8 +1838,8 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
         </div>
         <div class="modal-body">
             <div class="modal-asset-preview">
-                <div style="width: 44px; height: 44px; border-radius: 8px; background: #ECFDF5; color: #065F46; display: flex; align-items: center; justify-content: center; font-size: 20px;">
-                    🔒
+                <div style="width: 44px; height: 44px; border-radius: 8px; background: #ECFDF5; color: #065F46; display: flex; align-items: center; justify-content: center;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#065F46" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                 </div>
                 <div>
                     <h4 style="font-size: 14px; font-weight: 700; color: #1F2A5A;" id="viewRelTitle">Asset</h4>
@@ -1854,7 +1886,7 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                             <tr>
                                 <th>DOCUMENT</th>
                                 <th>TYPE</th>
-                                <th style="text-align: right;">LINK</th>
+                                <th style="text-align: right;">ACTIONS</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1862,18 +1894,42 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                                 <tr>
                                     <td style="font-weight: 600; color: #1F2A5A;"><?= esc_html($g['name']) ?></td>
                                     <td><span class="type-tag internal"><?= esc_html($g['tag'] ?? 'Standard') ?></span></td>
-                                    <td style="text-align: right;">
-                                        <?php if (!empty($g['url'])): ?>
-                                            <a href="<?= esc_url($g['url']) ?>" target="_blank" class="link-text-arrow">View File</a>
-                                        <?php else: ?>
-                                            <span style="color: #94A3B8;">—</span>
-                                        <?php endif; ?>
+                                    <td style="text-align: right; white-space: nowrap;">
+                                        <div style="display: inline-flex; align-items: center; justify-content: flex-end; gap: 8px;">
+                                            <?php if (!empty($g['url'])): ?>
+                                                <a href="<?= esc_url($g['url']) ?>" target="_blank" class="link-text-arrow">View File</a>
+                                            <?php else: ?>
+                                                <span style="color: #94A3B8;">—</span>
+                                            <?php endif; ?>
+                                            <form method="POST" action="" onsubmit="return confirm('Remove guideline document &quot;<?= esc_js($g['name']) ?>&quot; from this campaign?');" style="margin: 0; display: inline;">
+                                                <input type="hidden" name="action" value="delete_guideline">
+                                                <input type="hidden" name="campaign_id" value="<?= (int)$campaignId ?>">
+                                                <input type="hidden" name="guideline_url" value="<?= esc_attr($g['url']) ?>">
+                                                <button type="submit" style="padding: 3px 8px; font-size: 11px; color: #BA1A1A; background: #FFF1F2; border: 1px solid #FECDD3; border-radius: 4px; cursor: pointer; font-weight: 600;">Delete</button>
+                                            </form>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
                     </table>
                 <?php endif; ?>
+            </div>
+
+            <!-- Upload More Guidelines Form -->
+            <div style="margin-top: 18px; padding-top: 16px; border-top: 1px solid #E2E8F0;">
+                <label style="font-size: 12px; font-weight: 700; color: #1F2A5A; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 6px;">Attach Additional Guidelines</label>
+                <form method="POST" action="" enctype="multipart/form-data">
+                    <input type="hidden" name="action" value="upload_guideline">
+                    <input type="hidden" name="campaign_id" value="<?= (int)$campaignId ?>">
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <input type="file" name="guideline_files[]" class="form-input" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" multiple required style="padding: 8px; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 13px;">
+                        <p style="font-size: 11.5px; color: #64748B; margin: 0;">Supports multiple documents (.pdf, .docx, .doc, .txt, .png, .jpg). These will be cited by AI and checkers.</p>
+                        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;">
+                            <button type="submit" class="btn-primary" style="height: 34px; padding: 0 16px; font-size: 12.5px;">+ Upload Guidelines</button>
+                        </div>
+                    </div>
+                </form>
             </div>
         </div>
         <div class="modal-footer" style="justify-content: flex-end;">

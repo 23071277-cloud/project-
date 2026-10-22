@@ -76,12 +76,29 @@ $pendingList = function_exists('get_checker_pending_reviews') ? get_checker_pend
 $campaigns = function_exists('get_all_campaigns') ? get_all_campaigns('all') : [];
 $queue = function_exists('get_checker_review_queue') ? get_checker_review_queue('all') : [];
 
-$inReviewCount = $kpis['in_review'];
-$scoringCount  = $kpis['scoring'];
-$approvedCount = $kpis['approved'];
-$rejectedCount = $kpis['rejected'];
+$draftCount    = (int) ($kpis['draft'] ?? 0);
+$scoringCount  = (int) ($kpis['scoring'] ?? 0);
+$inReviewCount = (int) ($kpis['in_review'] ?? 0);
+$rejectedCount = (int) ($kpis['rejected'] ?? 0);
+$approvedCount = (int) ($kpis['approved'] ?? 0);
+$releasedCount = (int) ($kpis['released'] ?? 0);
 $totalCamps    = count($campaigns);
 $totalQueue    = count($queue);
+
+// Group counts for Campaigns Table filter tabs
+$campDraftCount    = 0;
+$campInReviewCount = 0;
+$campRejectedCount = 0;
+$campApprovedCount = 0;
+$campReleasedCount = 0;
+foreach ($campaigns as $c) {
+    $fg = $c['filter_group'] ?? 'draft';
+    if ($fg === 'draft') $campDraftCount++;
+    elseif ($fg === 'in_review') $campInReviewCount++;
+    elseif ($fg === 'rejected') $campRejectedCount++;
+    elseif ($fg === 'approved') $campApprovedCount++;
+    elseif ($fg === 'released') $campReleasedCount++;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -490,7 +507,7 @@ $totalQueue    = count($queue);
             font-weight: 700;
         }
 
-        /* Section 2: 4-KPI Metric Cards (Aligned with Real System Statuses) */
+        /* Section 2: Core Lifecycle Metric Cards: Draft -> Scoring -> In Review -> Rejected -> Approved -> Released */
         .kpi-metrics-bar {
             display: flex;
             background: #FFFFFF;
@@ -499,14 +516,16 @@ $totalQueue    = count($queue);
             box-shadow: 0px 4px 20px -4px rgba(79, 86, 166, 0.08);
             margin-bottom: 32px;
             padding: 6px;
+            overflow-x: auto;
         }
 
         .kpi-card {
             flex: 1;
+            min-width: 130px;
             display: flex;
             align-items: center;
-            gap: 14px;
-            padding: 12px 24px;
+            gap: 12px;
+            padding: 10px 16px;
             border-radius: 12px;
         }
 
@@ -527,45 +546,66 @@ $totalQueue    = count($queue);
             box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.05);
         }
 
-        /* Exact Status Color Coding */
-        .kpi-icon-box.status-in-review {
-            background-color: #E0E0FF;
-            color: #373E8C;
-            border: 1px solid #D5D7FF;
+        /* Exact Status Color Coding Aligned with Core Database Lifecycles */
+        .kpi-icon-box.status-draft {
+            background-color: #F1F5F9;
+            color: #475569;
+            border: 1px solid #CBD5E1;
         }
         .kpi-icon-box.status-scoring {
-            background-color: #EFF6FF;
-            color: #0284C7;
-            border: 1px solid #BAE6FD;
+            background-color: #FFFBEB;
+            color: #D97706;
+            border: 1px solid #FCD34D;
         }
-        .kpi-icon-box.status-approved {
-            background-color: #D1FAE5;
-            color: #047857;
-            border: 1px solid #A7F3D0;
+        .kpi-icon-box.status-in-review {
+            background-color: #EEF2FF;
+            color: #373E8C;
+            border: 1px solid #C7D2FE;
         }
         .kpi-icon-box.status-rejected {
-            background-color: #FFDAD6;
-            color: #BA1A1A;
-            border: 1px solid #FFC7C1;
+            background-color: #FEF2F2;
+            color: #DC2626;
+            border: 1px solid #FECACA;
+        }
+        .kpi-icon-box.status-approved {
+            background-color: #ECFDF5;
+            color: #059669;
+            border: 1px solid #A7F3D0;
+        }
+        .kpi-icon-box.status-released {
+            background-color: #F5F3FF;
+            color: #7C3AED;
+            border: 1px solid #DDD6FE;
         }
 
         .kpi-label {
-            font-size: 14px;
+            font-size: 13.5px;
             font-weight: 700;
             line-height: 1.3;
         }
+        .kpi-label.status-draft { color: #475569; }
+        .kpi-label.status-scoring { color: #D97706; }
         .kpi-label.status-in-review { color: #373E8C; }
-        .kpi-label.status-scoring { color: #0284C7; }
-        .kpi-label.status-approved { color: #047857; }
-        .kpi-label.status-rejected { color: #BA1A1A; }
+        .kpi-label.status-rejected { color: #DC2626; }
+        .kpi-label.status-approved { color: #059669; }
+        .kpi-label.status-released { color: #7C3AED; }
 
         /* Section 3: 2-Column Grid (Aside Pending Reviews + Campaigns) */
         .workspace-grid {
             display: grid;
-            grid-template-columns: 360px 1fr;
-            gap: 28px;
+            grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+            gap: 24px;
             margin-bottom: 32px;
-            align-items: start;
+            align-items: stretch;
+            transition: all 0.3s ease;
+        }
+
+        .workspace-grid.campaigns-expanded {
+            grid-template-columns: 1fr;
+        }
+
+        .workspace-grid.campaigns-expanded .aside-card {
+            display: none !important;
         }
 
         /* --- ASIDE: PENDING REVIEW --- */
@@ -578,6 +618,9 @@ $totalQueue    = count($queue);
             display: flex;
             flex-direction: column;
             gap: 16px;
+            height: 540px;
+            max-height: 540px;
+            overflow: hidden;
         }
 
         .aside-header {
@@ -630,6 +673,18 @@ $totalQueue    = count($queue);
             display: flex;
             flex-direction: column;
             gap: 12px;
+            overflow-y: auto;
+            flex: 1;
+            padding-right: 6px;
+            scrollbar-width: thin;
+            scrollbar-color: #CBD5E1 #FAF8FF;
+        }
+        .pending-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .pending-list::-webkit-scrollbar-thumb {
+            background-color: #CBD5E1;
+            border-radius: 4px;
         }
 
         .pending-item-card {
@@ -760,6 +815,36 @@ $totalQueue    = count($queue);
             display: flex;
             flex-direction: column;
             gap: 16px;
+            height: 540px;
+            max-height: 540px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .workspace-grid.campaigns-expanded .campaigns-card {
+            height: auto;
+            max-height: none;
+            width: 100%;
+        }
+
+        .btn-toggle-expand {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #373E8C;
+            background: #FAF8FF;
+            border: 1px solid #E0E0FF;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+        .btn-toggle-expand:hover {
+            background: #EDE9FA;
+            border-color: #373E8C;
         }
 
         .campaigns-top-bar {
@@ -819,6 +904,24 @@ $totalQueue    = count($queue);
         .table-responsive {
             width: 100%;
             overflow-x: auto;
+            overflow-y: auto;
+            flex: 1;
+            max-height: 430px;
+            border-radius: 8px;
+            border: 1px solid #EBEDFF;
+            scrollbar-width: thin;
+            scrollbar-color: #CBD5E1 #FAF8FF;
+        }
+        .table-responsive::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .table-responsive::-webkit-scrollbar-thumb {
+            background-color: #CBD5E1;
+            border-radius: 4px;
+        }
+        .workspace-grid.campaigns-expanded .table-responsive {
+            max-height: 640px;
         }
 
         .custom-table {
@@ -836,6 +939,11 @@ $totalQueue    = count($queue);
             padding: 12px 14px;
             border-bottom: 1px solid #F1F5F9;
             text-transform: uppercase;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: #FAF8FF;
+            box-shadow: 0 1px 0 #E2E8F0;
         }
 
         .custom-table td {
@@ -1128,6 +1236,24 @@ $totalQueue    = count($queue);
             box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.08);
         }
 
+        .queue-section .table-responsive {
+            max-height: 255px;
+            overflow-y: auto;
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid #E0E0FF;
+            scrollbar-width: thin;
+            scrollbar-color: #CBD5E1 #FAF8FF;
+        }
+        .queue-section .table-responsive::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .queue-section .table-responsive::-webkit-scrollbar-thumb {
+            background-color: #CBD5E1;
+            border-radius: 4px;
+        }
+
         .queue-table {
             width: 100%;
             border-collapse: separate;
@@ -1135,7 +1261,7 @@ $totalQueue    = count($queue);
         }
 
         .queue-table th {
-            background-color: rgba(250, 248, 255, 0.7);
+            background-color: #FAF8FF;
             font-size: 11px;
             font-weight: 700;
             color: #94A3B8;
@@ -1143,6 +1269,10 @@ $totalQueue    = count($queue);
             padding: 14px 16px;
             border-bottom: 1px solid rgba(226, 232, 240, 0.8);
             text-transform: uppercase;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            box-shadow: 0 1px 0 #E2E8F0;
         }
 
         .queue-table th:first-child { border-radius: 10px 0 0 10px; }
@@ -1523,7 +1653,6 @@ $totalQueue    = count($queue);
 
             <?php if (!empty($decisionAlert)): ?>
                 <div class="alert-toast <?= $decisionSuccess ? 'success' : 'danger' ?>">
-                    <span><?= $decisionSuccess ? '✓' : '⚠' ?></span>
                     <span><?= htmlspecialchars($decisionAlert) ?></span>
                 </div>
             <?php endif; ?>
@@ -1543,23 +1672,31 @@ $totalQueue    = count($queue);
                 </div>
             </section>
 
-            <!-- Section 2: 4-KPI Metric Cards (Exact 4 System Actionable Statuses) -->
+            <!-- Section 2: Core Lifecycle Metric Cards: Draft -> Scoring -> In Review -> Rejected -> Approved -> Released -->
             <section class="kpi-metrics-bar">
                 <div class="kpi-card">
-                    <div class="kpi-icon-box status-in-review"><?= $inReviewCount ?></div>
-                    <div class="kpi-label status-in-review">In Review</div>
+                    <div class="kpi-icon-box status-draft"><?= $draftCount ?></div>
+                    <div class="kpi-label status-draft">Draft</div>
                 </div>
                 <div class="kpi-card">
                     <div class="kpi-icon-box status-scoring"><?= $scoringCount ?></div>
                     <div class="kpi-label status-scoring">Scoring</div>
                 </div>
                 <div class="kpi-card">
-                    <div class="kpi-icon-box status-approved"><?= $approvedCount ?></div>
-                    <div class="kpi-label status-approved">Approved</div>
+                    <div class="kpi-icon-box status-in-review"><?= $inReviewCount ?></div>
+                    <div class="kpi-label status-in-review">In Review</div>
                 </div>
                 <div class="kpi-card">
                     <div class="kpi-icon-box status-rejected"><?= $rejectedCount ?></div>
                     <div class="kpi-label status-rejected">Rejected</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon-box status-approved"><?= $approvedCount ?></div>
+                    <div class="kpi-label status-approved">Approved</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon-box status-released"><?= $releasedCount ?></div>
+                    <div class="kpi-label status-released">Released</div>
                 </div>
             </section>
 
@@ -1607,7 +1744,6 @@ $totalQueue    = count($queue);
                             <?php endforeach; ?>
                         <?php else: ?>
                             <div style="padding: 40px 16px; text-align: center; color: #94A3B8;">
-                                <div style="font-size: 28px; margin-bottom: 8px;">✓</div>
                                 <p style="font-weight: 700; color: #161B2E; margin-bottom: 4px;">No pending reviews</p>
                                 <p style="font-size: 12px;">All assets have been processed.</p>
                             </div>
@@ -1622,11 +1758,24 @@ $totalQueue    = count($queue);
                             <h2 class="campaigns-heading">Campaigns</h2>
                             <p class="campaigns-subheading">Campaigns with reviews assigned to you</p>
                         </div>
-                        <div class="filter-pills-bar">
-                            <button class="filter-pill-btn active" onclick="filterCampaignRows('all', this)">All (<?= $totalCamps ?>)</button>
-                            <button class="filter-pill-btn" onclick="filterCampaignRows('in_review', this)">In Review (<?= $inReviewCount ?>)</button>
-                            <button class="filter-pill-btn" onclick="filterCampaignRows('approved', this)">Approved (<?= $approvedCount ?>)</button>
-                            <button class="filter-pill-btn" onclick="filterCampaignRows('rejected', this)">Rejected (<?= $rejectedCount ?>)</button>
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <div class="filter-pills-bar">
+                                <button class="filter-pill-btn active" onclick="filterCampaignRows('all', this)">All (<?= $totalCamps ?>)</button>
+                                <?php if ($campDraftCount > 0): ?>
+                                    <button class="filter-pill-btn" onclick="filterCampaignRows('draft', this)">Draft (<?= $campDraftCount ?>)</button>
+                                <?php endif; ?>
+                                <button class="filter-pill-btn" onclick="filterCampaignRows('in_review', this)">In Review (<?= $campInReviewCount ?>)</button>
+                                <button class="filter-pill-btn" onclick="filterCampaignRows('rejected', this)">Rejected (<?= $campRejectedCount ?>)</button>
+                                <button class="filter-pill-btn" onclick="filterCampaignRows('approved', this)">Approved (<?= $campApprovedCount ?>)</button>
+                                <?php if ($campReleasedCount > 0): ?>
+                                    <button class="filter-pill-btn" onclick="filterCampaignRows('released', this)">Released (<?= $campReleasedCount ?>)</button>
+                                <?php endif; ?>
+                            </div>
+                            <button type="button" class="btn-toggle-expand" id="btnToggleCheckerCampaigns" onclick="toggleCheckerCampaignsExpansion()" title="Toggle full width table view">
+                                <svg class="icon-expand" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                                <svg class="icon-compress" style="display:none;" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>
+                                <span id="btnToggleCheckerText">Full Width</span>
+                            </button>
                         </div>
                     </div>
 
@@ -1639,7 +1788,7 @@ $totalQueue    = count($queue);
                                     <th>DEADLINE</th>
                                     <th>PROGRESS</th>
                                     <th>STATUS</th>
-                                    <th style="text-align: right;">ACTION</th>
+                                    <th style="text-align: center;">ACTION</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1669,18 +1818,17 @@ $totalQueue    = count($queue);
                                                 </div>
                                             </td>
                                             <td>
-                                                <span class="status-pill-badge <?= $statusKey ?>">
-                                                    <span class="status-dot"></span>
-                                                    <span><?= htmlspecialchars($camp['status']) ?></span>
-                                                </span>
+                                                <?= function_exists('pcs_format_status_badge') ? pcs_format_status_badge($camp['status']) : '<span class="status-pill-badge ' . $statusKey . '"><span class="status-dot"></span><span>' . htmlspecialchars($camp['status']) . '</span></span>' ?>
                                             </td>
-                                            <td style="text-align: right; white-space: nowrap;">
-                                                <button class="btn-view-campaign" onclick="toggleCampaignAccordion(<?= $camp['id'] ?>, this)" style="margin-right: 6px;">
-                                                    Items
-                                                </button>
-                                                <a href="?campaign_id=<?= $camp['id'] ?>" class="btn-view-campaign" style="background: #1F2674; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">
-                                                    View Detail →
-                                                </a>
+                                            <td style="text-align: center; white-space: nowrap;">
+                                                <div style="display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+                                                    <button class="btn-view-campaign" onclick="toggleCampaignAccordion(<?= $camp['id'] ?>, this)">
+                                                        Items
+                                                    </button>
+                                                    <a href="?campaign_id=<?= $camp['id'] ?>" class="btn-view-campaign" style="background: #1F2674; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">
+                                                        View Detail →
+                                                    </a>
+                                                </div>
                                             </td>
                                         </tr>
 
@@ -1689,8 +1837,26 @@ $totalQueue    = count($queue);
                                             <tr id="camp-accordion-<?= $camp['id'] ?>" class="nested-asset-row" style="display: none;">
                                                 <td colspan="6">
                                                     <div class="nested-asset-box">
-                                                        <div class="nested-asset-header">
+                                                        <div class="nested-asset-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                                                             <div class="nested-asset-title">REVIEW ITEMS · <?= count($camp['assets']) ?> assets registered</div>
+                                                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                                                <?php 
+                                                                $gList = !empty($camp['guideline_files']) ? $camp['guideline_files'] : (!empty($camp['guidelines']) ? $camp['guidelines'] : []);
+                                                                if (empty($gList) && !empty($camp['guideline_file_url'])) {
+                                                                    $gList = [['id' => 1, 'name' => basename($camp['guideline_file_url']), 'url' => $camp['guideline_file_url']]];
+                                                                }
+                                                                ?>
+                                                                <?php if (!empty($gList)): ?>
+                                                                    <?php foreach ($gList as $gFile): ?>
+                                                                        <a href="<?= esc_url($gFile['url']) ?>" target="_blank" style="background: #EEF2FF; color: #1F2674; border: 1px solid #C7D2FE; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 11.5px;" title="<?= esc_attr($gFile['name']) ?>">
+                                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                                                            <span><?= esc_html($gFile['name']) ?></span>
+                                                                        </a>
+                                                                    <?php endforeach; ?>
+                                                                <?php else: ?>
+                                                                    <span style="font-size: 11.5px; color: #94A3B8; background: #F1F5F9; padding: 4px 10px; border-radius: 6px;">Guidelines · 0 files</span>
+                                                                <?php endif; ?>
+                                                            </div>
                                                         </div>
                                                         <table class="custom-table" style="background: transparent;">
                                                             <thead>
@@ -1699,7 +1865,7 @@ $totalQueue    = count($queue);
                                                                     <th style="padding: 8px 10px;">VERSION</th>
                                                                     <th style="padding: 8px 10px;">MAKER</th>
                                                                     <th style="padding: 8px 10px;">AI ASSESSMENT</th>
-                                                                    <th style="padding: 8px 10px; text-align: right;">ACTION</th>
+                                                                    <th style="padding: 8px 10px; text-align: center;">ACTION</th>
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
@@ -1712,11 +1878,11 @@ $totalQueue    = count($queue);
                                                                     <tr>
                                                                         <td style="font-weight: 700; color: #0F172A;"><?= htmlspecialchars($asset['name']) ?></td>
                                                                         <td style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #373E8C;">V<?= $asset['current_version_num'] ?></td>
-                                                                        <td style="color: #475569; font-weight: 500;">Cam Anh Hoang</td>
+                                                                        <td style="color: #475569; font-weight: 500;"><?= htmlspecialchars($asset['maker_name'] ?? 'Maker') ?></td>
                                                                         <td>
                                                                             <span class="ai-pill <?= $aiPill ?>"><?= $aiLabel ?></span>
                                                                         </td>
-                                                                        <td style="text-align: right;">
+                                                                        <td style="text-align: center;">
                                                                             <button class="btn-table-open-review" onclick="openReviewModalFromAsset(<?= htmlspecialchars(json_encode($asset)) ?>, <?= htmlspecialchars(json_encode($camp['name'])) ?>)">
                                                                                 Open Review
                                                                             </button>
@@ -1734,7 +1900,9 @@ $totalQueue    = count($queue);
                                 <?php else: ?>
                                     <tr class="empty-state-row">
                                         <td colspan="6">
-                                            <div class="empty-icon">📁</div>
+                                            <div class="empty-icon">
+                                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                                            </div>
                                             <p class="empty-title">No campaigns found</p>
                                             <p class="empty-desc">No active campaigns assigned for review.</p>
                                         </td>
@@ -1776,7 +1944,7 @@ $totalQueue    = count($queue);
                                 <th>SUBMITTED</th>
                                 <th>DEADLINE</th>
                                 <th>STATUS</th>
-                                <th style="text-align: right;">ACTION</th>
+                                <th style="text-align: center;">ACTION</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1834,8 +2002,8 @@ $totalQueue    = count($queue);
                                                 <span>In Review</span>
                                             </span>
                                         </td>
-                                        <td style="text-align: right;">
-                                            <button class="btn-open-review-primary" onclick="openReviewModal(<?= htmlspecialchars(json_encode($item)) ?>)">
+                                        <td style="text-align: center;">
+                                            <button class="btn-open-review-primary" style="margin: 0 auto;" onclick="openReviewModal(<?= htmlspecialchars(json_encode($item)) ?>)">
                                                 <span>Open Review</span>
                                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                                             </button>
@@ -1845,7 +2013,9 @@ $totalQueue    = count($queue);
                             <?php else: ?>
                                 <tr class="empty-state-row">
                                     <td colspan="9">
-                                        <div class="empty-icon">📋</div>
+                                        <div class="empty-icon">
+                                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+                                        </div>
                                         <p class="empty-title">No assets waiting for review</p>
                                         <p class="empty-desc">There are currently no assets in the review queue.</p>
                                     </td>
@@ -1945,7 +2115,7 @@ $totalQueue    = count($queue);
                 btn.textContent = 'Close';
             } else {
                 accordionRow.style.display = 'none';
-                btn.textContent = 'View Campaign';
+                btn.textContent = 'Items';
             }
         }
 
@@ -1998,7 +2168,7 @@ $totalQueue    = count($queue);
             if (item.file_url) {
                 previewImg.src = item.file_url;
             } else {
-                previewImg.src = 'images/logo.png';
+                previewImg.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="%234F56A6" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
             }
 
             const overallBadge = document.getElementById('modalOverallBadge');
@@ -2066,6 +2236,41 @@ $totalQueue    = count($queue);
 
             document.getElementById('modalDecisionInput').value = decision;
             document.querySelector('#reviewModal form').submit();
+        }
+
+        // Toggle Checker Campaigns Expansion (Split View <-> Full Width)
+        function toggleCheckerCampaignsExpansion(forceExpand) {
+            const grid = document.querySelector('.workspace-grid');
+            const btn = document.getElementById('btnToggleCheckerCampaigns');
+            const text = document.getElementById('btnToggleCheckerText');
+            if (!grid) return;
+
+            let shouldExpand;
+            if (typeof forceExpand === 'boolean') {
+                shouldExpand = forceExpand;
+            } else {
+                shouldExpand = !grid.classList.contains('campaigns-expanded');
+            }
+
+            if (shouldExpand) {
+                grid.classList.add('campaigns-expanded');
+                if (text) text.textContent = 'Split View';
+                if (btn) {
+                    const exp = btn.querySelector('.icon-expand');
+                    const comp = btn.querySelector('.icon-compress');
+                    if (exp) exp.style.display = 'none';
+                    if (comp) comp.style.display = 'inline-block';
+                }
+            } else {
+                grid.classList.remove('campaigns-expanded');
+                if (text) text.textContent = 'Full Width';
+                if (btn) {
+                    const exp = btn.querySelector('.icon-expand');
+                    const comp = btn.querySelector('.icon-compress');
+                    if (exp) exp.style.display = 'inline-block';
+                    if (comp) comp.style.display = 'none';
+                }
+            }
         }
     </script>
 </body>

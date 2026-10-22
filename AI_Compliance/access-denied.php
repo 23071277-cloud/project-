@@ -49,8 +49,13 @@ if (isset($_GET['action']) && in_array($_GET['action'], ['logout', 'switch_accou
         session_destroy();
     }
     $login_url = function_exists('pcs_url') ? pcs_url('page-login.php') : 'page-login.php';
-    header('Location: ' . $login_url . (strpos($login_url, '?') !== false ? '&' : '?') . 'loggedout=true&switched=true');
-    exit;
+    $target = $login_url . (strpos($login_url, '?') !== false ? '&' : '?') . 'loggedout=true&switched=true';
+    if (function_exists('pcs_safe_redirect')) {
+        pcs_safe_redirect($target);
+    } else {
+        header('Location: ' . $target);
+        exit;
+    }
 }
 
 // 3. Retrieve Session Diagnostics
@@ -100,7 +105,7 @@ if ($currentRole === 'MAKER') {
     $workspaceLabel = 'Go to Sign In';
 }
 
-$switchAccountUrl = (function_exists('pcs_url') ? pcs_url('access-denied.php') : 'access-denied.php') . '?action=switch_account';
+$switchAccountUrl = (function_exists('pcs_url') ? pcs_url('page-login.php') : 'page-login.php') . '?action=logout&switched=true';
 $homeUrl = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-page.php';
 ?>
 <!DOCTYPE html>

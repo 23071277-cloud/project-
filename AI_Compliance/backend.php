@@ -13,10 +13,6 @@ if (defined('PCS_BACKEND_LOADED')) {
 }
 define('PCS_BACKEND_LOADED', true);
 
-if (!defined('ABSPATH') && session_status() === PHP_SESSION_NONE && !headers_sent()) {
-    @session_start();
-}
-
 // =========================================================================
 // 1. SYSTEM ENVIRONMENT DETECTION & AUTO-LOAD
 // =========================================================================
@@ -24,6 +20,12 @@ if (!function_exists('pcs_is_wp')) {
     function pcs_is_wp() {
         return defined('ABSPATH');
     }
+}
+
+// Chỉ khởi động session ngay nếu chạy STANDALONE ngoài WordPress.
+// Trong WordPress, session phải được nạp qua hook 'init' để không gây xung đột với plugins (như phpMyAdmin).
+if (!pcs_is_wp() && session_status() === PHP_SESSION_NONE && !headers_sent()) {
+    @session_start();
 }
 
 // Nếu chạy trong WordPress, đảm bảo nạp file project-core-system.php
@@ -35,7 +37,38 @@ if (pcs_is_wp()) {
 }
 
 // =========================================================================
-// STANDALONE ENVIRONMENT POLYFILLS (Đảm bảo 100% không bao giờ bị lỗi trên Local XAMPP)
+// REALTIME CROSS-ROLE DATA SYNC HEARTBEAT & SYNC VERSIONING
+// =========================================================================
+if (isset($_GET['action']) && $_GET['action'] === 'pcs_sync_heartbeat') {
+    if (ob_get_length()) ob_clean();
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-cache, no-store, must-revalidate');
+    $last_ts = function_exists('get_option') ? (int) get_option('pcs_last_sync_ts', 0) : 0;
+    if ($last_ts <= 0) $last_ts = time();
+    echo json_encode(['last_sync' => $last_ts, 'time' => time(), 'status' => 'ok']);
+    exit;
+}
+
+if (!function_exists('pcs_bump_sync_version')) {
+    function pcs_bump_sync_version() {
+        $ts = time();
+        if (function_exists('update_option')) {
+            update_option('pcs_last_sync_ts', $ts, false);
+        }
+    }
+}
+if (!function_exists('pcs_get_sync_version')) {
+    function pcs_get_sync_version() {
+        if (function_exists('get_option')) {
+            $ts = (int) get_option('pcs_last_sync_ts', 0);
+            if ($ts > 0) return $ts;
+        }
+        return time();
+    }
+}
+
+// =========================================================================
+// STANDALONE ENVIRONMENT POLYFILLS & CORE HELPERS
 // =========================================================================
 if (!function_exists('esc_url')) {
     function esc_url($url) {
@@ -84,6 +117,116 @@ if (!function_exists('get_stylesheet_directory_uri')) {
     function get_stylesheet_directory_uri() {
         return '.';
     }
+}
+
+/**
+ * Lấy danh sách đầy đủ tất cả Guideline Documents gắn với một Campaign
+ * Hỗ trợ 100% mảng JSON từ _guideline_files, attachments, và URL meta
+ */
+if (!function_exists('pcs_get_campaign_guidelines')) {
+function pcs_get_campaign_guidelines($campaign_id) {
+    $cid = (int) $campaign_id;
+    if ($cid <= 0) return [];
+
+    $guidelines_list = [];
+    $seen_urls = [];
+
+    // 1. Đọc mảng JSON lưu trữ nhiều file từ meta _guideline_files
+    $raw_g_files = get_post_meta($cid, '_guideline_files', true);
+    if (!empty($raw_g_files)) {
+        $decoded = is_array($raw_g_files) ? $raw_g_files : json_decode($raw_g_files, true);
+        if (is_array($decoded)) {
+            foreach ($decoded as $idx => $item) {
+                $u = $item['url'] ?? '';
+                if (!empty($u) && !in_array($u, $seen_urls, true)) {
+                    $seen_urls[] = $u;
+                    $guidelines_list[] = [
+                        'id'   => $item['id'] ?? ($idx + 1),
+                        'name' => $item['name'] ?? ('Guideline ' . ($idx + 1)),
+                        'url'  => $u,
+                        'ext'  => $item['ext'] ?? strtolower(pathinfo($u, PATHINFO_EXTENSION)),
+                        'size' => $item['size'] ?? '',
+                        'tag'  => $item['tag'] ?? 'Brand Guideline'
+                    ];
+                }
+            }
+        }
+    }
+
+    // 2. Đọc attachment meta _guideline_file_id nếu có
+    $guideline_id = (int) get_post_meta($cid, '_guideline_file_id', true);
+    if ($guideline_id > 0 && function_exists('wp_get_attachment_url')) {
+        $g_url = wp_get_attachment_url($guideline_id);
+        if ($g_url && !in_array($g_url, $seen_urls, true)) {
+            $seen_urls[] = $g_url;
+            $g_att = get_post($guideline_id);
+            $fname = $g_att ? ($g_att->post_title ?: basename(get_attached_file($guideline_id))) : basename($g_url);
+            $guidelines_list[] = [
+                'id'   => count($guidelines_list) + 1,
+                'name' => $fname,
+                'url'  => $g_url,
+                'ext'  => strtolower(pathinfo($fname, PATHINFO_EXTENSION)) ?: 'pdf',
+                'size' => '',
+                'tag'  => 'Campaign Primary'
+            ];
+        }
+    }
+
+    // 3. Đọc single URL meta _guideline_file_url nếu chưa có trong danh sách
+    $single_url = get_post_meta($cid, '_guideline_file_url', true);
+    if (!empty($single_url) && !in_array($single_url, $seen_urls, true)) {
+        $seen_urls[] = $single_url;
+        $fname = basename(parse_url($single_url, PHP_URL_PATH));
+        $guidelines_list[] = [
+            'id'   => count($guidelines_list) + 1,
+            'name' => $fname ?: 'Primary Guideline',
+            'url'  => $single_url,
+            'ext'  => strtolower(pathinfo($fname, PATHINFO_EXTENSION)) ?: 'pdf',
+            'size' => '',
+            'tag'  => 'Campaign Primary'
+        ];
+    }
+
+    // 4. Đọc meta _guidelines (mảng chuẩn hóa)
+    $more_guides = get_post_meta($cid, '_guidelines', true);
+    if (is_array($more_guides)) {
+        foreach ($more_guides as $mg) {
+            $u = $mg['url'] ?? '';
+            if (!empty($mg['name']) && (!empty($u) && !in_array($u, $seen_urls, true))) {
+                $seen_urls[] = $u;
+                $guidelines_list[] = [
+                    'id'   => count($guidelines_list) + 1,
+                    'name' => $mg['name'],
+                    'url'  => $u,
+                    'ext'  => strtolower(pathinfo($mg['name'], PATHINFO_EXTENSION)) ?: 'pdf',
+                    'size' => $mg['size'] ?? '',
+                    'tag'  => $mg['tag'] ?? 'Reference Standard'
+                ];
+            }
+        }
+    }
+
+    return $guidelines_list;
+}
+}
+
+/**
+ * Chuyển hướng an toàn (Safe Redirect) tương thích cả WordPress và Standalone PHP
+ */
+if (!function_exists('pcs_safe_redirect')) {
+function pcs_safe_redirect($url) {
+    if (function_exists('wp_safe_redirect')) {
+        wp_safe_redirect($url);
+        exit;
+    }
+    if (!headers_sent()) {
+        header('Location: ' . $url);
+        exit;
+    }
+    echo '<script>window.location.href=' . json_encode($url) . ';</script>';
+    echo '<noscript><meta http-equiv="refresh" content="0;url=' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '"></noscript>';
+    exit;
+}
 }
 
 /**
@@ -156,6 +299,50 @@ function pcs_url($target) {
 
     return home_url('/');
 }
+}
+
+/**
+ * Global Logout Interceptor
+ * Handles ?action=logout everywhere across WordPress and Standalone PHP
+ */
+if (!function_exists('pcs_handle_global_logout')) {
+function pcs_handle_global_logout() {
+    if (isset($_GET['action']) && in_array($_GET['action'], ['logout', 'signout', 'switch_account'], true)) {
+        if (function_exists('wp_logout')) {
+            wp_logout();
+        }
+        if (function_exists('wp_clear_auth_cookie')) {
+            wp_clear_auth_cookie();
+        }
+        if (!headers_sent()) {
+            setcookie('pcs_remember_user', '', time() - 3600, '/');
+            setcookie('pcs_remember_role', '', time() - 3600, '/');
+        }
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            unset($_SESSION['logged_in_user']);
+            unset($_SESSION['pcs_user_id']);
+            @session_destroy();
+        }
+
+        if (!empty($_GET['redirect_to'])) {
+            pcs_safe_redirect($_GET['redirect_to']);
+        }
+
+        $target = function_exists('pcs_url') ? pcs_url('page-login.php') : 'page-login.php';
+        pcs_safe_redirect($target . (strpos($target, '?') !== false ? '&' : '?') . (isset($_GET['switched']) ? 'switched=true' : 'loggedout=true'));
+    }
+}
+}
+
+if (pcs_is_wp()) {
+    // Đăng ký qua hook 'init' với priority cao để đảm bảo WordPress đã sẵn sàng
+    if (did_action('init')) {
+        pcs_handle_global_logout();
+    } else {
+        add_action('init', 'pcs_handle_global_logout', 2);
+    }
+} else {
+    pcs_handle_global_logout();
 }
 
 // =========================================================================
@@ -277,95 +464,143 @@ function pcs_format_wp_user($wp_user) {
 
 /**
  * Xác thực người dùng (Đăng nhập)
+ * Kiểm tra nghiêm ngặt mật khẩu và tài khoản thật trên WordPress (hoặc whitelist Standalone).
+ * Tuyệt đối KHÔNG tự động đăng nhập khi nhập sai mật khẩu hoặc gõ linh tinh.
  */
 if (!function_exists('authenticate_user')) {
 function authenticate_user($email_or_user, $password = '') {
-    $email_or_user = trim($email_or_user);
+    $email_or_user = trim((string)$email_or_user);
+    $password = (string)$password;
 
-    // TRƯỜNG HỢP 1: Chạy trong WordPress thật (Tìm chính xác theo Email hoặc Username đã tạo)
+    if (empty($email_or_user) || empty($password)) {
+        return false;
+    }
+
+    // TRƯỜNG HỢP 1: Chạy trong WordPress thật (Xác thực với WordPress Database)
     if (pcs_is_wp()) {
         $wp_user = false;
 
-        // 1. Nếu có mật khẩu, thử xác thực chính thức bằng wp_authenticate
-        if (!empty($password) && function_exists('wp_authenticate')) {
-            $auth = wp_authenticate($email_or_user, $password);
-            if (!is_wp_error($auth) && $auth && $auth->ID > 0) {
+        // 1. Nếu người dùng nhập Email, tìm user_login tương ứng trước
+        $username = $email_or_user;
+        if (strpos($email_or_user, '@') !== false && function_exists('get_user_by')) {
+            $user_by_email = get_user_by('email', $email_or_user);
+            if ($user_by_email) {
+                $username = $user_by_email->user_login;
+            }
+        }
+
+        // 2. Xác thực mật khẩu qua hàm chuẩn wp_authenticate của WordPress
+        if (function_exists('wp_authenticate')) {
+            $auth = wp_authenticate($username, $password);
+            if (!is_wp_error($auth) && is_object($auth) && !empty($auth->ID)) {
                 $wp_user = $auth;
             }
         }
 
-        // 2. Tìm theo Email hoặc Login username
-        if (!$wp_user && function_exists('get_user_by')) {
-            $wp_user = get_user_by('email', $email_or_user);
-            if (!$wp_user) {
-                $wp_user = get_user_by('login', $email_or_user);
+        // 3. Kiểm tra phụ trợ bằng wp_check_password nếu cần
+        if (!$wp_user && function_exists('get_user_by') && function_exists('wp_check_password')) {
+            $user_candidate = get_user_by('login', $username);
+            if (!$user_candidate) {
+                $user_candidate = get_user_by('email', $email_or_user);
+            }
+            if ($user_candidate && !empty($user_candidate->user_pass) && wp_check_password($password, $user_candidate->user_pass, $user_candidate->ID)) {
+                $wp_user = $user_candidate;
             }
         }
 
-        // 3. Nếu chưa thấy, tìm theo Role hoặc từ khóa tài khoản trong WordPress
-        if (!$wp_user && function_exists('get_users')) {
-            $low = strtolower($email_or_user);
-            if ($low === 'admin' || $low === 'administrator') {
-                $admins = get_users(['role' => 'administrator', 'number' => 1]);
-                if (!empty($admins)) $wp_user = $admins[0];
-            } elseif ($low === 'checker' || strpos($low, 'checker') !== false) {
-                $checkers = get_users(['role' => 'checker', 'number' => 1]);
-                if (empty($checkers)) {
-                    $checkers = get_users(['role' => 'editor', 'number' => 1]);
-                }
-                if (empty($checkers)) {
-                    $checkers = get_users(['search' => '*checker*', 'number' => 1]);
-                }
-                if (!empty($checkers)) $wp_user = $checkers[0];
-            } elseif ($low === 'maker' || strpos($low, 'maker') !== false) {
-                $makers = get_users(['role' => 'maker', 'number' => 1]);
-                if (empty($makers)) {
-                    $makers = get_users(['role' => 'author', 'number' => 1]);
-                }
-                if (empty($makers)) {
-                    $makers = get_users(['search' => '*maker*', 'number' => 1]);
-                }
-                if (!empty($makers)) $wp_user = $makers[0];
-            }
+        // NẾU KHÔNG ĐÚNG MẬT KHẨU HOẶC KHÔNG TỒN TẠI USER -> TỪ CHỐI TUYỆT ĐỐI (RETURN FALSE)
+        if (!$wp_user || empty($wp_user->ID)) {
+            return false;
         }
 
-        if ($wp_user) {
-            // Đăng nhập thành công với tài khoản WordPress thật tìm thấy!
-            if (function_exists('wp_set_current_user')) {
-                wp_set_current_user($wp_user->ID, $wp_user->user_login);
-            }
-            if (function_exists('wp_set_auth_cookie')) {
-                wp_set_auth_cookie($wp_user->ID, true);
-            }
-            $_SESSION['pcs_user_id'] = $wp_user->ID;
-            $profile = pcs_format_wp_user($wp_user);
-            $_SESSION['logged_in_user'] = $profile;
-            return $profile;
+        // Đăng nhập thành công: Dọn sạch phiên cũ để tránh dính quyền tài khoản trước
+        if (function_exists('wp_logout')) {
+            wp_logout();
         }
+        if (function_exists('wp_clear_auth_cookie')) {
+            wp_clear_auth_cookie();
+        }
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            unset($_SESSION['logged_in_user']);
+            unset($_SESSION['pcs_user_id']);
+        }
+
+        // Thiết lập phiên làm việc chính thức cho tài khoản
+        if (function_exists('wp_set_current_user')) {
+            wp_set_current_user($wp_user->ID, $wp_user->user_login);
+        }
+        if (function_exists('wp_set_auth_cookie')) {
+            wp_set_auth_cookie($wp_user->ID, true);
+        }
+
+        if (!headers_sent()) {
+            setcookie('pcs_remember_user', (string) $wp_user->ID, time() + (86400 * 30), '/');
+        }
+
+        $_SESSION['pcs_user_id'] = $wp_user->ID;
+        $profile = pcs_format_wp_user($wp_user);
+        $_SESSION['logged_in_user'] = $profile;
+        return $profile;
     }
 
-    // TRƯỜNG HỢP 2: Chế độ Standalone / Mock fallback
-    $email = strtolower($email_or_user);
+    // TRƯỜNG HỢP 2: Chế độ Standalone (Khi test ngoài môi trường WordPress)
+    // Danh sách tài khoản và mật khẩu chuẩn xác theo cấu hình hệ thống
+    $valid_credentials = [
+        // Role Admin
+        'admin'                              => 'nhomdiem10',
+        'tranthikhanhhuyen171205@gmail.com' => 'nhomdiem10',
+        'brandcompliance'                    => 'nhomdiem10',
+        'phgthuy11@gmail.com'               => 'nhomdiem10',
+        'hanhle'                             => 'abc128def.',
+        'hoanganhle0320@gmail.com'          => 'abc128def.',
+        // Role Maker
+        'camanh'                             => 'duan1',
+        'hoangcamanh1976@gmail.com'         => 'duan1',
+        'maker'                              => 'duan1',
+        '23070692@vnu.edu.vn'               => 'duan1',
+        // Role Checker
+        'checker'                            => 'duan1',
+        'hoanganhle03201208@gmail.com'      => 'duan1',
+        'hoanglongphm'                       => 'duan1',
+        'longhoanphamsm@gmail.com'          => 'duan1',
+        'gianghwong'                         => 'duan1',
+        'gianghuwowng@gmail.com'            => 'duan1',
+    ];
+
+    $clean_input = strtolower($email_or_user);
+    if (!isset($valid_credentials[$clean_input]) || $valid_credentials[$clean_input] !== $password) {
+        return false; // Sai thông tin -> Từ chối, TUYỆT ĐỐI KHÔNG tự động fallback vào ai
+    }
+
     $mock_users = pcs_get_default_mock_users();
-
+    $matched = null;
     foreach ($mock_users as $u) {
-        if (strtolower($u['email']) === $email || strtolower($u['username']) === $email) {
-            $_SESSION['logged_in_user'] = $u;
-            return $u;
+        if (strtolower($u['email']) === $clean_input || strtolower($u['username']) === $clean_input) {
+            $matched = $u;
+            break;
         }
     }
 
-    if (strpos($email, 'checker') !== false) {
-        $_SESSION['logged_in_user'] = $mock_users[1];
-        return $mock_users[1];
-    }
-    if (strpos($email, 'admin') !== false) {
-        $_SESSION['logged_in_user'] = $mock_users[2];
-        return $mock_users[2];
+    if (!$matched) {
+        if (in_array($clean_input, ['admin', 'brandcompliance', 'hanhle', 'tranthikhanhhuyen171205@gmail.com', 'phgthuy11@gmail.com', 'hoanganhle0320@gmail.com'], true)) {
+            $matched = $mock_users[2]; // ADMIN
+        } elseif (in_array($clean_input, ['checker', 'hoanglongphm', 'gianghwong', 'hoanganhle03201208@gmail.com', 'longhoanphamsm@gmail.com', 'gianghuwowng@gmail.com'], true)) {
+            $matched = $mock_users[1]; // CHECKER
+        } else {
+            $matched = $mock_users[0]; // MAKER
+        }
     }
 
-    $_SESSION['logged_in_user'] = $mock_users[0];
-    return $mock_users[0];
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        unset($_SESSION['logged_in_user']);
+        unset($_SESSION['pcs_user_id']);
+    }
+
+    $_SESSION['logged_in_user'] = $matched;
+    if (!headers_sent()) {
+        setcookie('pcs_remember_role', $matched['role'], time() + (86400 * 30), '/');
+    }
+    return $matched;
 }
 }
 
@@ -384,7 +619,21 @@ function get_current_user_profile($default_role = '') {
         }
     }
 
-    // 2. Tiếp theo kiểm tra WordPress Session ID đã lưu khi login qua custom form
+    // 2. Tiếp theo kiểm tra persistent cookie pcs_remember_user nếu browser vừa mở lại
+    if (pcs_is_wp() && !empty($_COOKIE['pcs_remember_user']) && function_exists('get_user_by')) {
+        $remembered_user = get_user_by('id', (int) $_COOKIE['pcs_remember_user']);
+        if ($remembered_user && $remembered_user->ID > 0) {
+            if (function_exists('wp_set_current_user')) {
+                wp_set_current_user($remembered_user->ID, $remembered_user->user_login);
+            }
+            if (function_exists('wp_set_auth_cookie')) {
+                wp_set_auth_cookie($remembered_user->ID, true);
+            }
+            return pcs_format_wp_user($remembered_user);
+        }
+    }
+
+    // 3. Tiếp theo kiểm tra WordPress Session ID đã lưu khi login qua custom form
     if (pcs_is_wp() && !empty($_SESSION['pcs_user_id']) && function_exists('get_user_by')) {
         $wp_user = get_user_by('id', (int) $_SESSION['pcs_user_id']);
         if ($wp_user && $wp_user->ID > 0) {
@@ -392,9 +641,19 @@ function get_current_user_profile($default_role = '') {
         }
     }
 
-    // 3. Kiểm tra Session logged_in_user nếu có
+    // 4. Kiểm tra Session logged_in_user nếu có
     if (!empty($_SESSION['logged_in_user']) && is_array($_SESSION['logged_in_user']) && !empty($_SESSION['logged_in_user']['id'])) {
         return $_SESSION['logged_in_user'];
+    }
+
+    // 5. Standalone persistent cookie fallback
+    if (!empty($_COOKIE['pcs_remember_role'])) {
+        $mock_users = pcs_get_default_mock_users();
+        foreach ($mock_users as $u) {
+            if (strtoupper($u['role']) === strtoupper($_COOKIE['pcs_remember_role'])) {
+                return $u;
+            }
+        }
     }
 
     // Khi chạy trong môi trường WordPress thật mà không có user đăng nhập -> trả về null (KHÔNG fake quyền)
@@ -402,7 +661,7 @@ function get_current_user_profile($default_role = '') {
         return null;
     }
 
-    // 4. Chỉ khi chạy Standalone thuần túy (không có WordPress) phục vụ test template giao diện cục bộ:
+    // 6. Chỉ khi chạy Standalone thuần túy (không có WordPress) phục vụ test template giao diện cục bộ:
     if (!empty($default_role)) {
         $mock_users = pcs_get_default_mock_users();
         foreach ($mock_users as $u) {
@@ -414,25 +673,6 @@ function get_current_user_profile($default_role = '') {
     }
 
     return null;
-}
-}
-
-/**
- * Chuyển hướng an toàn (Safe Redirect) tương thích cả WordPress và Standalone PHP
- */
-if (!function_exists('pcs_safe_redirect')) {
-function pcs_safe_redirect($url) {
-    if (function_exists('wp_safe_redirect')) {
-        wp_safe_redirect($url);
-        exit;
-    }
-    if (!headers_sent()) {
-        header('Location: ' . $url);
-        exit;
-    }
-    echo '<script>window.location.href=' . json_encode($url) . ';</script>';
-    echo '<noscript><meta http-equiv="refresh" content="0;url=' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '"></noscript>';
-    exit;
 }
 }
 
@@ -482,6 +722,28 @@ function pcs_enforce_rbac($allowed_roles = 'ALL') {
     $has_access = in_array($user_role, $allowed_roles, true);
 
     if (!$has_access) {
+        if (function_exists('status_header')) {
+            status_header(403);
+        } else {
+            header('HTTP/1.1 403 Forbidden');
+        }
+
+        // Thiết lập chẩn đoán phân quyền cho giao diện Access Denied
+        $_GET['required'] = implode(',', $allowed_roles);
+        $_GET['current'] = $user_role;
+
+        // Trực tiếp hiển thị trang access-denied.php tại đúng URL hiện tại (không phụ thuộc redirect ngoài)
+        $access_denied_file = __DIR__ . '/access-denied.php';
+        if (!file_exists($access_denied_file) && function_exists('get_template_directory')) {
+            $access_denied_file = get_template_directory() . '/access-denied.php';
+        }
+
+        if (file_exists($access_denied_file)) {
+            include $access_denied_file;
+            exit;
+        }
+
+        // Fallback chuyển hướng nếu không tìm thấy file
         $denied_url = function_exists('pcs_url') ? pcs_url('access-denied.php') : 'access-denied.php';
         $required_str = implode(',', $allowed_roles);
         $redirect = $denied_url . (strpos($denied_url, '?') !== false ? '&' : '?') . 'required=' . urlencode($required_str) . '&current=' . urlencode($user_role);
@@ -497,8 +759,158 @@ function pcs_enforce_rbac($allowed_roles = 'ALL') {
 // =========================================================================
 
 /**
+ * Hiển thị huy hiệu trạng thái chuẩn hoá đồng bộ (6 Core Database Statuses)
+ * draft -> scoring -> in_review -> approved / rejected -> released
+ */
+if (!function_exists('pcs_format_status_badge')) {
+function pcs_format_status_badge($status) {
+    $s = strtolower(trim((string)$status));
+    $config = [
+        'draft' => [
+            'label'  => 'Draft',
+            'color'  => '#475569',
+            'bg'     => '#F1F5F9',
+            'border' => '#CBD5E1',
+        ],
+        'scoring' => [
+            'label'  => 'Scoring',
+            'color'  => '#D97706',
+            'bg'     => '#FFFBEB',
+            'border' => '#FCD34D',
+        ],
+        'in_review' => [
+            'label'  => 'In Review',
+            'color'  => '#4F46E5',
+            'bg'     => '#EEF2FF',
+            'border' => '#C7D2FE',
+        ],
+        'approved' => [
+            'label'  => 'Approved',
+            'color'  => '#059669',
+            'bg'     => '#ECFDF5',
+            'border' => '#A7F3D0',
+        ],
+        'rejected' => [
+            'label'  => 'Rejected',
+            'color'  => '#DC2626',
+            'bg'     => '#FEF2F2',
+            'border' => '#FECACA',
+        ],
+        'released' => [
+            'label'  => 'Released',
+            'color'  => '#7C3AED',
+            'bg'     => '#F5F3FF',
+            'border' => '#DDD6FE',
+        ],
+    ];
+
+    $cfg = $config[$s] ?? [
+        'label'  => ucfirst(str_replace('_', ' ', $s ?: 'draft')),
+        'color'  => '#475569',
+        'bg'     => '#F1F5F9',
+        'border' => '#CBD5E1',
+    ];
+
+    return sprintf(
+        '<span class="pcs-status-pill pcs-status-%s" style="display:inline-flex; align-items:center; padding:3px 10px; border-radius:9999px; font-size:12px; font-weight:700; color:%s; background:%s; border:1px solid %s; line-height:1.3; white-space:nowrap;">%s</span>',
+        esc_attr($s),
+        esc_attr($cfg['color']),
+        esc_attr($cfg['bg']),
+        esc_attr($cfg['border']),
+        esc_html($cfg['label'])
+    );
+}
+}
+
+/**
+ * Lấy danh sách thành viên hệ thống theo Role phục vụ gán quyền Campaign (Maker / Checker / Admin)
+ */
+if (!function_exists('pcs_get_system_users_by_role')) {
+function pcs_get_system_users_by_role($role = '') {
+    $role = strtoupper(trim((string)$role));
+    $users_data = [];
+
+    if (pcs_is_wp() && function_exists('get_users')) {
+        $wp_users = [];
+        if ($role === 'ADMIN') {
+            $wp_users = get_users(['role' => 'administrator']);
+        } elseif ($role === 'CHECKER') {
+            $wp_users = get_users(['role' => 'checker']);
+            if (empty($wp_users)) {
+                $wp_users = get_users(['role__in' => ['checker', 'editor']]);
+            }
+        } elseif ($role === 'MAKER') {
+            $wp_users = get_users(['role' => 'maker']);
+            if (empty($wp_users)) {
+                $wp_users = get_users(['role__in' => ['maker', 'author', 'contributor', 'subscriber']]);
+            }
+        } else {
+            $wp_users = get_users(['number' => 100]);
+        }
+
+        foreach ($wp_users as $u) {
+            $r_label = $role ?: (function_exists('pcs_format_wp_user') ? (pcs_format_wp_user($u)['role'] ?? 'USER') : 'USER');
+            $uName = $u->display_name ?: $u->user_login;
+            $users_data[] = (object) [
+                'ID'           => $u->ID,
+                'id'           => $u->ID,
+                'username'     => $u->user_login,
+                'user_login'   => $u->user_login,
+                'name'         => $uName,
+                'display_name' => $uName,
+                'email'        => $u->user_email,
+                'user_email'   => $u->user_email,
+                'role'         => $r_label,
+            ];
+        }
+    }
+
+    if (empty($users_data)) {
+        $mocks = [
+            'ADMIN' => [
+                ['id' => 6, 'username' => 'admin', 'name' => 'Tran Thi Khanh Huyen', 'email' => 'tranthikhanhhuyen171205@gmail.com', 'role' => 'ADMIN'],
+                ['id' => 7, 'username' => 'brandcompliance', 'name' => 'Phuong Thuy', 'email' => 'phgthuy11@gmail.com', 'role' => 'ADMIN'],
+                ['id' => 8, 'username' => 'hanhle', 'name' => 'Hoang Anh Le (Admin)', 'email' => 'hoanganhle0320@gmail.com', 'role' => 'ADMIN'],
+            ],
+            'MAKER' => [
+                ['id' => 1, 'username' => 'maker', 'name' => 'Maker VNU', 'email' => '23070692@vnu.edu.vn', 'role' => 'MAKER'],
+                ['id' => 2, 'username' => 'camanh', 'name' => 'Hoang Cam Anh', 'email' => 'hoangcamanh1976@gmail.com', 'role' => 'MAKER'],
+            ],
+            'CHECKER' => [
+                ['id' => 3, 'username' => 'checker', 'name' => 'Hoang Anh Le (Checker)', 'email' => 'hoanganhle03201208@gmail.com', 'role' => 'CHECKER'],
+                ['id' => 4, 'username' => 'hoanglongphm', 'name' => 'Long Hoang Pham', 'email' => 'longhoanphamsm@gmail.com', 'role' => 'CHECKER'],
+                ['id' => 5, 'username' => 'gianghwong', 'name' => 'Giang Huong', 'email' => 'gianghuwowng@gmail.com', 'role' => 'CHECKER'],
+            ]
+        ];
+
+        $rawList = [];
+        if ($role && isset($mocks[$role])) {
+            $rawList = $mocks[$role];
+        } elseif (empty($role)) {
+            $rawList = array_merge($mocks['ADMIN'], $mocks['CHECKER'], $mocks['MAKER']);
+        }
+        foreach ($rawList as $m) {
+            $users_data[] = (object) [
+                'ID'           => $m['id'],
+                'id'           => $m['id'],
+                'username'     => $m['username'],
+                'user_login'   => $m['username'],
+                'name'         => $m['name'],
+                'display_name' => $m['name'],
+                'email'        => $m['email'],
+                'user_email'   => $m['email'],
+                'role'         => $m['role'],
+            ];
+        }
+    }
+
+    return $users_data;
+}
+}
+
+/**
  * Lấy tất cả Campaigns và các Assets con từ CPT WordPress
- * Không dùng data mock, nếu database trống sẽ trả về mảng rỗng []
+ * Tự động lọc phân quyền hiển thị theo Role (Maker/Checker chỉ thấy campaign được gán)
  */
 if (!function_exists('get_all_campaigns')) {
 function get_all_campaigns($filter = 'all') {
@@ -506,12 +918,16 @@ function get_all_campaigns($filter = 'all') {
         return [];
     }
 
+    $currentUser = function_exists('get_current_user_profile') ? get_current_user_profile() : null;
+    $currentRole = strtoupper($currentUser['role'] ?? '');
+    $currentUid  = (int) ($currentUser['id'] ?? 0);
+
     $wp_campaigns = get_posts([
         'post_type'      => 'campaign',
         'post_status'    => 'publish',
         'posts_per_page' => -1,
         'orderby'        => 'ID',
-        'order'          => 'ASC'
+        'order'          => 'DESC'
     ]);
 
     if (empty($wp_campaigns)) {
@@ -522,8 +938,25 @@ function get_all_campaigns($filter = 'all') {
 
     foreach ($wp_campaigns as $camp_post) {
         $cid = $camp_post->ID;
+
+        $assigned_makers = function_exists('pcs_id_list') ? pcs_id_list($cid, '_maker_ids') : [];
+        $assigned_checkers = function_exists('pcs_id_list') ? pcs_id_list($cid, '_checker_ids') : [];
+
+        // 1. Phân quyền hiển thị nghiêm ngặt:
+        // - Maker chỉ thấy campaign mà mình được gán vào _maker_ids
+        // - Checker chỉ thấy campaign mà mình được gán vào _checker_ids
+        // - Admin thấy toàn bộ campaigns
+        if ($currentRole === 'MAKER' && $currentUid > 0) {
+            if (!in_array($currentUid, $assigned_makers, true)) {
+                continue;
+            }
+        } elseif ($currentRole === 'CHECKER' && $currentUid > 0) {
+            if (!in_array($currentUid, $assigned_checkers, true)) {
+                continue;
+            }
+        }
+
         $deadline_raw = get_post_meta($cid, '_campaign_deadline', true) ?: get_post_meta($cid, '_deadline', true);
-        
         $deadline_display = 'No deadline';
         if ($deadline_raw) {
             $ts = strtotime($deadline_raw);
@@ -532,21 +965,23 @@ function get_all_campaigns($filter = 'all') {
             }
         }
 
+        // Lấy đúng Owner từ _owner_id
         $owner_id = (int) get_post_meta($cid, '_owner_id', true) ?: (int) $camp_post->post_author;
-        $owner_name = 'Campaign Owner';
-        $owner_initials = 'CO';
+        $owner_name = 'Unassigned';
+        $owner_initials = 'UA';
         if ($owner_id) {
             $owner_user = get_userdata($owner_id);
             if ($owner_user) {
-                $owner_name = $owner_user->display_name;
+                $owner_name = $owner_user->display_name ?: $owner_user->user_login;
                 $parts = explode(' ', trim($owner_name));
                 $owner_initials = strtoupper(substr($parts[0], 0, 1) . (isset($parts[1]) ? substr($parts[1], 0, 1) : ''));
             }
         }
 
-        // Guidelines file URL
-        $guideline_url = get_post_meta($cid, '_guideline_file_url', true);
-        $guidelines_count = !empty($guideline_url) ? 1 : ((int) get_post_meta($cid, '_guideline_file_id', true) ? 1 : 0);
+        // Đọc danh sách đầy đủ tất cả Guideline Documents qua hàm chuẩn pcs_get_campaign_guidelines
+        $guidelines_list = function_exists('pcs_get_campaign_guidelines') ? pcs_get_campaign_guidelines($cid) : [];
+        $guidelines_count = count($guidelines_list);
+        $guideline_url = !empty($guidelines_list) ? $guidelines_list[0]['url'] : '';
 
         // Query các Asset thuộc campaign này
         $wp_assets = get_posts([
@@ -562,15 +997,16 @@ function get_all_campaigns($filter = 'all') {
         $assets_data = [];
         $has_rejected = false;
         $has_in_review = false;
+        $has_scoring = false;
         $total_assets = count($wp_assets);
         $approved_assets = 0;
-        $maker_task_summary = 'Check asset status';
+        $released_assets = 0;
+        $maker_task_summary = 'Upload artwork to start review';
 
         foreach ($wp_assets as $asset_post) {
             $aid = $asset_post->ID;
             $current_ver_id = (int) get_post_meta($aid, '_current_version_id', true);
             
-            // Nếu asset chưa được link _current_version_id, tự động lấy version mới nhất của asset đó
             if (!$current_ver_id) {
                 $vers = get_posts([
                     'post_type'      => 'asset_version',
@@ -616,24 +1052,25 @@ function get_all_campaigns($filter = 'all') {
                 if ($u_checker) $checker_name = $u_checker->display_name;
             }
 
+            // Chuẩn hóa nhãn và bước tiếp theo theo 6 core status
             $badge_type = 'neutral';
-            $version_label = 'V' . $version_num . ' · ' . ucfirst($status);
-            $next_step = 'Draft created';
+            $version_label = 'V' . $version_num . ' · Draft';
+            $next_step = 'Draft created: Waiting for upload';
             $actions = ['view'];
 
             if ($status === 'rejected') {
                 $badge_type = 'danger';
-                $version_label = 'V' . $version_num . ' · Changes Requested';
+                $version_label = 'V' . $version_num . ' · Rejected';
                 $next_step = $review_note ? 'Feedback: ' . $review_note : 'Changes requested: Upload V' . ($version_num + 1);
                 $actions = ['feedback', 'upload_next'];
                 $has_rejected = true;
                 $maker_task_summary = 'Upload V' . ($version_num + 1) . ' (' . $asset_post->post_title . ')';
             } elseif ($status === 'scoring') {
-                $badge_type = 'primary';
-                $version_label = 'V' . $version_num . ' · AI Scoring';
-                $next_step = 'AI Pre-flight scanning foreign logo, guidelines and MAS rules...';
+                $badge_type = 'warning';
+                $version_label = 'V' . $version_num . ' · Scoring';
+                $next_step = 'AI scanning foreign logo, guidelines and MAS rules...';
                 $actions = ['view'];
-                $has_in_review = true;
+                $has_scoring = true;
             } elseif ($status === 'in_review') {
                 $badge_type = 'primary';
                 $version_label = 'V' . $version_num . ' · In Review';
@@ -655,6 +1092,7 @@ function get_all_campaigns($filter = 'all') {
                 $next_step = 'Asset published & locked';
                 $actions = ['view'];
                 $approved_assets++;
+                $released_assets++;
             }
 
             $assets_data[] = [
@@ -677,7 +1115,10 @@ function get_all_campaigns($filter = 'all') {
 
         $percent = $total_assets > 0 ? round(($approved_assets / $total_assets) * 100) : 0;
 
+        // Chuẩn hóa trạng thái Campaign theo 6 core status:
+        // draft -> scoring -> in_review -> approved / rejected -> released
         $campaign_status = 'Draft';
+        $campaign_status_slug = 'draft';
         $campaign_status_type = 'neutral';
         $filter_group = 'draft';
 
@@ -688,14 +1129,28 @@ function get_all_campaigns($filter = 'all') {
 
         if ($has_rejected || in_array('rejected', $asset_statuses, true)) {
             $campaign_status = 'Rejected';
+            $campaign_status_slug = 'rejected';
             $campaign_status_type = 'danger';
             $filter_group = 'rejected';
         } elseif ($has_in_review || in_array('in_review', $asset_statuses, true)) {
             $campaign_status = 'In Review';
+            $campaign_status_slug = 'in_review';
             $campaign_status_type = 'primary';
             $filter_group = 'in_review';
-        } elseif ($approved_assets === $total_assets && $total_assets > 0) {
+        } elseif ($has_scoring || in_array('scoring', $asset_statuses, true)) {
+            $campaign_status = 'Scoring';
+            $campaign_status_slug = 'scoring';
+            $campaign_status_type = 'warning';
+            $filter_group = 'scoring';
+        } elseif ($total_assets > 0 && $released_assets === $total_assets) {
+            $campaign_status = 'Released';
+            $campaign_status_slug = 'released';
+            $campaign_status_type = 'purple';
+            $filter_group = 'released';
+            $maker_task_summary = 'All assets released';
+        } elseif ($total_assets > 0 && $approved_assets === $total_assets) {
             $campaign_status = 'Approved';
+            $campaign_status_slug = 'approved';
             $campaign_status_type = 'success';
             $filter_group = 'approved';
             $maker_task_summary = 'All assets approved';
@@ -713,12 +1168,18 @@ function get_all_campaigns($filter = 'all') {
             'percent'          => $percent,
             'maker_task'       => $maker_task_summary,
             'status'           => $campaign_status,
+            'status_slug'      => $campaign_status_slug,
             'status_type'      => $campaign_status_type,
             'filter_group'     => $filter_group,
             'asset_statuses'   => $asset_statuses,
             'expanded'         => ($campaign_status_type === 'danger' || in_array('rejected', $asset_statuses, true)),
-            'guidelines_count' => $guidelines_count,
-            'guideline_url'    => $guideline_url,
+            'guidelines_count'   => $guidelines_count,
+            'guideline_url'      => $guideline_url,
+            'guideline_file_url' => $guideline_url,
+            'guidelines'         => $guidelines_list,
+            'guideline_files'    => $guidelines_list,
+            'maker_ids'        => $assigned_makers,
+            'checker_ids'      => $assigned_checkers,
             'assets'           => $assets_data
         ];
     }
@@ -743,9 +1204,10 @@ function get_all_campaigns($filter = 'all') {
 
 /**
  * Tạo mới Campaign trong WordPress CPT
+ * Hỗ trợ chọn Campaign Owner, đính kèm nhiều Guideline documents, và gán Makers / Checkers
  */
 if (!function_exists('handle_create_campaign')) {
-function handle_create_campaign($campaign_name, $deadline = '', $maker_ids = [], $checker_ids = []) {
+function handle_create_campaign($campaign_name, $deadline = '', $maker_ids = [], $checker_ids = [], $owner_id = 0) {
     if (!pcs_is_wp() || !function_exists('wp_insert_post')) {
         return 0;
     }
@@ -756,15 +1218,12 @@ function handle_create_campaign($campaign_name, $deadline = '', $maker_ids = [],
     }
 
     $current_user = get_current_user_profile();
-    $author_id = $current_user['id'] ?? get_current_user_id();
+    $current_uid = $current_user['id'] ?? get_current_user_id();
 
-    // Tìm admin ID
-    $admin_id = $author_id;
-    if (function_exists('get_user_by')) {
-        $admin_user = get_user_by('login', 'admin');
-        if ($admin_user) {
-            $admin_id = $admin_user->ID;
-        }
+    // Xác định Campaign Owner: ưu tiên theo lựa chọn form, nếu không có thì lấy chính user hiện tại
+    $owner_id = $owner_id ? absint($owner_id) : $current_uid;
+    if (!$owner_id) {
+        $owner_id = $current_uid ?: 1;
     }
 
     // Tự động gán Maker & Checker nếu chưa chọn
@@ -773,7 +1232,7 @@ function handle_create_campaign($campaign_name, $deadline = '', $maker_ids = [],
         if (!empty($makers)) {
             $maker_ids = wp_list_pluck($makers, 'ID');
         } else {
-            $maker_ids = [$author_id];
+            $maker_ids = [$current_uid];
         }
     }
 
@@ -788,7 +1247,7 @@ function handle_create_campaign($campaign_name, $deadline = '', $maker_ids = [],
         'post_type'   => 'campaign',
         'post_title'  => $campaign_name,
         'post_status' => 'publish',
-        'post_author' => $admin_id,
+        'post_author' => $owner_id,
     ]);
 
     if ($cid && !is_wp_error($cid)) {
@@ -796,39 +1255,91 @@ function handle_create_campaign($campaign_name, $deadline = '', $maker_ids = [],
         $c_str = implode(',', array_filter(array_map('absint', (array) $checker_ids)));
         $dl_val = !empty($deadline) ? $deadline : date('Y-m-d H:i', strtotime('+14 days'));
 
-        // Upload Guideline File nếu có
-        $guideline_url = '';
-        if (!empty($_FILES['guideline_file']['name'])) {
-            if (!function_exists('wp_handle_upload')) {
-                require_once(ABSPATH . 'wp-admin/includes/file.php');
-            }
-            $upload_overrides = ['test_form' => false];
-            $gfile = wp_handle_upload($_FILES['guideline_file'], $upload_overrides);
-            if ($gfile && !isset($gfile['error'])) {
-                $guideline_url = $gfile['url'];
+        // Xử lý đính kèm NHIỀU file Guidelines khác nhau (PDF, DOCX, DOC, TXT, PNG, JPG)
+        $guideline_files_data = [];
+        if (!function_exists('wp_handle_upload')) {
+            require_once(ABSPATH . 'wp-admin/includes/file.php');
+        }
+
+        // 1. Kiểm tra mảng file nhiều tài liệu: $_FILES['guideline_files']
+        if (!empty($_FILES['guideline_files']['name'])) {
+            $raw_files = $_FILES['guideline_files'];
+            $file_count = is_array($raw_files['name']) ? count($raw_files['name']) : 1;
+            for ($i = 0; $i < $file_count; $i++) {
+                $fname = is_array($raw_files['name']) ? $raw_files['name'][$i] : $raw_files['name'];
+                $ftype = is_array($raw_files['type']) ? $raw_files['type'][$i] : $raw_files['type'];
+                $ftmp  = is_array($raw_files['tmp_name']) ? $raw_files['tmp_name'][$i] : $raw_files['tmp_name'];
+                $ferr  = is_array($raw_files['error']) ? $raw_files['error'][$i] : $raw_files['error'];
+                $fsize = is_array($raw_files['size']) ? $raw_files['size'][$i] : $raw_files['size'];
+
+                if ($ferr === UPLOAD_ERR_OK && !empty($fname)) {
+                    $single_file_arr = [
+                        'name'     => $fname,
+                        'type'     => $ftype,
+                        'tmp_name' => $ftmp,
+                        'error'    => $ferr,
+                        'size'     => $fsize
+                    ];
+                    $upload_overrides = ['test_form' => false];
+                    $uploaded = wp_handle_upload($single_file_arr, $upload_overrides);
+                    if ($uploaded && !isset($uploaded['error'])) {
+                        $guideline_files_data[] = [
+                            'id'   => count($guideline_files_data) + 1,
+                            'name' => sanitize_text_field($fname),
+                            'url'  => esc_url_raw($uploaded['url']),
+                            'ext'  => strtolower(pathinfo($fname, PATHINFO_EXTENSION)),
+                            'size' => round($fsize / (1024 * 1024), 2) . ' MB'
+                        ];
+                    }
+                }
             }
         }
 
+        // 2. Fallback nếu người dùng gửi qua input đơn: $_FILES['guideline_file']
+        if (empty($guideline_files_data) && !empty($_FILES['guideline_file']['name'])) {
+            $upload_overrides = ['test_form' => false];
+            $gfile = wp_handle_upload($_FILES['guideline_file'], $upload_overrides);
+            if ($gfile && !isset($gfile['error'])) {
+                $fname = sanitize_text_field($_FILES['guideline_file']['name']);
+                $guideline_files_data[] = [
+                    'id'   => 1,
+                    'name' => $fname,
+                    'url'  => esc_url_raw($gfile['url']),
+                    'ext'  => strtolower(pathinfo($fname, PATHINFO_EXTENSION)),
+                    'size' => round(($_FILES['guideline_file']['size'] ?? 0) / (1024 * 1024), 2) . ' MB'
+                ];
+            }
+        }
+
+        $primary_url = !empty($guideline_files_data) ? $guideline_files_data[0]['url'] : '';
+        $json_guidelines = json_encode($guideline_files_data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
         if (function_exists('pcs_server_meta')) {
-            pcs_server_meta($cid, '_owner_id', $admin_id);
+            pcs_server_meta($cid, '_owner_id', $owner_id);
             pcs_server_meta($cid, '_maker_ids', $m_str);
             pcs_server_meta($cid, '_checker_ids', $c_str);
             pcs_server_meta($cid, '_campaign_deadline', $dl_val);
-            if ($guideline_url) {
-                pcs_server_meta($cid, '_guideline_file_url', $guideline_url);
+            pcs_server_meta($cid, '_guideline_files', $json_guidelines);
+            if ($primary_url) {
+                pcs_server_meta($cid, '_guideline_file_url', $primary_url);
             }
         } else {
-            update_post_meta($cid, '_owner_id', $admin_id);
+            update_post_meta($cid, '_owner_id', $owner_id);
             update_post_meta($cid, '_maker_ids', $m_str);
             update_post_meta($cid, '_checker_ids', $c_str);
             update_post_meta($cid, '_campaign_deadline', $dl_val);
-            if ($guideline_url) {
-                update_post_meta($cid, '_guideline_file_url', $guideline_url);
+            update_post_meta($cid, '_guideline_files', $json_guidelines);
+            if ($primary_url) {
+                update_post_meta($cid, '_guideline_file_url', $primary_url);
             }
         }
 
         if (function_exists('pcs_log')) {
-            pcs_log('create_campaign', 0, 0, '', 'active', 'Created campaign: ' . $campaign_name);
+            pcs_log('create_campaign', 0, 0, '', 'active', 'Created campaign: ' . $campaign_name . ' (Owner: ' . $owner_id . ')');
+        }
+
+        if (function_exists('pcs_bump_sync_version')) {
+            pcs_bump_sync_version();
         }
 
         return $cid;
@@ -839,26 +1350,199 @@ function handle_create_campaign($campaign_name, $deadline = '', $maker_ids = [],
 }
 
 /**
+ * Cập nhật phân công thành viên Campaign (Admin CRUD: Owner, Maker, Checker)
+ */
+if (!function_exists('handle_update_campaign_team')) {
+function handle_update_campaign_team($campaign_id, $maker_ids = [], $checker_ids = [], $owner_id = 0) {
+    if (!pcs_is_wp()) return false;
+    $cid = absint($campaign_id);
+    if (!$cid || get_post_type($cid) !== 'campaign') return false;
+
+    $m_str = implode(',', array_filter(array_map('absint', (array) $maker_ids)));
+    $c_str = implode(',', array_filter(array_map('absint', (array) $checker_ids)));
+
+    if (function_exists('pcs_server_meta')) {
+        if ($owner_id > 0) pcs_server_meta($cid, '_owner_id', absint($owner_id));
+        pcs_server_meta($cid, '_maker_ids', $m_str);
+        pcs_server_meta($cid, '_checker_ids', $c_str);
+    } else {
+        if ($owner_id > 0) update_post_meta($cid, '_owner_id', absint($owner_id));
+        update_post_meta($cid, '_maker_ids', $m_str);
+        update_post_meta($cid, '_checker_ids', $c_str);
+    }
+
+    if (function_exists('pcs_log')) {
+        pcs_log('update_campaign_team', 0, 0, '', '', 'Updated team assignments for campaign #' . $cid);
+    }
+    if (function_exists('pcs_bump_sync_version')) {
+        pcs_bump_sync_version();
+    }
+    return true;
+}
+}
+
+/**
  * Upload hoặc cập nhật file Guideline cho một Campaign cụ thể
+ * Hỗ trợ cả file đơn và mảng nhiều file, lưu trữ vào _guideline_files JSON
  */
 if (!function_exists('handle_upload_campaign_guideline')) {
 function handle_upload_campaign_guideline($campaign_id) {
-    if (!empty($_FILES['guideline_file']['name']) && pcs_is_wp()) {
-        if (!function_exists('wp_handle_upload')) {
-            require_once(ABSPATH . 'wp-admin/includes/file.php');
-        }
-        $upload_overrides = ['test_form' => false];
-        $gfile = wp_handle_upload($_FILES['guideline_file'], $upload_overrides);
-        if ($gfile && !isset($gfile['error'])) {
-            if (function_exists('pcs_server_meta')) {
-                pcs_server_meta($campaign_id, '_guideline_file_url', $gfile['url']);
-            } else {
-                update_post_meta($campaign_id, '_guideline_file_url', $gfile['url']);
+    $cid = (int) $campaign_id;
+    if ($cid <= 0 || !pcs_is_wp()) return '';
+
+    if (!function_exists('wp_handle_upload')) {
+        require_once(ABSPATH . 'wp-admin/includes/file.php');
+    }
+
+    $existing = function_exists('pcs_get_campaign_guidelines') ? pcs_get_campaign_guidelines($cid) : [];
+    $uploaded_urls = [];
+    $seen_names = array_map(fn($item) => strtolower($item['name'] ?? ''), $existing);
+
+    // Helper xử lý từng file
+    $process_file = function($name, $type, $tmp_name, $error, $size) use (&$existing, &$uploaded_urls, &$seen_names) {
+        if ($error === UPLOAD_ERR_OK && !empty($name)) {
+            $farr = ['name' => $name, 'type' => $type, 'tmp_name' => $tmp_name, 'error' => $error, 'size' => $size];
+            $res = wp_handle_upload($farr, ['test_form' => false]);
+            if ($res && !isset($res['error'])) {
+                $u = esc_url_raw($res['url']);
+                $clean_name = sanitize_text_field($name);
+                $uploaded_urls[] = $u;
+                $seen_names[] = strtolower($clean_name);
+                $existing[] = [
+                    'id'   => count($existing) + 1,
+                    'name' => $clean_name,
+                    'url'  => $u,
+                    'ext'  => strtolower(pathinfo($clean_name, PATHINFO_EXTENSION)),
+                    'size' => round($size / (1024 * 1024), 2) . ' MB',
+                    'tag'  => 'Additional Reference'
+                ];
             }
-            return $gfile['url'];
+        }
+    };
+
+    // 1. Quét mảng files từ $_FILES['guideline_files']
+    if (!empty($_FILES['guideline_files']['name'])) {
+        $raw = $_FILES['guideline_files'];
+        if (is_array($raw['name'])) {
+            $count = count($raw['name']);
+            for ($i = 0; $i < $count; $i++) {
+                $process_file($raw['name'][$i], $raw['type'][$i] ?? '', $raw['tmp_name'][$i] ?? '', $raw['error'][$i] ?? 0, $raw['size'][$i] ?? 0);
+            }
+        } else {
+            $process_file($raw['name'], $raw['type'] ?? '', $raw['tmp_name'] ?? '', $raw['error'] ?? 0, $raw['size'] ?? 0);
         }
     }
-    return '';
+
+    // 2. Quét files từ $_FILES['guideline_file'] (hỗ trợ cả mảng và file đơn)
+    if (!empty($_FILES['guideline_file']['name'])) {
+        $raw = $_FILES['guideline_file'];
+        if (is_array($raw['name'])) {
+            $count = count($raw['name']);
+            for ($i = 0; $i < $count; $i++) {
+                $process_file($raw['name'][$i], $raw['type'][$i] ?? '', $raw['tmp_name'][$i] ?? '', $raw['error'][$i] ?? 0, $raw['size'][$i] ?? 0);
+            }
+        } else {
+            $process_file($raw['name'], $raw['type'] ?? '', $raw['tmp_name'] ?? '', $raw['error'] ?? 0, $raw['size'] ?? 0);
+        }
+    }
+
+    if (!empty($existing)) {
+        // Re-index IDs
+        foreach ($existing as $idx => &$item) {
+            $item['id'] = $idx + 1;
+        }
+        unset($item);
+
+        $json_guidelines = json_encode($existing, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $primary_url = !empty($existing) ? $existing[0]['url'] : '';
+
+        if (function_exists('pcs_server_meta')) {
+            pcs_server_meta($cid, '_guideline_files', $json_guidelines);
+            pcs_server_meta($cid, '_guidelines', $json_guidelines);
+            pcs_server_meta($cid, '_guideline_file_url', $primary_url);
+        } else {
+            update_post_meta($cid, '_guideline_files', $json_guidelines);
+            update_post_meta($cid, '_guidelines', $json_guidelines);
+            update_post_meta($cid, '_guideline_file_url', $primary_url);
+        }
+
+        if (function_exists('pcs_log')) {
+            pcs_log('upload_guideline', 0, 0, '', 'active', 'Uploaded ' . count($uploaded_urls) . ' guideline file(s) to campaign #' . $cid);
+        }
+
+        if (function_exists('pcs_bump_sync_version')) {
+            pcs_bump_sync_version();
+        }
+    }
+
+    return !empty($uploaded_urls) ? $uploaded_urls[0] : '';
+}
+}
+
+/**
+ * Xóa một file Guideline khỏi Campaign (CRUD: Delete)
+ */
+if (!function_exists('handle_delete_campaign_guideline')) {
+function handle_delete_campaign_guideline($campaign_id, $target_url_or_id) {
+    $cid = (int) $campaign_id;
+    if ($cid <= 0 || !pcs_is_wp()) return false;
+
+    $target = trim((string)$target_url_or_id);
+    if (empty($target)) return false;
+
+    $existing = function_exists('pcs_get_campaign_guidelines') ? pcs_get_campaign_guidelines($cid) : [];
+    if (empty($existing)) return false;
+
+    $updated = [];
+    $deleted = false;
+    foreach ($existing as $item) {
+        $u = $item['url'] ?? '';
+        $id = (string)($item['id'] ?? '');
+        $name = (string)($item['name'] ?? '');
+        if ($u === $target || $id === $target || $name === $target) {
+            $deleted = true;
+            if (function_exists('attachment_url_to_postid')) {
+                $att_id = attachment_url_to_postid($u);
+                if ($att_id > 0 && function_exists('wp_delete_attachment')) {
+                    wp_delete_attachment($att_id, true);
+                }
+            }
+            continue;
+        }
+        $updated[] = $item;
+    }
+
+    if (!$deleted) {
+        return false;
+    }
+
+    foreach ($updated as $idx => &$item) {
+        $item['id'] = $idx + 1;
+    }
+    unset($item);
+
+    $json_guidelines = json_encode($updated, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $primary_url = !empty($updated) ? $updated[0]['url'] : '';
+
+    if (function_exists('pcs_server_meta')) {
+        pcs_server_meta($cid, '_guideline_files', $json_guidelines);
+        pcs_server_meta($cid, '_guidelines', $json_guidelines);
+        pcs_server_meta($cid, '_guideline_file_url', $primary_url);
+    } else {
+        update_post_meta($cid, '_guideline_files', $json_guidelines);
+        update_post_meta($cid, '_guidelines', $json_guidelines);
+        update_post_meta($cid, '_guideline_file_url', $primary_url);
+    }
+
+    if (function_exists('pcs_log')) {
+        pcs_log('delete_guideline', 0, 0, '', 'active', 'Deleted guideline: ' . $target . ' from campaign #' . $cid);
+    }
+
+    if (function_exists('pcs_bump_sync_version')) {
+        pcs_bump_sync_version();
+    }
+
+    return true;
 }
 }
 
@@ -1016,6 +1700,10 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
             pcs_log('upload', $asset_id, $version_id, '', 'in_review', 'Uploaded V' . $ver_num . ' via Maker Dashboard');
         }
 
+        if (function_exists('pcs_bump_sync_version')) {
+            pcs_bump_sync_version();
+        }
+
         return $version_id ?: true;
     }
 
@@ -1039,19 +1727,23 @@ function get_coming_up_tasks() {
         foreach ($camp['assets'] as $asset) {
             if ($asset['badge_type'] === 'danger') {
                 $tasks[] = [
-                    'date'       => 'Action Required',
-                    'badge_type' => 'danger',
-                    'badge'      => 'Action Required',
-                    'title'      => 'Upload V' . (($asset['current_version_num'] ?? 2) + 1) . ' (' . $asset['name'] . ')',
-                    'campaign'   => $camp['name'],
+                    'date'        => 'Action Required',
+                    'badge_type'  => 'danger',
+                    'badge'       => 'Action Required',
+                    'title'       => 'Upload V' . (($asset['current_version_num'] ?? 2) + 1) . ' (' . $asset['name'] . ')',
+                    'campaign'    => $camp['name'],
+                    'campaign_id' => $camp['id'] ?? 0,
+                    'asset_id'    => $asset['id'] ?? 0,
                 ];
             } elseif ($asset['badge_type'] === 'primary') {
                 $tasks[] = [
-                    'date'       => $camp['deadline'],
-                    'badge_type' => 'primary',
-                    'badge'      => 'Awaiting Review',
-                    'title'      => $asset['name'] . ' ' . explode(' · ', $asset['version'])[0],
-                    'campaign'   => $camp['name'],
+                    'date'        => $camp['deadline'],
+                    'badge_type'  => 'primary',
+                    'badge'       => 'Awaiting Review',
+                    'title'       => $asset['name'] . ' ' . explode(' · ', $asset['version'])[0],
+                    'campaign'    => $camp['name'],
+                    'campaign_id' => $camp['id'] ?? 0,
+                    'asset_id'    => $asset['id'] ?? 0,
                 ];
             }
         }
@@ -1392,7 +2084,15 @@ function handle_checker_decision($version_id, $decision, $review_note = '') {
             );
         }
 
+        if (function_exists('pcs_bump_sync_version')) {
+            pcs_bump_sync_version();
+        }
+
         return ['success' => true, 'message' => 'Asset version marked as ' . strtoupper($decision) . ' successfully.'];
+    }
+
+    if (function_exists('pcs_bump_sync_version')) {
+        pcs_bump_sync_version();
     }
 
     return ['success' => true, 'message' => 'Decision simulated successfully.'];
@@ -1480,37 +2180,9 @@ function get_campaign_detail_asset_data($campaign_id = 0, $selected_asset_id = 0
         }
     }
 
-    // 2. Guidelines của Campaign: Chỉ lấy file thực tế được đính kèm vào Campaign
-    $guidelines_list = [];
-    $guideline_url = get_post_meta($cid, '_guideline_file_url', true);
-    $guideline_id  = (int) get_post_meta($cid, '_guideline_file_id', true);
-    
-    if ($guideline_id) {
-        $g_att = get_post($guideline_id);
-        if ($g_att) {
-            $guideline_name = $g_att->post_title ?: basename(get_attached_file($guideline_id));
-            if (!$guideline_url) $guideline_url = wp_get_attachment_url($guideline_id);
-            $guidelines_list[] = [
-                'name' => $guideline_name,
-                'tag'  => 'Campaign Primary',
-                'url'  => $guideline_url,
-                'icon' => 'pdf'
-            ];
-        }
-    } elseif (!empty($guideline_url)) {
-        $guidelines_list[] = [
-            'name' => basename(parse_url($guideline_url, PHP_URL_PATH)),
-            'tag'  => 'Campaign Primary',
-            'url'  => $guideline_url,
-            'icon' => 'pdf'
-        ];
-    }
-    $more_guides = get_post_meta($cid, '_guidelines', true);
-    if (is_array($more_guides)) {
-        foreach ($more_guides as $mg) {
-            if (!empty($mg['name'])) $guidelines_list[] = $mg;
-        }
-    }
+    // 2. Guidelines của Campaign: Lấy đầy đủ 100% tất cả file đã upload qua pcs_get_campaign_guidelines
+    $guidelines_list = function_exists('pcs_get_campaign_guidelines') ? pcs_get_campaign_guidelines($cid) : [];
+    $guideline_url = !empty($guidelines_list) ? $guidelines_list[0]['url'] : '';
 
     // 3. Truy vấn toàn bộ Assets thuộc Campaign này từ Database CPT asset
     $wp_assets = get_posts([
@@ -1782,15 +2454,17 @@ function get_campaign_detail_asset_data($campaign_id = 0, $selected_asset_id = 0
             $is_current = ($vp->ID === $selected_asset['current_version_id']);
 
             $st_display = 'Draft';
-            if ($vst === 'in_review') $st_display = 'Awaiting Review';
+            if ($vst === 'scoring') $st_display = 'Scoring';
+            elseif ($vst === 'in_review') $st_display = 'In Review';
             elseif ($vst === 'rejected') $st_display = 'Rejected';
-            elseif ($vst === 'approved') $st_display = 'Awaiting Release';
+            elseif ($vst === 'approved') $st_display = 'Approved';
             elseif ($vst === 'released') $st_display = 'Released';
 
             $version_history[] = [
                 'id'            => $vp->ID,
                 'version_num'   => $v_idx,
-                'version_label' => 'V' . $v_idx . ($is_current ? ' (Current)' : ''),
+                'version_label' => 'V' . $v_idx,
+                'version_raw'   => 'V' . $v_idx,
                 'status'        => $vst,
                 'status_label'  => $st_display,
                 'date'          => $vdate,
@@ -2264,7 +2938,15 @@ function handle_admin_release($version_id, $release_notes = '') {
             );
         }
 
+        if (function_exists('pcs_bump_sync_version')) {
+            pcs_bump_sync_version();
+        }
+
         return ['success' => true, 'message' => 'Version V' . $v_num . ' has been released and locked for production.'];
+    }
+
+    if (function_exists('pcs_bump_sync_version')) {
+        pcs_bump_sync_version();
     }
 
     return ['success' => true, 'message' => 'Release simulation succeeded.'];
@@ -2312,7 +2994,15 @@ function handle_admin_reject($version_id, $reject_notes = '') {
             );
         }
 
+        if (function_exists('pcs_bump_sync_version')) {
+            pcs_bump_sync_version();
+        }
+
         return ['success' => true, 'message' => 'Version V' . $v_num . ' sent back for revisions. Changes requested.'];
+    }
+
+    if (function_exists('pcs_bump_sync_version')) {
+        pcs_bump_sync_version();
     }
 
     return ['success' => true, 'message' => 'Version sent back for revisions.'];
@@ -2620,7 +3310,7 @@ function get_admin_final_review_data($target_version_id = 0, $target_asset_id = 
         'version_num'        => $v_num,
         'version_label'      => 'V' . $v_num,
         'status'             => $status,
-        'status_label'       => $is_released ? 'Released / Locked' : ($is_awaiting_release ? 'Awaiting Release' : ucfirst(str_replace('_', ' ', $status))),
+        'status_label'       => ($status === 'released') ? 'Released' : (($status === 'approved') ? 'Approved' : (($status === 'in_review') ? 'In Review' : (($status === 'scoring') ? 'Scoring' : (($status === 'rejected') ? 'Rejected' : 'Draft')))),
         'is_awaiting_release'=> $is_awaiting_release,
         'is_released'        => $is_released,
         'submitted_at'       => date('d M Y, H:i \S\G\T', strtotime($ver_post->post_date)),
@@ -3112,6 +3802,10 @@ function handle_checker_override($result_id, $new_verdict, $override_reason = ''
             '',
             'Checker ' . ($current_user['name'] ?? 'User') . ' overrode check result #' . $result_id . ' to ' . strtoupper($new_verdict) . ($override_reason ? ': ' . $override_reason : '')
         );
+    }
+
+    if (function_exists('pcs_bump_sync_version')) {
+        pcs_bump_sync_version();
     }
 
     return ['success' => true, 'message' => 'Criterion verdict overridden successfully.'];
@@ -4387,30 +5081,7 @@ function get_smart_maker_upload_data($campaign_id = 0, $asset_id = 0, $mode = ''
     }
 
     // Guidelines for this campaign
-    $guidelines_list = [];
-    $g_url = get_post_meta($cid, '_guideline_file_url', true);
-    $g_id  = (int) get_post_meta($cid, '_guideline_file_id', true);
-    if ($g_id) {
-        $g_att = get_post($g_id);
-        if ($g_att) {
-            $guidelines_list[] = [
-                'name' => $g_att->post_title ?: basename(get_attached_file($g_id)),
-                'url'  => $g_url ?: wp_get_attachment_url($g_id)
-            ];
-        }
-    } elseif (!empty($g_url)) {
-        $guidelines_list[] = [
-            'name' => basename(parse_url($g_url, PHP_URL_PATH)),
-            'url'  => $g_url
-        ];
-    }
-    if (empty($guidelines_list)) {
-        $guidelines_list = [
-            ['name' => 'Brand Guidelines 2026', 'url' => ''],
-            ['name' => 'MAS Advertising Rules', 'url' => ''],
-            ['name' => 'Campaign Copy Standards', 'url' => '']
-        ];
-    }
+    $guidelines_list = function_exists('pcs_get_campaign_guidelines') ? pcs_get_campaign_guidelines($cid) : [];
 
     $campaign_data = [
         'id'          => $cid,
@@ -4876,6 +5547,15 @@ function get_ai_scoring_progress_data($target_version_id = 0, $target_asset_id =
         'asset_id'    => $aid
     ]);
 
+    $return_url = (function_exists('pcs_url') ? pcs_url('detail-asset-maker.php') : 'detail-asset-maker.php');
+    if ($aid > 0) {
+        $return_url .= '?asset_id=' . $aid . ($cid > 0 ? '&campaign_id=' . $cid : '');
+    } elseif ($cid > 0) {
+        $return_url = (function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php') . '?campaign_id=' . $cid;
+    } else {
+        $return_url = function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php';
+    }
+
     return [
         'is_empty'          => false,
         'current_user'      => $current_user,
@@ -5099,15 +5779,47 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
         $crit = get_post_meta($cr->ID, '_criterion', true);
         $sc = (int) get_post_meta($cr->ID, '_score', true);
         $quote = get_post_meta($cr->ID, '_source_quote', true);
+        $reason = get_post_meta($cr->ID, '_reason', true);
+        $rule = get_post_meta($cr->ID, '_rule', true);
         if ($crit) {
-            $existing_checks[$crit] = ['score' => $sc, 'quote' => $quote];
+            $existing_checks[$crit] = [
+                'score'  => $sc,
+                'quote'  => $quote,
+                'reason' => $reason,
+                'rule'   => $rule,
+                'id'     => $cr->ID
+            ];
         }
     }
 
-    // Default or dynamic scores
-    $score_foreign = $existing_checks['foreign_logo']['score'] ?? 92;
+    // Guidelines for this campaign (all uploaded documents)
+    $guidelines_list = function_exists('pcs_get_campaign_guidelines') ? pcs_get_campaign_guidelines($cid) : [];
+    $guideline_url = !empty($guidelines_list) ? $guidelines_list[0]['url'] : (get_post_meta($cid, '_guideline_file_url', true) ?: '');
+
+    // Default or dynamic scores & quotes
+    $score_foreign = $existing_checks['foreign_logo']['score'] ?? 95;
+    $quote_foreign = !empty($existing_checks['foreign_logo']['quote'])
+        ? $existing_checks['foreign_logo']['quote']
+        : 'Rule FL-01: No unauthorized third-party marks, competitor bank logos (e.g., DBS, OCBC, UOB, HSBC), or unverified payment badges are permitted on the artwork.';
+    $reason_foreign = !empty($existing_checks['foreign_logo']['reason'])
+        ? $existing_checks['foreign_logo']['reason']
+        : (($score_foreign >= 71) ? 'Logo usage aligns with the applied brand reference. No competitor marks detected.' : 'Detected unverified third-party mark or competitor logo on artwork.');
+
     $score_guideline = $existing_checks['guideline']['score'] ?? 64;
+    $quote_guideline = !empty($existing_checks['guideline']['quote'])
+        ? $existing_checks['guideline']['quote']
+        : 'Rule BG-01: Primary colors must adhere to Navy Blue (#0A192F) and Gold (#D4AF37). Neutral white/off-white accepted. Neon red and aggressive gradients prohibited. Rule BG-02: Brand logo must maintain a clear exclusion zone free from typography clutter.';
+    $reason_guideline = !empty($existing_checks['guideline']['reason'])
+        ? $existing_checks['guideline']['reason']
+        : (($score_guideline >= 71) ? 'Primary color palette adheres to Brand Guidelines with sufficient contrast.' : 'One brand or compliance detail requires human visual verification.');
+
     $score_mas = $existing_checks['mas_rule']['score'] ?? 25;
+    $quote_mas = !empty($existing_checks['mas_rule']['quote'])
+        ? $existing_checks['mas_rule']['quote']
+        : 'Rule MAS-01: Any financial advertisement featuring investment returns or yields must include the prominent risk disclosure: \'Past performance is not indicative of future performance. Investments are subject to market risks.\'';
+    $reason_mas = !empty($existing_checks['mas_rule']['reason'])
+        ? $existing_checks['mas_rule']['reason']
+        : (($score_mas >= 71) ? 'Statutory disclosures and risk warnings satisfy Singapore MAS regulatory standards.' : 'Ấn phẩm tài chính đề cập tới mức sinh lời hoặc ưu đãi nhưng thiếu dòng cảnh báo rủi ro bắt buộc theo quy định của Cơ quan Quản lý Tiền tệ Singapore (MAS §4.1b).');
 
     $get_status_meta = function($sc) {
         if ($sc >= 71) {
@@ -5144,68 +5856,81 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
     $meta_guideline = $get_status_meta($score_guideline);
     $meta_mas = $get_status_meta($score_mas);
 
-    $guideline_url = $cid ? get_post_meta($cid, '_guideline_file_url', true) : '';
+    $doc_url_1 = !empty($guidelines_list[0]['url']) ? $guidelines_list[0]['url'] : ($guideline_url ?: '');
+    $doc_name_1 = !empty($guidelines_list[0]['name']) ? $guidelines_list[0]['name'] : 'Brand Guidelines 2026';
+
+    $doc_url_2 = !empty($guidelines_list[1]['url']) ? $guidelines_list[1]['url'] : $doc_url_1;
+    $doc_name_2 = !empty($guidelines_list[1]['name']) ? $guidelines_list[1]['name'] : 'Campaign Copy Standards';
+
+    $doc_url_3 = !empty($guidelines_list[2]['url']) ? $guidelines_list[2]['url'] : $doc_url_1;
+    $doc_name_3 = !empty($guidelines_list[2]['name']) ? $guidelines_list[2]['name'] : 'MAS Advertising Rules §4.1b';
 
     $checks = [
         'foreign_logo' => [
-            'id'           => 'foreign_logo',
-            'band_id'      => 'band-foreign-logo',
-            'name'         => 'Foreign Logos',
-            'category'     => 'Logo review',
-            'score'        => $score_foreign,
-            'status'       => $meta_foreign['status'],
-            'badge'        => $meta_foreign['badge'],
-            'bg_color'     => $meta_foreign['bg_color'],
-            'text_color'   => $meta_foreign['text_color'],
-            'dot_color'    => $meta_foreign['dot_color'],
-            'border'       => $meta_foreign['border'],
-            'reason'       => 'Logo usage aligns with the applied brand reference.',
-            'evidence_tag' => 'Evidence: Logo area · Marker ①',
-            'marker_id'    => 'marker-1',
-            'marker_num'   => '1',
-            'source_title' => 'Brand Guidelines 2026',
-            'source_sub'   => 'Reference available',
-            'source_url'   => $guideline_url ?: 'javascript:void(0);'
+            'id'             => 'foreign_logo',
+            'band_id'        => 'band-foreign-logo',
+            'name'           => 'Foreign Logos',
+            'category'       => 'Logo review',
+            'score'          => $score_foreign,
+            'status'         => $meta_foreign['status'],
+            'badge'          => $meta_foreign['badge'],
+            'bg_color'       => $meta_foreign['bg_color'],
+            'text_color'     => $meta_foreign['text_color'],
+            'dot_color'      => $meta_foreign['dot_color'],
+            'border'         => $meta_foreign['border'],
+            'reason'         => $reason_foreign,
+            'evidence_tag'   => 'Evidence: Logo area · Marker ①',
+            'marker_id'      => 'marker-1',
+            'marker_num'     => '1',
+            'source_title'   => $doc_name_1,
+            'source_sub'     => 'Reference available',
+            'source_url'     => $doc_url_1 ?: 'javascript:void(0);',
+            'source_quote'   => $quote_foreign,
+            'source_doc_name'=> $doc_name_1
         ],
         'guideline' => [
-            'id'           => 'guideline',
-            'band_id'      => 'band-guideline',
-            'name'         => 'Brand & Compliance Documents',
-            'category'     => 'Document review',
-            'score'        => $score_guideline,
-            'status'       => $meta_guideline['status'],
-            'badge'        => $meta_guideline['badge'],
-            'bg_color'     => $meta_guideline['bg_color'],
-            'text_color'   => $meta_guideline['text_color'],
-            'dot_color'    => $meta_guideline['dot_color'],
-            'border'       => $meta_guideline['border'],
-            'reason'       => 'One brand or compliance detail requires human review.',
-            'evidence_tag' => 'Evidence: Disclaimer area · Marker ②',
-            'marker_id'    => 'marker-2',
-            'marker_num'   => '2',
-            'source_title' => 'Campaign Copy Standards',
-            'source_sub'   => 'Reference available',
-            'source_url'   => $guideline_url ?: 'javascript:void(0);'
+            'id'             => 'guideline',
+            'band_id'        => 'band-guideline',
+            'name'           => 'Brand & Compliance Documents',
+            'category'       => 'Document review',
+            'score'          => $score_guideline,
+            'status'         => $meta_guideline['status'],
+            'badge'          => $meta_guideline['badge'],
+            'bg_color'       => $meta_guideline['bg_color'],
+            'text_color'     => $meta_guideline['text_color'],
+            'dot_color'      => $meta_guideline['dot_color'],
+            'border'         => $meta_guideline['border'],
+            'reason'         => $reason_guideline,
+            'evidence_tag'   => 'Evidence: Disclaimer area · Marker ②',
+            'marker_id'      => 'marker-2',
+            'marker_num'     => '2',
+            'source_title'   => $doc_name_2,
+            'source_sub'     => 'Reference available',
+            'source_url'     => $doc_url_2 ?: 'javascript:void(0);',
+            'source_quote'   => $quote_guideline,
+            'source_doc_name'=> $doc_name_2
         ],
         'mas_rule' => [
-            'id'           => 'mas_rule',
-            'band_id'      => 'band-mas-rule',
-            'name'         => 'MAS Advertising Rules',
-            'category'     => 'Advertising review',
-            'score'        => $score_mas,
-            'status'       => $meta_mas['status'],
-            'badge'        => $meta_mas['badge'],
-            'bg_color'     => $meta_mas['bg_color'],
-            'text_color'   => $meta_mas['text_color'],
-            'dot_color'    => $meta_mas['dot_color'],
-            'border'       => $meta_mas['border'],
-            'reason'       => 'Statutory disclaimer prominence or critical notice does not meet compliance threshold.',
-            'evidence_tag' => 'Marker ③: Disclaimer / notice area',
-            'marker_id'    => 'marker-3',
-            'marker_num'   => '3',
-            'source_title' => 'MAS Advertising Rules',
-            'source_sub'   => 'Reference available',
-            'source_url'   => $guideline_url ?: 'javascript:void(0);'
+            'id'             => 'mas_rule',
+            'band_id'        => 'band-mas-rule',
+            'name'           => 'MAS Advertising Rules',
+            'category'       => 'Advertising review',
+            'score'          => $score_mas,
+            'status'         => $meta_mas['status'],
+            'badge'          => $meta_mas['badge'],
+            'bg_color'       => $meta_mas['bg_color'],
+            'text_color'     => $meta_mas['text_color'],
+            'dot_color'      => $meta_mas['dot_color'],
+            'border'         => $meta_mas['border'],
+            'reason'         => $reason_mas,
+            'evidence_tag'   => 'Marker ③: Disclaimer / notice area',
+            'marker_id'      => 'marker-3',
+            'marker_num'     => '3',
+            'source_title'   => $doc_name_3,
+            'source_sub'     => 'Reference available',
+            'source_url'     => $doc_url_3 ?: 'javascript:void(0);',
+            'source_quote'   => $quote_mas,
+            'source_doc_name'=> $doc_name_3
         ]
     ];
 
@@ -5213,35 +5938,37 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
         [
             'id'       => 'marker-1',
             'num'      => '1',
-            'label'    => '① Logo area',
+            'label'    => ($score_foreign >= 71) ? '① Logo area · Pass' : '① Logo area · ' . $meta_foreign['badge'],
             'top'      => '8%',
             'left'     => '5%',
-            'color'    => '#1F2674',
-            'status'   => 'pass',
-            'dot'      => '#5EDAC9',
+            'color'    => ($score_foreign >= 71) ? '#10B981' : (($score_foreign >= 31) ? '#D97706' : '#E11D48'),
+            'status'   => $meta_foreign['status'],
+            'dot'      => $meta_foreign['dot_color'],
+            'outline'  => ($score_foreign <= 30) ? '#FECDD3' : '',
             'band_id'  => 'band-foreign-logo'
         ],
         [
             'id'       => 'marker-2',
             'num'      => '2',
-            'label'    => '② Disclaimer area',
+            'label'    => ($score_guideline >= 71) ? '② Brand Identity · Pass' : '② Brand Identity · ' . $meta_guideline['badge'],
             'top'      => '58%',
             'left'     => '5%',
-            'color'    => '#D97706',
-            'status'   => 'needs_human',
-            'dot'      => '#D97706',
+            'color'    => ($score_guideline >= 71) ? '#10B981' : (($score_guideline >= 31) ? '#D97706' : '#E11D48'),
+            'status'   => $meta_guideline['status'],
+            'dot'      => $meta_guideline['dot_color'],
+            'outline'  => ($score_guideline <= 30) ? '#FECDD3' : '',
             'band_id'  => 'band-guideline'
         ],
         [
             'id'       => 'marker-3',
             'num'      => '3',
-            'label'    => '③ Advertising notice area · Fail',
+            'label'    => ($score_mas >= 71) ? '③ MAS Disclaimer · Pass' : '③ MAS Disclaimer · ' . $meta_mas['badge'],
             'top'      => '82%',
             'left'     => '5%',
-            'color'    => '#E11D48',
-            'status'   => 'fail',
-            'dot'      => '#E11D48',
-            'outline'  => '#FECDD3',
+            'color'    => ($score_mas >= 71) ? '#10B981' : (($score_mas >= 31) ? '#D97706' : '#E11D48'),
+            'status'   => $meta_mas['status'],
+            'dot'      => $meta_mas['dot_color'],
+            'outline'  => ($score_mas <= 30) ? '#FECDD3' : '',
             'band_id'  => 'band-mas-rule'
         ]
     ];
@@ -5278,6 +6005,7 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
         ],
         'previous_version'  => $previous_version,
         'version_count'     => $version_count,
+        'guidelines'        => $guidelines_list,
         'checks'            => $checks,
         'evidence_markers'  => $evidence_markers,
         'return_url'        => $return_url,

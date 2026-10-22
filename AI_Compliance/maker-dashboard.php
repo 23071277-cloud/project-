@@ -42,13 +42,24 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action']) && 
     }
 }
 
-// Handle Guideline Upload
-if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action']) && $_POST['action'] === 'upload_guideline') {
-    $campId = (int) ($_POST['campaign_id'] ?? 0);
-    if ($campId && function_exists('handle_upload_campaign_guideline')) {
-        $gUrl = handle_upload_campaign_guideline($campId);
-        if ($gUrl) {
-            $uploadAlert = 'Brand Guideline document uploaded successfully!';
+// Handle Guideline Upload & Delete (Full CRUD)
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action'])) {
+    if ($_POST['action'] === 'upload_guideline') {
+        $campId = (int) ($_POST['campaign_id'] ?? 0);
+        if ($campId && function_exists('handle_upload_campaign_guideline')) {
+            $gUrl = handle_upload_campaign_guideline($campId);
+            if ($gUrl) {
+                $uploadAlert = 'Brand Guideline document(s) uploaded successfully!';
+            }
+        }
+    } elseif ($_POST['action'] === 'delete_guideline') {
+        $campId = (int) ($_POST['campaign_id'] ?? 0);
+        $targetUrl = sanitize_text_field($_POST['guideline_url'] ?? '');
+        if ($campId && $targetUrl && function_exists('handle_delete_campaign_guideline')) {
+            $ok = handle_delete_campaign_guideline($campId, $targetUrl);
+            if ($ok) {
+                $uploadAlert = 'Guideline document deleted successfully!';
+            }
         }
     }
 }
@@ -73,10 +84,32 @@ $campaigns = get_all_campaigns();
 $scheduleDays = get_realtime_weekly_schedule();
 
 $totalCamps = count($campaigns);
-$kpis = function_exists('get_checker_kpis') ? get_checker_kpis() : [];
-$inReviewCount = $kpis['in_review'] ?? 0;
-$rejectedCount = $kpis['rejected'] ?? 0;
-$approvedCount = $kpis['approved'] ?? 0;
+
+// Phân loại trạng thái chuẩn theo Maker: Action Required & Awaiting Review
+$actionRequiredCount = 0;
+$awaitingReviewCount = 0;
+
+foreach ($campaigns as &$camp) {
+    $hasAction = false;
+    $hasAwaiting = false;
+    if (empty($camp['assets'])) {
+        $hasAction = true; // Chưa có asset nào -> Maker cần upload V1
+    } else {
+        foreach ($camp['assets'] as $ast) {
+            if ($ast['status'] === 'rejected' || $ast['status'] === 'draft') {
+                $hasAction = true;
+            } elseif ($ast['status'] === 'in_review' || $ast['status'] === 'scoring') {
+                $hasAwaiting = true;
+            }
+        }
+    }
+    $camp['has_action_required'] = $hasAction;
+    $camp['has_awaiting_review'] = $hasAwaiting;
+
+    if ($hasAction) $actionRequiredCount++;
+    if ($hasAwaiting) $awaitingReviewCount++;
+}
+unset($camp);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -442,10 +475,19 @@ $approvedCount = $kpis['approved'] ?? 0;
         /* ================= 3. WORKSPACE 2-COLUMN GRID ================= */
         .workspace-grid {
             display: grid;
-            grid-template-columns: 310px 1fr;
+            grid-template-columns: minmax(320px, 1fr) minmax(440px, 1.4fr);
             gap: 28px;
-            align-items: start;
+            align-items: stretch;
             margin-bottom: 48px;
+            transition: all 0.3s ease;
+        }
+
+        .workspace-grid.campaigns-expanded {
+            grid-template-columns: 1fr;
+        }
+
+        .workspace-grid.campaigns-expanded .coming-up-card {
+            display: none !important;
         }
 
         /* --- 3A. CỘT TRÁI: COMING UP CARD --- */
@@ -457,6 +499,24 @@ $approvedCount = $kpis['approved'] ?? 0;
             box-shadow: 0 2px 8px rgba(31, 42, 90, 0.04);
             display: flex;
             flex-direction: column;
+            height: 540px;
+            max-height: 540px;
+            overflow: hidden;
+        }
+
+        .coming-items-list {
+            overflow-y: auto;
+            flex: 1;
+            padding-right: 6px;
+            scrollbar-width: thin;
+            scrollbar-color: #CBD5E1 #FAF8FF;
+        }
+        .coming-items-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .coming-items-list::-webkit-scrollbar-thumb {
+            background-color: #CBD5E1;
+            border-radius: 4px;
         }
 
         .card-header-title {
@@ -548,6 +608,38 @@ $approvedCount = $kpis['approved'] ?? 0;
             border-radius: 18px;
             padding: 28px;
             box-shadow: 0 2px 8px rgba(31, 42, 90, 0.04);
+            display: flex;
+            flex-direction: column;
+            height: 540px;
+            max-height: 540px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .workspace-grid.campaigns-expanded .campaigns-card {
+            height: auto;
+            max-height: none;
+            width: 100%;
+        }
+
+        .btn-toggle-expand {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #373E8C;
+            background: #FAF8FF;
+            border: 1px solid #E0E0FF;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+        .btn-toggle-expand:hover {
+            background: #EDE9FA;
+            border-color: #373E8C;
         }
 
         .campaigns-top-bar {
@@ -590,9 +682,32 @@ $approvedCount = $kpis['approved'] ?? 0;
         }
 
         /* Table Structure */
+        .campaigns-card .table-responsive {
+            overflow-x: auto;
+            overflow-y: auto;
+            flex: 1;
+            max-height: 430px;
+            border-radius: 8px;
+            border: 1px solid #EBEDFF;
+            scrollbar-width: thin;
+            scrollbar-color: #CBD5E1 #FAF8FF;
+        }
+        .campaigns-card .table-responsive::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .campaigns-card .table-responsive::-webkit-scrollbar-thumb {
+            background-color: #CBD5E1;
+            border-radius: 4px;
+        }
+        .workspace-grid.campaigns-expanded .campaigns-card .table-responsive {
+            max-height: 640px;
+        }
+
         .campaign-table {
             width: 100%;
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: 0;
         }
 
         .table-head {
@@ -608,6 +723,11 @@ $approvedCount = $kpis['approved'] ?? 0;
             letter-spacing: 0.6px;
             color: #64748B;
             text-align: left;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: #F8FAFC;
+            box-shadow: 0 1px 0 #E2E8F0;
         }
 
         .campaign-row {
@@ -1089,6 +1209,19 @@ $approvedCount = $kpis['approved'] ?? 0;
             transition: all 0.2s;
         }
 
+        .dropzone-box.drag-over {
+            border-color: #373E8C !important;
+            background: #EEF2FF !important;
+        }
+
+        .dropzone-box * {
+            pointer-events: none;
+        }
+
+        .dropzone-box button, .dropzone-box a {
+            pointer-events: auto;
+        }
+
         .dropzone-box:hover {
             border-color: #373E8C;
             background: #F1F3FD;
@@ -1146,7 +1279,6 @@ $approvedCount = $kpis['approved'] ?? 0;
 
         <?php if (!empty($uploadAlert)): ?>
             <div style="background: #E8F8F0; border: 1px solid #A7F3D0; color: #065F46; padding: 14px 20px; border-radius: 12px; margin-top: 20px; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 10px;">
-                <span style="font-size: 18px;">✓</span>
                 <span><?= $uploadAlert ?></span>
             </div>
         <?php endif; ?>
@@ -1159,8 +1291,8 @@ $approvedCount = $kpis['approved'] ?? 0;
                 <p class="attention-notice"><?= count($comingUpList) > 0 ? count($comingUpList) . ' items need your attention.' : 'All items are up to date.' ?></p>
             </div>
             <div class="hero-action-buttons">
-                <button class="btn-secondary" onclick="openCreateCampaignModal()">+ New Campaign</button>
-                <button class="btn-primary" id="btnOpenUploadModal">Upload Asset</button>
+                <a href="<?= esc_url(pcs_url('detail-asset-maker.php')) ?>" class="btn-secondary" style="display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">View All Assets</a>
+                <a href="<?= esc_url(pcs_url('smart-maker-upload.php')) ?>" class="btn-primary" style="display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">Upload Asset</a>
             </div>
         </section>
 
@@ -1174,6 +1306,11 @@ $approvedCount = $kpis['approved'] ?? 0;
                 <div class="coming-items-list">
                     <?php if (!empty($comingUpList)): ?>
                         <?php foreach ($comingUpList as $item): ?>
+                            <?php
+                                $itemCampId = !empty($item['campaign_id']) ? (int)$item['campaign_id'] : 0;
+                                $itemAssetId = !empty($item['asset_id']) ? (int)$item['asset_id'] : 0;
+                                $itemDetailUrl = pcs_url('detail-asset-maker.php') . ($itemCampId ? '?campaign_id=' . $itemCampId . ($itemAssetId ? '&asset_id=' . $itemAssetId : '') : '');
+                            ?>
                             <div class="coming-item">
                                 <div class="coming-item-top">
                                     <span class="date-badge <?= $item['badge_type'] ?>"><?= $item['date'] ?></span>
@@ -1181,7 +1318,7 @@ $approvedCount = $kpis['approved'] ?? 0;
                                 </div>
                                 <h3 class="coming-title"><?= $item['title'] ?></h3>
                                 <p class="coming-campaign"><?= $item['campaign'] ?></p>
-                                <a href="javascript:void(0)" onclick="openUploadFor('<?= $item['campaign'] ?>')" class="coming-link">Detail</a>
+                                <a href="<?= esc_url($itemDetailUrl) ?>" class="coming-link">Detail</a>
                             </div>
                         <?php endforeach; ?>
                     <?php else: ?>
@@ -1200,15 +1337,21 @@ $approvedCount = $kpis['approved'] ?? 0;
             <section class="campaigns-card">
                 <div class="campaigns-top-bar">
                     <h2 class="campaigns-heading">Campaigns</h2>
-                    <div class="filter-pills">
-                        <button class="pill-btn active" onclick="filterCampaigns('all', this)">All (<?= $totalCamps ?>)</button>
-                        <button class="pill-btn" onclick="filterCampaigns('in_review', this)">In Review (<?= $inReviewCount ?>)</button>
-                        <button class="pill-btn" onclick="filterCampaigns('rejected', this)">Rejected (<?= $rejectedCount ?>)</button>
-                        <button class="pill-btn" onclick="filterCampaigns('approved', this)">Approved (<?= $approvedCount ?>)</button>
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <div class="filter-pills">
+                            <button class="pill-btn active" onclick="filterCampaigns('all', this)">All (<?= $totalCamps ?>)</button>
+                            <button class="pill-btn" onclick="filterCampaigns('action_required', this)">Action Required (<?= $actionRequiredCount ?>)</button>
+                            <button class="pill-btn" onclick="filterCampaigns('awaiting_review', this)">Awaiting Review (<?= $awaitingReviewCount ?>)</button>
+                        </div>
+                        <button type="button" class="btn-toggle-expand" id="btnToggleMakerCampaigns" onclick="toggleMakerCampaignsExpansion()" title="Toggle full width table view">
+                            <svg class="icon-expand" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                            <svg class="icon-compress" style="display:none;" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>
+                            <span id="btnToggleMakerText">Full Width</span>
+                        </button>
                     </div>
                 </div>
 
-                <div style="overflow-x: auto;">
+                <div class="table-responsive">
                     <table class="campaign-table">
                         <thead class="table-head">
                             <tr>
@@ -1222,8 +1365,13 @@ $approvedCount = $kpis['approved'] ?? 0;
                         <tbody>
                             <?php if (!empty($campaigns)): ?>
                                 <?php foreach ($campaigns as $camp): ?>
-                                    <tr class="campaign-row" data-group="<?= $camp['filter_group'] ?>" data-statuses="<?= implode(' ', $camp['asset_statuses'] ?? [$camp['filter_group']]) ?>" data-camp-id="<?= $camp['id'] ?>">
-                                        <td class="campaign-title-cell"><?= htmlspecialchars($camp['name']) ?></td>
+                                    <tr class="campaign-row" data-camp-id="<?= $camp['id'] ?>" data-action-required="<?= $camp['has_action_required'] ? '1' : '0' ?>" data-awaiting-review="<?= $camp['has_awaiting_review'] ? '1' : '0' ?>">
+                                        <td class="campaign-title-cell">
+                                            <a href="<?= esc_url(pcs_url('detail-asset-maker.php') . '?campaign_id=' . $camp['id']) ?>" class="campaign-name-link" style="color: #1E293B; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;" title="View Campaign Details">
+                                                <span><?= htmlspecialchars($camp['name']) ?></span>
+                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.6;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                                            </a>
+                                        </td>
                                         <td class="deadline-cell"><?= htmlspecialchars($camp['deadline']) ?></td>
                                         <td>
                                             <div class="progress-box">
@@ -1237,45 +1385,59 @@ $approvedCount = $kpis['approved'] ?? 0;
                                             </div>
                                         </td>
                                         <td>
-                                            <span class="status-badge-lg <?= $camp['status_type'] ?>">
-                                                <?= htmlspecialchars($camp['status']) ?>
-                                            </span>
+                                            <?php if ($camp['has_action_required']): ?>
+                                                <span class="status-badge-lg danger">Action Required</span>
+                                            <?php elseif ($camp['has_awaiting_review']): ?>
+                                                <span class="status-badge-lg primary">Awaiting Review</span>
+                                            <?php elseif ($camp['percent'] === 100): ?>
+                                                <span class="status-badge-lg success">Approved</span>
+                                            <?php else: ?>
+                                                <span class="status-badge-lg neutral"><?= htmlspecialchars($camp['status']) ?></span>
+                                            <?php endif; ?>
                                         </td>
-                                        <td style="text-align: right;">
-                                            <?php if (!empty($camp['assets'])): ?>
+                                        <td style="text-align: right; white-space: nowrap;">
+                                            <div style="display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px;">
                                                 <button class="btn-table-action" onclick="toggleDetails(<?= $camp['id'] ?>, this)">
                                                     <?= $camp['expanded'] ? 'Close' : 'Open' ?>
                                                 </button>
-                                            <?php else: ?>
-                                                <button class="btn-table-action" onclick="openUploadFor('<?= esc_js($camp['name']) ?>', 'V1')">+ Add Asset</button>
-                                            <?php endif; ?>
+                                                <a href="<?= esc_url(pcs_url('smart-maker-upload.php') . '?campaign_id=' . $camp['id'] . '&mode=new_asset') ?>" class="btn-table-action" style="text-decoration: none; display: inline-flex; align-items: center; background: #EEF2FF; color: #4F56A6; border: 1px solid #C7D2FE;">+ Add Asset</a>
+                                            </div>
                                         </td>
                                     </tr>
 
                                     <!-- ASSET LINE ITEMS DROPDOWN -->
-                                    <?php if (!empty($camp['assets'])): ?>
-                                        <tr id="details-row-<?= $camp['id'] ?>" class="details-row-container" data-camp-id="<?= $camp['id'] ?>" style="<?= $camp['expanded'] ? '' : 'display: none;' ?>">
-                                            <td colspan="5" style="padding: 0 0 16px 0;">
-                                                <div class="expanded-details-container">
-                                                    <div class="details-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                                                        <span class="details-title">ASSET LINE ITEMS</span>
-                                                        <div style="display: flex; align-items: center; gap: 8px;">
-                                                            <?php if (!empty($camp['guideline_file_url'])): ?>
-                                                                <a href="<?= esc_url($camp['guideline_file_url']) ?>" target="_blank" class="guideline-tag" style="background: #EEF2FF; color: #4F56A6; border: 1px solid #C7D2FE; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; font-weight: 600;">
-                                                                    <span>📄 Guidelines (1 file - View)</span>
+                                    <tr id="details-row-<?= $camp['id'] ?>" class="details-row-container" data-camp-id="<?= $camp['id'] ?>" style="<?= $camp['expanded'] ? '' : 'display: none;' ?>">
+                                        <td colspan="5" style="padding: 0 0 16px 0;">
+                                            <div class="expanded-details-container">
+                                                <div class="details-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                                                    <span class="details-title">ASSET LINE ITEMS</span>
+                                                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                                        <?php 
+                                                        $gList = !empty($camp['guideline_files']) ? $camp['guideline_files'] : (!empty($camp['guidelines']) ? $camp['guidelines'] : []);
+                                                        if (empty($gList) && !empty($camp['guideline_file_url'])) {
+                                                            $gList = [['id' => 1, 'name' => basename($camp['guideline_file_url']), 'url' => $camp['guideline_file_url']]];
+                                                        }
+                                                        ?>
+                                                        <?php if (!empty($gList)): ?>
+                                                            <?php foreach ($gList as $gFile): ?>
+                                                                <a href="<?= esc_url($gFile['url']) ?>" target="_blank" class="guideline-tag" style="background: #EEF2FF; color: #4F56A6; border: 1px solid #C7D2FE; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; font-weight: 600;" title="<?= esc_attr($gFile['name']) ?>">
+                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                                                    <span><?= esc_html($gFile['name']) ?></span>
                                                                 </a>
-                                                            <?php else: ?>
-                                                                <span class="guideline-tag">Guidelines · 0 files</span>
-                                                            <?php endif; ?>
-                                                            <button type="button" class="btn-table-action" style="padding: 4px 10px; font-size: 11.5px; border-radius: 6px;" onclick="openUploadGuidelineModal(<?= $camp['id'] ?>, '<?= esc_js($camp['name']) ?>')">
-                                                                + Upload Guidelines
-                                                            </button>
-                                                            <a href="<?= esc_url(pcs_url('detail-asset-maker.php') . '?campaign_id=' . $camp['id']) ?>" class="btn-table-action" style="padding: 4px 10px; font-size: 11.5px; border-radius: 6px; background: #4E56A6; color: white; text-decoration: none;">
-                                                                View Campaign Details →
-                                                            </a>
-                                                        </div>
+                                                            <?php endforeach; ?>
+                                                        <?php else: ?>
+                                                            <span class="guideline-tag">Guidelines · 0 files</span>
+                                                        <?php endif; ?>
+                                                        <button type="button" class="btn-table-action" style="padding: 4px 10px; font-size: 11.5px; border-radius: 6px;" onclick="openUploadGuidelineModal(<?= $camp['id'] ?>, '<?= esc_js($camp['name']) ?>', <?= esc_attr(json_encode($gList)) ?>)">
+                                                            Manage Guidelines
+                                                        </button>
+                                                        <a href="<?= esc_url(pcs_url('detail-asset-maker.php') . '?campaign_id=' . $camp['id']) ?>" class="btn-table-action" style="padding: 4px 10px; font-size: 11.5px; border-radius: 6px; background: #4E56A6; color: white; text-decoration: none;">
+                                                            View Campaign Details →
+                                                        </a>
                                                     </div>
+                                                </div>
 
+                                                <?php if (!empty($camp['assets'])): ?>
                                                     <?php foreach ($camp['assets'] as $asset): ?>
                                                         <div class="asset-item-row" style="flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 16px; border-bottom: 1px solid #F1F5F9;">
                                                             <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
@@ -1286,13 +1448,13 @@ $approvedCount = $kpis['approved'] ?? 0;
                                                                 </div>
                                                                 <div class="asset-actions" style="display: flex; align-items: center; gap: 8px;">
                                                                     <?php if ($asset['status'] === 'rejected'): ?>
-                                                                        <button class="btn-asset-solid" style="background: #4F56A6; color: #FFF; font-weight: 700;" onclick="openUploadFor('<?= esc_js($camp['name']) ?>', 'V<?= $asset['current_version_num'] + 1 ?>', '<?= esc_js($asset['name']) ?>')">
-                                                                            Upload V<?= $asset['current_version_num'] + 1 ?>
-                                                                        </button>
+                                                                        <a href="<?= esc_url(pcs_url('smart-maker-upload.php') . '?campaign_id=' . (int)$camp['id'] . '&asset_id=' . (int)$asset['id'] . '&mode=new_version') ?>" class="btn-asset-solid" style="background: #4F56A6; color: #FFF; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center;">
+                                                                            Upload V<?= (int)$asset['current_version_num'] + 1 ?>
+                                                                        </a>
                                                                     <?php elseif ($asset['status'] === 'draft'): ?>
-                                                                        <button class="btn-asset-solid" onclick="openUploadFor('<?= esc_js($camp['name']) ?>', 'V1', '<?= esc_js($asset['name']) ?>')">
+                                                                        <a href="<?= esc_url(pcs_url('smart-maker-upload.php') . '?campaign_id=' . (int)$camp['id'] . '&asset_id=' . (int)$asset['id'] . '&mode=new_version') ?>" class="btn-asset-solid" style="text-decoration: none; display: inline-flex; align-items: center;">
                                                                             Upload Artwork
-                                                                        </button>
+                                                                        </a>
                                                                     <?php endif; ?>
 
                                                                     <?php if (!empty($asset['file_url'])): ?>
@@ -1317,7 +1479,7 @@ $approvedCount = $kpis['approved'] ?? 0;
 
                                                             <?php if ($asset['status'] === 'rejected' && !empty($asset['review_note'])): ?>
                                                                 <div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #991B1B; display: flex; align-items: flex-start; gap: 8px;">
-                                                                    <span style="font-size: 16px; line-height: 1.2;">💬</span>
+                                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#991B1B" stroke-width="2" style="flex-shrink: 0; margin-top: 2px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                                                                     <div>
                                                                         <strong style="color: #7F1D1D;">Checker Feedback:</strong> <?= htmlspecialchars($asset['review_note']) ?>
                                                                     </div>
@@ -1325,16 +1487,23 @@ $approvedCount = $kpis['approved'] ?? 0;
                                                             <?php endif; ?>
                                                         </div>
                                                     <?php endforeach; ?>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    <?php endif; ?>
+                                                <?php else: ?>
+                                                    <div style="padding: 24px; text-align: center; color: #64748B; font-size: 13px;">
+                                                        No assets uploaded yet under this campaign. 
+                                                        <a href="<?= esc_url(pcs_url('smart-maker-upload.php') . '?campaign_id=' . $camp['id'] . '&mode=new_asset') ?>" style="color: #4F56A6; font-weight: 700; text-decoration: underline; margin-left: 6px;">+ Upload First Asset</a>
+                                                    </div>
+                                                <?php endif; ?>
+                                            </div>
+                                        </td>
+                                    </tr>
 
                                 <?php endforeach; ?>
                             <?php else: ?>
                                 <tr>
                                     <td colspan="5" style="text-align: center; padding: 60px 20px; color: #64748B;">
-                                        <div style="font-size: 36px; margin-bottom: 12px;">📁</div>
+                                        <div style="margin-bottom: 12px;">
+                                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                                        </div>
                                         <p style="font-size: 16px; font-weight: 700; color: #161B2E; margin-bottom: 4px;">No campaigns found</p>
                                         <p style="font-size: 13.5px; color: #64748B;">No active campaigns in the system.</p>
                                     </td>
@@ -1397,134 +1566,44 @@ $approvedCount = $kpis['approved'] ?? 0;
 
     </main>
 
-    <!-- ================= 5. POPUP MODAL: CREATE CAMPAIGN ================= -->
-    <div class="modal-overlay" id="createCampaignModal" style="display: none;">
-        <div class="modal-box">
-            <h3 class="modal-title">Create New Campaign</h3>
-            <p class="modal-desc">Enter campaign details and optionally attach Brand Guidelines.</p>
+    <!-- ================= 5. POPUP MODAL: MANAGE & UPLOAD GUIDELINES ================= -->
+    <div class="modal-overlay" id="uploadGuidelineModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+        <div class="modal-box" style="background: #FFFFFF; border-radius: 16px; padding: 24px; max-width: 580px; width: 92%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 class="modal-title" id="guidelineModalTitle" style="font-size: 18px; font-weight: 800; color: #161B2E; margin: 0;">Campaign Brand Guidelines</h3>
+                <span style="font-size: 24px; cursor: pointer; color: #94A3B8; line-height: 1;" onclick="closeUploadGuidelineModal()">&times;</span>
+            </div>
+            <p class="modal-desc" style="font-size: 13px; color: #64748B; margin-bottom: 16px;">View, attach, or remove brand guideline documents and compliance rulebooks for this campaign.</p>
 
-            <form method="POST" action="" enctype="multipart/form-data">
-                <input type="hidden" name="action" value="create_campaign">
-
-                <div class="form-row">
-                    <label>Campaign Name</label>
-                    <input type="text" class="form-input" name="campaign_title" placeholder="e.g. Autumn Investment 2026" required>
+            <!-- Attached Guidelines List -->
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-size: 12px; font-weight: 700; color: #161B2E; margin-bottom: 8px;">CURRENTLY ATTACHED GUIDELINES</label>
+                <div id="guidelineAttachedList" style="display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto;">
+                    <!-- Injected via JS -->
                 </div>
+            </div>
 
-                <div class="form-row">
-                    <label>Target Deadline</label>
-                    <input type="date" class="form-input" name="campaign_deadline" value="<?= date('Y-m-d', strtotime('+14 days')) ?>" required>
-                </div>
-
-                <div class="form-row">
-                    <label>Brand Guidelines Document (PDF - Optional)</label>
-                    <input type="file" class="form-input" name="guideline_file" accept=".pdf,.doc,.docx" style="padding: 8px 12px; font-size: 13px;">
-                    <p style="font-size: 11.5px; color: #94A3B8; margin-top: 4px;">Upload guideline document to guide automated AI compliance scoring.</p>
-                </div>
-
-                <div class="modal-actions">
-                    <button type="button" class="btn-secondary" onclick="closeCreateCampaignModal()">Cancel</button>
-                    <button type="submit" class="btn-primary">Create Campaign</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- ================= 6. POPUP MODAL: UPLOAD GUIDELINE ================= -->
-    <div class="modal-overlay" id="uploadGuidelineModal" style="display: none;">
-        <div class="modal-box">
-            <h3 class="modal-title" id="guidelineModalTitle">Upload Brand Guidelines</h3>
-            <p class="modal-desc">Attach brand guidelines or compliance rulebook for this campaign.</p>
-
-            <form method="POST" action="" enctype="multipart/form-data">
+            <!-- Upload More Guidelines -->
+            <form method="POST" action="" enctype="multipart/form-data" style="border-top: 1px solid #F1F5F9; padding-top: 16px;">
                 <input type="hidden" name="action" value="upload_guideline">
                 <input type="hidden" name="campaign_id" id="guidelineCampId" value="">
 
-                <div class="form-row">
-                    <label>Select Guideline Document (PDF, DOCX)</label>
-                    <input type="file" name="guideline_file" class="form-input" accept=".pdf,.doc,.docx" required style="padding: 8px 12px;">
+                <div class="form-row" style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 12px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Attach More Guideline Documents (PDF, DOCX, TXT, Images)</label>
+                    <input type="file" name="guideline_files[]" class="form-input" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" multiple required style="padding: 8px 12px; width: 100%; border: 1px solid #CBD5E1; border-radius: 8px;">
                 </div>
 
-                <div class="modal-actions">
-                    <button type="button" class="btn-secondary" onclick="closeUploadGuidelineModal()">Cancel</button>
-                    <button type="submit" class="btn-primary">Upload Document</button>
+                <div class="modal-actions" style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" class="btn-secondary" style="padding: 8px 16px; border-radius: 8px; border: 1px solid #CBD5E1; background: #F8FAFC; cursor: pointer; font-weight: 600;" onclick="closeUploadGuidelineModal()">Close</button>
+                    <button type="submit" class="btn-primary" style="padding: 8px 16px; border-radius: 8px; background: #373E8C; color: #FFFFFF; border: none; cursor: pointer; font-weight: 700;">Upload Files</button>
                 </div>
             </form>
-        </div>
-    </div>
 
-    <!-- ================= 7. POPUP MODAL: UPLOAD ASSET ================= -->
-    <div class="modal-overlay" id="uploadModal">
-        <div class="modal-box">
-            <h3 class="modal-title" id="modalTitle">Upload New Asset Version</h3>
-            <p class="modal-desc">Upload asset artwork to initiate automated AI Pre-flight Check.</p>
-
-            <form id="uploadForm" method="POST" action="" enctype="multipart/form-data">
-                <input type="hidden" name="action" value="upload_asset">
-
-                <div class="form-row">
-                    <label>Campaign</label>
-                    <select class="form-select" name="campaign_name" id="selectCampaign" required>
-                        <?php if (!empty($campaigns)): ?>
-                            <?php foreach ($campaigns as $c): ?>
-                                <option value="<?= htmlspecialchars($c['name']) ?>"><?= htmlspecialchars($c['name']) ?></option>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <option value="Autumn Investment 2026">Autumn Investment 2026 (Auto-create)</option>
-                        <?php endif; ?>
-                    </select>
-                </div>
-
-                <div class="form-row">
-                    <label>Asset Name</label>
-                    <input type="text" class="form-input" id="inputAssetName" name="asset_name" value="Product Brochure" placeholder="e.g. Product Brochure, Social Banner, Landing Page" required>
-                </div>
-
-                <div class="form-row">
-                    <label>Version</label>
-                    <input type="text" class="form-input" id="inputVersion" name="version" value="V1" readonly style="background: #F8FAFC;">
-                </div>
-
-                <div class="form-row">
-                    <label>Artwork Asset (Image or PDF)</label>
-                    <div class="dropzone-box" id="fileDropArea" onclick="document.getElementById('fileInput').click()" style="cursor: pointer; position: relative;">
-                        <input type="file" name="asset_file" id="fileInput" accept="image/*,.pdf" style="display: none;" required>
-                        
-                        <!-- Empty Dropzone State -->
-                        <div id="dropzoneEmpty">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4F56A6" stroke-width="2" style="margin: 0 auto 8px;">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="17 8 12 3 7 8"/>
-                                <line x1="12" y1="3" x2="12" y2="15"/>
-                            </svg>
-                            <p style="font-size: 13.5px; font-weight: 600; color: #161B2E;" id="fileNameDisplay">Click to browse or drag and drop files here</p>
-                            <p style="font-size: 12px; color: #94A3B8; margin-top: 4px;">Supports PNG, JPG, PDF (up to 50MB)</p>
-                        </div>
-
-                        <!-- Selected File Preview Container (Image / PDF) -->
-                        <div id="filePreviewContainer" style="display: none; flex-direction: column; align-items: center; justify-content: center; width: 100%;">
-                            <img id="imagePreview" src="" alt="Asset Preview" style="max-height: 180px; max-width: 100%; border-radius: 8px; object-fit: contain; box-shadow: 0 4px 12px rgba(0,0,0,0.08); display: none; margin-bottom: 8px;">
-                            
-                            <div id="pdfPreview" style="display: none; align-items: center; gap: 8px; padding: 12px 16px; background: #FFF; border-radius: 8px; border: 1px solid #E2E8F0; margin-bottom: 8px;">
-                                <span style="font-size: 24px;">📄</span>
-                                <div style="text-align: left;">
-                                    <div id="pdfFileName" style="font-size: 13px; font-weight: 600; color: #1E293B;">document.pdf</div>
-                                    <div id="pdfFileSize" style="font-size: 11px; color: #64748B;">PDF File ready</div>
-                                </div>
-                            </div>
-
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <span style="font-size: 12px; font-weight: 600; color: #4F56A6; background: #EEF2FF; padding: 4px 10px; border-radius: 6px;">Click to change file if wrong</span>
-                                <button type="button" onclick="event.stopPropagation(); resetFileUpload();" style="font-size: 11.5px; color: #DC2626; text-decoration: underline; background: none; border: none; cursor: pointer;">Remove</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="modal-actions">
-                    <button type="button" class="btn-secondary" onclick="closeUploadModal()">Cancel</button>
-                    <button type="submit" class="btn-primary" id="btnSubmitUpload">Run AI Pre-flight Check →</button>
-                </div>
+            <!-- Hidden delete form -->
+            <form id="deleteGuidelineForm" method="POST" action="" style="display: none;">
+                <input type="hidden" name="action" value="delete_guideline">
+                <input type="hidden" name="campaign_id" id="deleteGuidelineCampId" value="">
+                <input type="hidden" name="guideline_url" id="deleteGuidelineUrl" value="">
             </form>
         </div>
     </div>
@@ -1558,18 +1637,28 @@ $approvedCount = $kpis['approved'] ?? 0;
             }
         }
 
-        // 3. Filter Pills (All / In Review / Rejected / Approved)
+        // 3. Filter Pills (All / Action Required / Awaiting Review)
         function filterCampaigns(group, btn) {
-            document.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.filter-pills .pill-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
 
             const rows = document.querySelectorAll('.campaign-row');
             rows.forEach(r => {
-                const statuses = (r.getAttribute('data-statuses') || r.getAttribute('data-group') || '').split(' ');
                 const campId = r.getAttribute('data-camp-id');
                 const detailsRow = document.getElementById('details-row-' + campId);
-                
-                if (group === 'all' || statuses.includes(group)) {
+                const hasAction = r.getAttribute('data-action-required') === '1';
+                const hasAwaiting = r.getAttribute('data-awaiting-review') === '1';
+
+                let show = false;
+                if (group === 'all') {
+                    show = true;
+                } else if (group === 'action_required') {
+                    show = hasAction;
+                } else if (group === 'awaiting_review') {
+                    show = hasAwaiting;
+                }
+
+                if (show) {
                     r.style.display = '';
                 } else {
                     r.style.display = 'none';
@@ -1580,23 +1669,54 @@ $approvedCount = $kpis['approved'] ?? 0;
             });
         }
 
-        // 4. Create Campaign Modal
-        function openCreateCampaignModal() {
-            const m = document.getElementById('createCampaignModal');
-            if (m) m.style.display = 'flex';
-        }
-        function closeCreateCampaignModal() {
-            const m = document.getElementById('createCampaignModal');
-            if (m) m.style.display = 'none';
-        }
-
-        // 5. Upload Guideline Modal
-        function openUploadGuidelineModal(campId, campName) {
+        // 4. Manage & Upload Guideline Modal (Full CRUD)
+        function openUploadGuidelineModal(campId, campName, guidelines) {
             const m = document.getElementById('uploadGuidelineModal');
             const inp = document.getElementById('guidelineCampId');
             const title = document.getElementById('guidelineModalTitle');
+            const list = document.getElementById('guidelineAttachedList');
             if (inp) inp.value = campId;
-            if (title) title.innerText = 'Upload Guidelines - ' + campName;
+            if (title) title.innerText = 'Campaign Guidelines - ' + campName;
+
+            if (list) {
+                list.innerHTML = '';
+                const gArray = Array.isArray(guidelines) ? guidelines : [];
+                if (gArray.length === 0) {
+                    list.innerHTML = '<div style="font-size: 12px; color: #94A3B8; padding: 12px; background: #F8FAFC; border-radius: 6px; text-align: center;">No guideline documents attached yet.</div>';
+                } else {
+                    gArray.forEach(g => {
+                        const item = document.createElement('div');
+                        item.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px;';
+                        
+                        const left = document.createElement('div');
+                        left.style.cssText = 'display: flex; align-items: center; gap: 8px; overflow: hidden;';
+                        left.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4F56A6" stroke-width="2" style="flex-shrink: 0;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span style="font-size: 12.5px; font-weight: 600; color: #1E293B; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">' + (g.name || 'Guideline') + '</span>';
+
+                        const right = document.createElement('div');
+                        right.style.cssText = 'display: flex; align-items: center; gap: 8px; flex-shrink: 0;';
+                        if (g.url) {
+                            right.innerHTML += '<a href="' + g.url + '" target="_blank" style="font-size: 11.5px; color: #373E8C; text-decoration: underline; font-weight: 600;">View</a>';
+                        }
+                        const delBtn = document.createElement('button');
+                        delBtn.type = 'button';
+                        delBtn.style.cssText = 'padding: 3px 8px; font-size: 11px; color: #BA1A1A; background: #FFF1F2; border: 1px solid #FECDD3; border-radius: 4px; cursor: pointer; font-weight: 600;';
+                        delBtn.textContent = 'Delete';
+                        delBtn.onclick = function() {
+                            if (confirm('Delete guideline "' + (g.name || '') + '" from this campaign?')) {
+                                document.getElementById('deleteGuidelineCampId').value = campId;
+                                document.getElementById('deleteGuidelineUrl').value = g.url || '';
+                                document.getElementById('deleteGuidelineForm').submit();
+                            }
+                        };
+                        right.appendChild(delBtn);
+
+                        item.appendChild(left);
+                        item.appendChild(right);
+                        list.appendChild(item);
+                    });
+                }
+            }
+
             if (m) m.style.display = 'flex';
         }
         function closeUploadGuidelineModal() {
@@ -1604,84 +1724,47 @@ $approvedCount = $kpis['approved'] ?? 0;
             if (m) m.style.display = 'none';
         }
 
-        // 6. Upload Asset Modal & Preview Logic
-        const modal = document.getElementById('uploadModal');
-        const fileInput = document.getElementById('fileInput');
-        const fileNameDisplay = document.getElementById('fileNameDisplay');
-        const emptyDropzone = document.getElementById('dropzoneEmpty');
-        const previewContainer = document.getElementById('filePreviewContainer');
-        const imgPreview = document.getElementById('imagePreview');
-        const pdfPreview = document.getElementById('pdfPreview');
-
-        document.getElementById('btnOpenUploadModal')?.addEventListener('click', () => {
-            const firstCamp = document.getElementById('selectCampaign')?.value || 'Campaign';
-            openUploadFor(firstCamp, 'V1');
+        // Prevent default drag/drop behaviors across entire window to prevent browser from navigating away
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            window.addEventListener(eventName, function(e) {
+                e.preventDefault();
+            }, false);
         });
 
-        function resetFileUpload() {
-            if (fileInput) fileInput.value = '';
-            if (emptyDropzone) emptyDropzone.style.display = 'block';
-            if (previewContainer) previewContainer.style.display = 'none';
-            if (imgPreview) {
-                imgPreview.src = '';
-                imgPreview.style.display = 'none';
-            }
-            if (pdfPreview) {
-                pdfPreview.style.display = 'none';
-            }
-        }
+        // Toggle Maker Campaigns Expansion (Split View <-> Full Width)
+        function toggleMakerCampaignsExpansion(forceExpand) {
+            const grid = document.querySelector('.workspace-grid');
+            const btn = document.getElementById('btnToggleMakerCampaigns');
+            const text = document.getElementById('btnToggleMakerText');
+            if (!grid) return;
 
-        function openUploadFor(campaignName, version = 'V1', assetName = '') {
-            const select = document.getElementById('selectCampaign');
-            if (select && campaignName) {
-                select.value = campaignName;
+            let shouldExpand;
+            if (typeof forceExpand === 'boolean') {
+                shouldExpand = forceExpand;
+            } else {
+                shouldExpand = !grid.classList.contains('campaigns-expanded');
             }
-            const nameInput = document.getElementById('inputAssetName');
-            if (nameInput && assetName) {
-                nameInput.value = assetName;
-            }
-            document.getElementById('inputVersion').value = version;
-            document.getElementById('modalTitle').innerText = 'Upload ' + version + (campaignName ? ' - ' + campaignName : '');
-            resetFileUpload();
-            modal.classList.add('active');
-        }
 
-        function closeUploadModal() {
-            modal.classList.remove('active');
-        }
-
-        fileInput?.addEventListener('change', function() {
-            if (this.files && this.files[0]) {
-                const file = this.files[0];
-                if (emptyDropzone) emptyDropzone.style.display = 'none';
-                if (previewContainer) previewContainer.style.display = 'flex';
-
-                if (file.type.startsWith('image/')) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        if (imgPreview) {
-                            imgPreview.src = e.target.result;
-                            imgPreview.style.display = 'block';
-                        }
-                        if (pdfPreview) pdfPreview.style.display = 'none';
-                    };
-                    reader.readAsDataURL(file);
-                } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-                    if (imgPreview) imgPreview.style.display = 'none';
-                    if (pdfPreview) {
-                        pdfPreview.style.display = 'flex';
-                        document.getElementById('pdfFileName').innerText = file.name;
-                        document.getElementById('pdfFileSize').innerText = (file.size / (1024 * 1024)).toFixed(2) + ' MB · PDF Document';
-                    }
+            if (shouldExpand) {
+                grid.classList.add('campaigns-expanded');
+                if (text) text.textContent = 'Split View';
+                if (btn) {
+                    const exp = btn.querySelector('.icon-expand');
+                    const comp = btn.querySelector('.icon-compress');
+                    if (exp) exp.style.display = 'none';
+                    if (comp) comp.style.display = 'inline-block';
+                }
+            } else {
+                grid.classList.remove('campaigns-expanded');
+                if (text) text.textContent = 'Full Width';
+                if (btn) {
+                    const exp = btn.querySelector('.icon-expand');
+                    const comp = btn.querySelector('.icon-compress');
+                    if (exp) exp.style.display = 'inline-block';
+                    if (comp) comp.style.display = 'none';
                 }
             }
-        });
-
-        document.getElementById('uploadForm')?.addEventListener('submit', function(e) {
-            const btn = document.getElementById('btnSubmitUpload');
-            btn.innerText = 'Scanning & uploading version...';
-            btn.style.opacity = '0.7';
-        });
+        }
     </script>
 </body>
 </html>

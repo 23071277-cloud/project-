@@ -1625,21 +1625,24 @@ $versionStatus = $version['status'] ?? 'scoring';
                         <div class="source-name-title"><?= esc_html($chk1['source_title'] ?? 'Brand Guidelines 2026') ?></div>
                         <div class="source-status-sub"><?= esc_html($chk1['source_sub'] ?? 'Reference available') ?></div>
                     </div>
-                    <?php if (!empty($chk1['source_url']) && $chk1['source_url'] !== 'javascript:void(0);'): ?>
-                        <a href="<?= esc_url($chk1['source_url']) ?>" target="_blank" class="source-link-btn">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <button type="button" class="source-link-btn" onclick="openGuidelineQuickModal(
+                            '<?= esc_js($chk1['source_title'] ?? 'Foreign Logos Compliance Standard') ?>',
+                            '<?= esc_js($chk1['source_quote'] ?? '') ?>',
+                            '<?= esc_js($chk1['reason'] ?? '') ?>',
+                            '<?= esc_js($chk1['source_url'] ?? '') ?>',
+                            '<?= esc_js($chk1['source_doc_name'] ?? 'Brand Guidelines') ?>',
+                            '<?= (int)($chk1['score'] ?? 95) ?>'
+                        )" style="background: none; border: none; cursor: pointer; padding: 0;">
                             <span>View source</span>
                             <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                                 <path d="M7.10208 5.25H0V4.08333H7.10208L3.83542 0.816667L4.66667 0L9.33333 4.66667L4.66667 9.33333L3.83542 8.51667L7.10208 5.25Z" fill="#4F57A7"/>
                             </svg>
-                        </a>
-                    <?php else: ?>
-                        <div class="source-link-btn" onclick="openGuidelineQuickModal('<?= esc_js($chk1['source_title']) ?>')">
-                            <span>View source</span>
-                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                                <path d="M7.10208 5.25H0V4.08333H7.10208L3.83542 0.816667L4.66667 0L9.33333 4.66667L4.66667 9.33333L3.83542 8.51667L7.10208 5.25Z" fill="#4F57A7"/>
-                            </svg>
-                        </div>
-                    <?php endif; ?>
+                        </button>
+                        <?php if (!empty($chk1['source_url']) && $chk1['source_url'] !== 'javascript:void(0);'): ?>
+                            <a href="<?= esc_url($chk1['source_url']) ?>" target="_blank" title="Download Document" style="color: #64748B; font-size: 11px; text-decoration: underline;">(PDF)</a>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
 
@@ -1700,21 +1703,24 @@ $versionStatus = $version['status'] ?? 'scoring';
                         <div class="source-name-title"><?= esc_html($chk2['source_title'] ?? 'Campaign Copy Standards') ?></div>
                         <div class="source-status-sub"><?= esc_html($chk2['source_sub'] ?? 'Reference available') ?></div>
                     </div>
-                    <?php if (!empty($chk2['source_url']) && $chk2['source_url'] !== 'javascript:void(0);'): ?>
-                        <a href="<?= esc_url($chk2['source_url']) ?>" target="_blank" class="source-link-btn">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <button type="button" class="source-link-btn" onclick="openGuidelineQuickModal(
+                            '<?= esc_js($chk2['source_title'] ?? 'Brand & Compliance Documents') ?>',
+                            '<?= esc_js($chk2['source_quote'] ?? '') ?>',
+                            '<?= esc_js($chk2['reason'] ?? '') ?>',
+                            '<?= esc_js($chk2['source_url'] ?? '') ?>',
+                            '<?= esc_js($chk2['source_doc_name'] ?? 'Campaign Copy Standards') ?>',
+                            '<?= (int)($chk2['score'] ?? 64) ?>'
+                        )" style="background: none; border: none; cursor: pointer; padding: 0;">
                             <span>View source</span>
                             <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                                 <path d="M7.10208 5.25H0V4.08333H7.10208L3.83542 0.816667L4.66667 0L9.33333 4.66667L4.66667 9.33333L3.83542 8.51667L7.10208 5.25Z" fill="#4F57A7"/>
                             </svg>
-                        </a>
-                    <?php else: ?>
-                        <div class="source-link-btn" onclick="openGuidelineQuickModal('<?= esc_js($chk2['source_title']) ?>')">
-                            <span>View source</span>
-                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                                <path d="M7.10208 5.25H0V4.08333H7.10208L3.83542 0.816667L4.66667 0L9.33333 4.66667L4.66667 9.33333L3.83542 8.51667L7.10208 5.25Z" fill="#4F57A7"/>
-                            </svg>
-                        </div>
-                    <?php endif; ?>
+                        </button>
+                        <?php if (!empty($chk2['source_url']) && $chk2['source_url'] !== 'javascript:void(0);'): ?>
+                            <a href="<?= esc_url($chk2['source_url']) ?>" target="_blank" title="Download Document" style="color: #64748B; font-size: 11px; text-decoration: underline;">(PDF)</a>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
 
@@ -1775,22 +1781,47 @@ $versionStatus = $version['status'] ?? 'scoring';
                         <div class="source-name-title"><?= esc_html($chk3['source_title'] ?? 'MAS Advertising Rules') ?></div>
                         <div class="source-status-sub"><?= esc_html($chk3['source_sub'] ?? 'Reference available') ?></div>
                     </div>
-                    <?php if (!empty($chk3['source_url']) && $chk3['source_url'] !== 'javascript:void(0);'): ?>
-                        <a href="<?= esc_url($chk3['source_url']) ?>" target="_blank" class="source-link-btn">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <button type="button" class="source-link-btn" onclick="openGuidelineQuickModal(
+                            '<?= esc_js($chk3['source_title'] ?? 'MAS Advertising Rules §4.1b') ?>',
+                            '<?= esc_js($chk3['source_quote'] ?? '') ?>',
+                            '<?= esc_js($chk3['reason'] ?? '') ?>',
+                            '<?= esc_js($chk3['source_url'] ?? '') ?>',
+                            '<?= esc_js($chk3['source_doc_name'] ?? 'MAS Advertising Rules') ?>',
+                            '<?= (int)($chk3['score'] ?? 25) ?>'
+                        )" style="background: none; border: none; cursor: pointer; padding: 0;">
                             <span>View source</span>
                             <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                                 <path d="M7.10208 5.25H0V4.08333H7.10208L3.83542 0.816667L4.66667 0L9.33333 4.66667L4.66667 9.33333L3.83542 8.51667L7.10208 5.25Z" fill="#4F57A7"/>
                             </svg>
-                        </a>
-                    <?php else: ?>
-                        <div class="source-link-btn" onclick="openGuidelineQuickModal('<?= esc_js($chk3['source_title']) ?>')">
-                            <span>View source</span>
-                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                                <path d="M7.10208 5.25H0V4.08333H7.10208L3.83542 0.816667L4.66667 0L9.33333 4.66667L4.66667 9.33333L3.83542 8.51667L7.10208 5.25Z" fill="#4F57A7"/>
-                            </svg>
-                        </div>
-                    <?php endif; ?>
+                        </button>
+                        <?php if (!empty($chk3['source_url']) && $chk3['source_url'] !== 'javascript:void(0);'): ?>
+                            <a href="<?= esc_url($chk3['source_url']) ?>" target="_blank" title="Download Document" style="color: #64748B; font-size: 11px; text-decoration: underline;">(PDF)</a>
+                        <?php endif; ?>
+                    </div>
                 </div>
+            </div>
+        </section>
+
+        <!-- 04B. SECTION: ALL ATTACHED CAMPAIGN BRAND GUIDELINES -->
+        <?php $campGuidelines = $screenData['guidelines'] ?? []; ?>
+        <section class="guidelines-strip-card" style="margin-top: 16px; background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px;">
+                <span style="color: #18224B; font-weight: 700;">Campaign Guidelines (<?= count($campGuidelines) ?>):</span>
+                <?php if (!empty($campGuidelines)): ?>
+                    <?php foreach ($campGuidelines as $idx => $cg): ?>
+                        <a href="<?= !empty($cg['url']) ? esc_url($cg['url']) : 'javascript:void(0)' ?>" target="_blank" style="color: #4F57A7; font-weight: 600; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;">
+                            <span><?= esc_html($cg['name'] ?? 'Guideline Document') ?></span>
+                            <?php if (!empty($cg['size'])): ?><span style="font-size: 11px; color: #94A3B8; text-decoration: none;">(<?= esc_html($cg['size']) ?>)</span><?php endif; ?>
+                        </a>
+                        <?php if ($idx < count($campGuidelines) - 1): ?><span style="color: #CBD5E1;">·</span><?php endif; ?>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <span style="color: #94A3B8; font-style: italic;">No specific guideline documents attached to this campaign.</span>
+                <?php endif; ?>
+            </div>
+            <div style="font-size: 11.5px; color: #64748B;">
+                All AI scores cite these attached standards
             </div>
         </section>
 
@@ -1977,21 +2008,43 @@ $versionStatus = $version['status'] ?? 'scoring';
         </div>
     <?php endif; ?>
 
-    <!-- Modal: Quick Rule/Guideline Info -->
-    <div id="guidelineModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; padding: 20px;">
-        <div style="background: #ffffff; border-radius: 12px; max-width: 500px; width: 100%; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); overflow: hidden;">
+    <!-- Modal: Quick Rule/Guideline Info & Direct Quote Citation -->
+    <div id="guidelineModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; padding: 20px;">
+        <div style="background: #ffffff; border-radius: 14px; max-width: 560px; width: 100%; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); overflow: hidden;">
             <div style="padding: 20px 24px; border-bottom: 1px solid #E2E8F0; display: flex; justify-content: space-between; align-items: center;">
-                <h4 style="font-size: 16px; font-weight: 700; color: #161B2E;" id="guidelineModalTitle">Compliance Standard</h4>
-                <button type="button" onclick="closeGuidelineModal()" style="font-size: 20px; color: #64748B; cursor: pointer; line-height: 1;">&times;</button>
+                <div>
+                    <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #64748B;">Compliance Standard Citation</span>
+                    <h4 style="font-size: 16px; font-weight: 700; color: #161B2E; margin-top: 2px;" id="guidelineModalTitle">Compliance Standard</h4>
+                </div>
+                <button type="button" onclick="closeGuidelineModal()" style="font-size: 22px; color: #64748B; background: none; border: none; cursor: pointer; line-height: 1;">&times;</button>
             </div>
-            <div style="padding: 24px; font-size: 13px; color: #464651; line-height: 22px;">
-                <p>This reference rule is active for the <strong><?= esc_html($campaignName) ?></strong> campaign under MAS Guidelines & Brand Identity Rules.</p>
-                <div style="margin-top: 12px; padding: 12px; background: #F3F2FF; border-radius: 6px; border-left: 3px solid #4F57A7;">
-                    Any advertisement featuring investment yields or foreign trademarks must provide prominent disclosures matching the approved standards.
+            
+            <div style="padding: 24px; font-size: 13px; color: #464651; line-height: 22px; max-height: 70vh; overflow-y: auto;">
+                <div id="guidelineModalScoreBadge" style="margin-bottom: 14px;"></div>
+
+                <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #4F57A7; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    <span>Cited Guideline / Regulatory Requirement</span>
+                </div>
+                <div id="guidelineModalQuote" style="padding: 12px 16px; background: #F8FAFC; border-radius: 8px; border-left: 3px solid #4F57A7; font-size: 13px; color: #1E293B; line-height: 20px; font-style: italic;">
+                    No specific citation text recorded.
+                </div>
+
+                <div id="guidelineModalReasonTitle" style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #BE123C; margin-top: 16px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <span>AI Evaluation Finding &amp; Reason</span>
+                </div>
+                <div id="guidelineModalReason" style="padding: 12px 16px; background: #FFF1F2; border-radius: 8px; border: 1px solid #FECDD3; font-size: 12.5px; color: #9F1239; line-height: 20px;">
+                    Evaluated against brand compliance standards.
                 </div>
             </div>
-            <div style="padding: 16px 24px; background: #F8FAFC; border-top: 1px solid #E2E8F0; text-align: right;">
-                <button type="button" onclick="closeGuidelineModal()" class="btn-upload-new-version" style="height: 36px; padding: 0 16px;">
+
+            <div style="padding: 14px 24px; background: #F8FAFC; border-top: 1px solid #E2E8F0; display: flex; justify-content: space-between; align-items: center;">
+                <a id="guidelineModalDocBtn" href="#" target="_blank" style="display: none; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #4F57A7; text-decoration: underline;">
+                    <span>View Guideline Document</span>
+                    <span>→</span>
+                </a>
+                <button type="button" onclick="closeGuidelineModal()" class="btn-upload-new-version" style="height: 36px; padding: 0 18px; margin-left: auto;">
                     Close
                 </button>
             </div>
@@ -2055,11 +2108,49 @@ $versionStatus = $version['status'] ?? 'scoring';
             if (m) m.style.display = 'none';
         }
 
-        // Guideline Modal Handlers
-        function openGuidelineQuickModal(title) {
+        // Guideline Modal Handlers with Full Dynamic AI Quotes & Findings
+        function openGuidelineQuickModal(title, quote, reason, docUrl, docName, score) {
             var m = document.getElementById('guidelineModal');
             var t = document.getElementById('guidelineModalTitle');
-            if (t && title) t.textContent = title;
+            var q = document.getElementById('guidelineModalQuote');
+            var r = document.getElementById('guidelineModalReason');
+            var rt = document.getElementById('guidelineModalReasonTitle');
+            var badge = document.getElementById('guidelineModalScoreBadge');
+            var docBtn = document.getElementById('guidelineModalDocBtn');
+
+            if (t) t.textContent = title || 'Compliance Standard';
+            if (q) q.textContent = quote || 'Standard brand compliance guideline requirement.';
+            if (r) r.textContent = reason || 'Evaluated against brand compliance standards.';
+            
+            var sc = parseInt(score, 10);
+            if (isNaN(sc)) sc = 50;
+
+            if (badge) {
+                if (sc >= 71) {
+                    badge.innerHTML = '<span style="background: #ECFDF5; color: #10B981; font-weight: 700; font-size: 11px; padding: 4px 10px; border-radius: 20px; outline: 1px solid rgba(16,185,129,0.3); display: inline-flex; align-items: center; gap: 4px;">PASS · Score: ' + sc + '/100</span>';
+                    if (r) { r.style.background = '#ECFDF5'; r.style.borderColor = '#A7F3D0'; r.style.color = '#065F46'; }
+                    if (rt) { rt.style.color = '#059669'; rt.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>AI Compliance Verification</span>'; }
+                } else if (sc >= 31) {
+                    badge.innerHTML = '<span style="background: #FFF6E5; color: #D97706; font-weight: 700; font-size: 11px; padding: 4px 10px; border-radius: 20px; outline: 1px solid rgba(217,119,6,0.3); display: inline-flex; align-items: center; gap: 4px;">NEEDS HUMAN LOOK · Score: ' + sc + '/100</span>';
+                    if (r) { r.style.background = '#FFFBEB'; r.style.borderColor = '#FDE68A'; r.style.color = '#92400E'; }
+                    if (rt) { rt.style.color = '#D97706'; rt.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>AI Human Review Request Reason</span>'; }
+                } else {
+                    badge.innerHTML = '<span style="background: #FFF1F2; color: #BE123C; font-weight: 700; font-size: 11px; padding: 4px 10px; border-radius: 20px; outline: 1px solid #FECDD3; display: inline-flex; align-items: center; gap: 4px;">FAIL · Score: ' + sc + '/100</span>';
+                    if (r) { r.style.background = '#FFF1F2'; r.style.borderColor = '#FECDD3'; r.style.color = '#9F1239'; }
+                    if (rt) { rt.style.color = '#BE123C'; rt.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><span>AI Rule Breach Explanation</span>'; }
+                }
+            }
+
+            if (docBtn) {
+                if (docUrl && docUrl !== 'javascript:void(0);' && docUrl !== '#') {
+                    docBtn.style.display = 'inline-flex';
+                    docBtn.href = docUrl;
+                    docBtn.innerHTML = '<span>Open ' + (docName || 'Guideline PDF') + '</span> <span>→</span>';
+                } else {
+                    docBtn.style.display = 'none';
+                }
+            }
+
             if (m) m.style.display = 'flex';
         }
         function closeGuidelineModal() {

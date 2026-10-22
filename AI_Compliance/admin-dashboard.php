@@ -57,6 +57,31 @@ if ($reqMethod === 'POST' && isset($_POST['action']) && $_POST['action'] === 'cr
         $releaseAlert = $res['message'];
         $releaseSuccess = $res['success'];
     }
+} elseif ($reqMethod === 'POST' && isset($_POST['action']) && $_POST['action'] === 'upload_guideline') {
+    $cId = absint($_POST['campaign_id'] ?? 0);
+    if ($cId && function_exists('handle_upload_campaign_guideline')) {
+        $uploaded = handle_upload_campaign_guideline($cId);
+        if ($uploaded) {
+            $releaseAlert = 'Guidelines attached to campaign successfully!';
+            $releaseSuccess = true;
+        } else {
+            $releaseAlert = 'Error uploading guidelines file. Please check file type and size.';
+            $releaseSuccess = false;
+        }
+    }
+} elseif ($reqMethod === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_guideline') {
+    $cId = absint($_POST['campaign_id'] ?? 0);
+    $gTarget = sanitize_text_field($_POST['guideline_url'] ?? '');
+    if ($cId && $gTarget && function_exists('handle_delete_campaign_guideline')) {
+        $ok = handle_delete_campaign_guideline($cId, $gTarget);
+        if ($ok) {
+            $releaseAlert = 'Guideline document removed successfully!';
+            $releaseSuccess = true;
+        } else {
+            $releaseAlert = 'Error removing guideline document.';
+            $releaseSuccess = false;
+        }
+    }
 }
 
 // 4. RETRIEVE CURRENT USER PROFILE & STRICT RBAC ENFORCEMENT (ADMIN ONLY)
@@ -1760,11 +1785,32 @@ $firstAwaitingId = !empty($needsAttention) ? $needsAttention[0]['version_id'] : 
                                         <tr class="drawer-row" id="drawer-<?= $camp['id'] ?>">
                                             <td colspan="6">
                                                 <div class="drawer-box">
-                                                    <div class="drawer-header" style="display: flex; justify-content: space-between; align-items: center;">
+                                                    <div class="drawer-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                                                         <span class="drawer-title">Release Items · <?= count($camp['assets']) ?> assets in this campaign</span>
-                                                        <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('detail-asset-admin.php') : 'detail-asset-admin.php') . '?campaign_id=' . (int)$camp['id']) ?>" style="font-size: 12px; font-weight: 600; color: #373E8C; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
-                                                            <span>Open Campaign Governance →</span>
-                                                        </a>
+                                                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                                            <?php 
+                                                            $gList = !empty($camp['guideline_files']) ? $camp['guideline_files'] : (!empty($camp['guidelines']) ? $camp['guidelines'] : []);
+                                                            if (empty($gList) && !empty($camp['guideline_file_url'])) {
+                                                                $gList = [['id' => 1, 'name' => basename($camp['guideline_file_url']), 'url' => $camp['guideline_file_url']]];
+                                                            }
+                                                            ?>
+                                                            <?php if (!empty($gList)): ?>
+                                                                <?php foreach ($gList as $gFile): ?>
+                                                                    <a href="<?= esc_url($gFile['url']) ?>" target="_blank" style="background: #EEF2FF; color: #373E8C; border: 1px solid #C7D2FE; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 11.5px;" title="<?= esc_attr($gFile['name']) ?>">
+                                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                                                        <span><?= esc_html($gFile['name']) ?></span>
+                                                                    </a>
+                                                                <?php endforeach; ?>
+                                                            <?php else: ?>
+                                                                <span style="font-size: 11.5px; color: #94A3B8; background: #F1F5F9; padding: 4px 10px; border-radius: 6px;">Guidelines · 0 files</span>
+                                                            <?php endif; ?>
+                                                            <button type="button" class="btn-action-outline" style="padding: 4px 10px; font-size: 11.5px; border-radius: 6px;" onclick="openUploadGuidelineModal(<?= (int)$camp['id'] ?>, '<?= esc_js($camp['name']) ?>', <?= esc_attr(json_encode($gList)) ?>)">
+                                                                Manage Guidelines
+                                                            </button>
+                                                            <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('detail-asset-admin.php') : 'detail-asset-admin.php') . '?campaign_id=' . (int)$camp['id']) ?>" style="font-size: 12px; font-weight: 600; color: #373E8C; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+                                                                <span>Open Campaign Governance →</span>
+                                                            </a>
+                                                        </div>
                                                     </div>
                                                     <?php if (empty($camp['assets'])): ?>
                                                         <p style="font-size: 13px; color: #64748B;">No assets registered under this campaign.</p>
@@ -2176,7 +2222,7 @@ $firstAwaitingId = !empty($needsAttention) ? $needsAttention[0]['version_id'] : 
             </div>
             <div class="modal-body">
                 <div class="modal-preview-box">
-                    <div class="modal-thumb">🔒</div>
+                    <div class="modal-thumb"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
                     <div class="modal-asset-info">
                         <h4 class="modal-asset-title" id="viewRelAssetTitle">Asset Title</h4>
                         <div class="modal-tags">
@@ -2208,7 +2254,7 @@ $firstAwaitingId = !empty($needsAttention) ? $needsAttention[0]['version_id'] : 
             <div class="modal-body">
                 <?php if (empty($auditLogs)): ?>
                     <div class="empty-state-box">
-                        <div class="empty-icon">📜</div>
+                        <div class="empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
                         <div class="empty-title">No Audit Logs Yet</div>
                         <p class="empty-desc">System actions, version uploads, checker reviews, and admin releases will be permanently recorded here.</p>
                     </div>
@@ -2238,6 +2284,47 @@ $firstAwaitingId = !empty($needsAttention) ? $needsAttention[0]['version_id'] : 
             </div>
         </div>
     </div>
+
+    <!-- Modal 4: Manage & Upload Campaign Guidelines (Admin Full CRUD) -->
+    <div class="modal-overlay" id="uploadGuidelineModal" style="display: none;">
+        <div class="modal-window" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="guidelineModalTitle">Campaign Guidelines</h3>
+                <span class="btn-close-modal" onclick="closeUploadGuidelineModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 16px;">
+                    <label style="font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px;">Attached Documents</label>
+                    <div id="guidelineAttachedList" style="display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto;">
+                        <!-- Injected via JS -->
+                    </div>
+                </div>
+
+                <div style="border-top: 1px solid #E2E8F0; padding-top: 16px;">
+                    <label style="font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 6px;">Attach Additional Guidelines</label>
+                    <form method="POST" action="" enctype="multipart/form-data" id="uploadGuidelineForm">
+                        <input type="hidden" name="action" value="upload_guideline">
+                        <input type="hidden" name="campaign_id" id="guidelineCampId" value="0">
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <input type="file" name="guideline_files[]" class="form-input" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" multiple required style="padding: 8px; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 13px;">
+                            <p style="font-size: 11.5px; color: #64748B; margin: 0;">Supports multiple documents (.pdf, .docx, .doc, .txt, .png, .jpg). These will be used for AI pre-flight and compliance checks.</p>
+                            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px;">
+                                <button type="button" class="btn-cancel" onclick="closeUploadGuidelineModal()">Cancel</button>
+                                <button type="submit" class="btn-confirm" style="background: #373E8C; color: #FFF; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 700; font-size: 13px; cursor: pointer;">+ Upload Documents</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden form for guideline deletion -->
+    <form method="POST" action="" id="deleteGuidelineForm" style="display: none;">
+        <input type="hidden" name="action" value="delete_guideline">
+        <input type="hidden" name="campaign_id" id="deleteGuidelineCampId" value="0">
+        <input type="hidden" name="guideline_url" id="deleteGuidelineUrl" value="">
+    </form>
 
     <!-- ================= 8. SCRIPTING ================= -->
     <script>
@@ -2446,6 +2533,67 @@ $firstAwaitingId = !empty($needsAttention) ? $needsAttention[0]['version_id'] : 
         function closeAdminCampaignModal() {
             const m = document.getElementById('adminCampaignModal');
             if (m) m.style.display = 'none';
+        }
+
+        // Manage & Upload Guideline Modal (Admin Full CRUD)
+        function openUploadGuidelineModal(campId, campName, guidelines) {
+            const m = document.getElementById('uploadGuidelineModal');
+            const inp = document.getElementById('guidelineCampId');
+            const title = document.getElementById('guidelineModalTitle');
+            const list = document.getElementById('guidelineAttachedList');
+            if (inp) inp.value = campId;
+            if (title) title.innerText = 'Campaign Guidelines · ' + campName;
+
+            if (list) {
+                list.innerHTML = '';
+                const gArray = Array.isArray(guidelines) ? guidelines : [];
+                if (gArray.length === 0) {
+                    list.innerHTML = '<div style="font-size: 12px; color: #94A3B8; padding: 12px; background: #F8FAFC; border-radius: 6px; text-align: center;">No guideline documents attached yet.</div>';
+                } else {
+                    gArray.forEach(g => {
+                        const item = document.createElement('div');
+                        item.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px;';
+                        
+                        const left = document.createElement('div');
+                        left.style.cssText = 'display: flex; align-items: center; gap: 8px; overflow: hidden;';
+                        left.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#373E8C" stroke-width="2" style="flex-shrink: 0;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span style="font-size: 12.5px; font-weight: 600; color: #1E293B; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">' + (g.name || 'Guideline') + '</span>';
+
+                        const right = document.createElement('div');
+                        right.style.cssText = 'display: flex; align-items: center; gap: 8px; flex-shrink: 0;';
+                        if (g.url) {
+                            right.innerHTML += '<a href="' + g.url + '" target="_blank" style="font-size: 11.5px; color: #373E8C; text-decoration: underline; font-weight: 600;">View</a>';
+                        }
+                        const delBtn = document.createElement('button');
+                        delBtn.type = 'button';
+                        delBtn.style.cssText = 'padding: 3px 8px; font-size: 11px; color: #BA1A1A; background: #FFF1F2; border: 1px solid #FECDD3; border-radius: 4px; cursor: pointer; font-weight: 600;';
+                        delBtn.textContent = 'Delete';
+                        delBtn.onclick = function() {
+                            if (confirm('Delete guideline "' + (g.name || '') + '" from this campaign?')) {
+                                document.getElementById('deleteGuidelineCampId').value = campId;
+                                document.getElementById('deleteGuidelineUrl').value = g.url || '';
+                                document.getElementById('deleteGuidelineForm').submit();
+                            }
+                        };
+                        right.appendChild(delBtn);
+
+                        item.appendChild(left);
+                        item.appendChild(right);
+                        list.appendChild(item);
+                    });
+                }
+            }
+
+            if (m) {
+                m.style.display = 'flex';
+                m.classList.add('active');
+            }
+        }
+        function closeUploadGuidelineModal() {
+            const m = document.getElementById('uploadGuidelineModal');
+            if (m) {
+                m.style.display = 'none';
+                m.classList.remove('active');
+            }
         }
     </script>
 </body>

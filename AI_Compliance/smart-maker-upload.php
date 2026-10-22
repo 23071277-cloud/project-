@@ -417,6 +417,9 @@ $selAssetType = $selectedAsset['format'] ?? 'Digital Ad';
             transition: all 0.2s ease;
             cursor: pointer;
         }
+        .large-drop-zone * {
+            pointer-events: none;
+        }
         .large-drop-zone.drag-over {
             background: #F3F2FF;
             border-color: #4E56A6;
@@ -768,7 +771,9 @@ $selAssetType = $selectedAsset['format'] ?? 'Digital Ad';
     <?php if (!$isAllowed): ?>
         <main class="workspace-slot">
             <div class="empty-state-box">
-                <div class="empty-icon-circle">🔒</div>
+                <div class="empty-icon-circle">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#E11D48" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </div>
                 <h2 class="empty-title">Access Restricted to Maker Role</h2>
                 <p class="empty-desc">
                     This Smart Upload Workspace is reserved for Creative Makers and Content Authors. 
@@ -796,7 +801,7 @@ endif;
     <!-- 3. NOTIFICATION / ALERT TOAST -->
     <?php if (!empty($feedbackAlert)): ?>
         <div class="alert-toast alert-success">
-            <span>✓ <?= esc_html($feedbackAlert) ?></span>
+            <span><?= esc_html($feedbackAlert) ?></span>
             <div style="display: flex; align-items: center; gap: 12px;">
                 <?php if ($uploadedVersionId > 0): ?>
                     <a href="<?= esc_url(pcs_url('detail-asset-maker.php') . '?campaign_id=' . $campaignId) ?>" style="color: #065F46; text-decoration: underline;">
@@ -814,7 +819,9 @@ endif;
         <?php if ($isDbEmpty): ?>
             <!-- EMPTY STATE: NO CAMPAIGNS IN DATABASE -->
             <div class="empty-state-box">
-                <div class="empty-icon-circle">📂</div>
+                <div class="empty-icon-circle">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                </div>
                 <h2 class="empty-title">No Campaign Found in Database</h2>
                 <p class="empty-desc">
                     Creative assets must belong to an active campaign. Please create your first campaign in the Maker Dashboard before uploading assets.
@@ -962,7 +969,7 @@ endif;
                                 <div class="integrated-file-card" id="activeFileCard" style="display: none;" onclick="event.stopPropagation();">
                                     <div style="display: flex; align-items: center; gap: 14px;">
                                         <div class="file-thumb-square" id="fileThumbPreview">
-                                            <span>📄</span>
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                                         </div>
                                         <div>
                                             <strong style="color: #161B2E; font-size: 13px; display: block;" id="cardFileName">file.png</strong>
@@ -1263,7 +1270,7 @@ endif;
             };
             reader.readAsDataURL(file);
         } else {
-            thumbBox.innerHTML = '<span style="font-size: 20px;">📄</span>';
+            thumbBox.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
         }
 
         // Update Summary & Strip
@@ -1290,6 +1297,13 @@ endif;
         document.getElementById('stripStatusText').textContent = 'Waiting for File';
         document.getElementById('stripStatusText').style.color = '#64748B';
     }
+
+    // Prevent default browser behavior on drop outside dropzone (prevents opening files in tab)
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        window.addEventListener(eventName, function(e) {
+            e.preventDefault();
+        }, false);
+    });
 
     // Drag & Drop Listeners
     const dropArea = document.getElementById('dropZoneArea');

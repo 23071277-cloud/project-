@@ -8,6 +8,12 @@ if (file_exists(__DIR__ . '/backend.php')) {
     require_once __DIR__ . '/inc/backend.php';
 }
 $loginUrl = function_exists('pcs_url') ? pcs_url('page-login.php') : 'page-login.php';
+$homeLogoUrl = 'images/logo.png';
+if (function_exists('get_template_directory_uri')) {
+    $homeLogoUrl = get_template_directory_uri() . '/images/logo.png';
+} elseif (function_exists('get_stylesheet_directory_uri')) {
+    $homeLogoUrl = get_stylesheet_directory_uri() . '/images/logo.png';
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -640,15 +646,15 @@ $loginUrl = function_exists('pcs_url') ? pcs_url('page-login.php') : 'page-login
                     <h4>Pre-flight Verification</h4>
                     <div class="status-item">
                         <span>Foreign Logo Scan</span>
-                        <strong style="color: #10B981;">✓ 98/100 Pass</strong>
+                        <strong style="color: #10B981;">98/100 Pass</strong>
                     </div>
                     <div class="status-item">
                         <span>Brand Typography</span>
-                        <strong style="color: #10B981;">✓ 95/100 Pass</strong>
+                        <strong style="color: #10B981;">95/100 Pass</strong>
                     </div>
                     <div class="status-item">
                         <span>MAS Disclosure Check</span>
-                        <strong style="color: #F59E0B;">⚠ 65/100 Needs Review</strong>
+                        <strong style="color: #F59E0B;">65/100 Needs Review</strong>
                     </div>
                 </div>
             </div>
@@ -810,7 +816,11 @@ $loginUrl = function_exists('pcs_url') ? pcs_url('page-login.php') : 'page-login
             <div class="footer-grid">
                 <div class="footer-col">
                     <div class="brand-logo" style="margin-bottom: 14px;">
-                        <img src="images/logo.png" alt="ICTS Logo" class="brand-logo-img" style="filter: brightness(0) invert(1);">
+                        <img src="<?= esc_url($homeLogoUrl) ?>" alt="BrandCompliance Logo" class="brand-logo-img" style="filter: brightness(0) invert(1);" onerror="this.onerror=null; this.style.display='none'; document.getElementById('footerBrandFallback').style.display='inline-flex';">
+                        <span id="footerBrandFallback" style="display: none; align-items: center; gap: 8px; font-weight: 800; font-size: 18px; color: #FFFFFF;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                            <span>BrandCompliance</span>
+                        </span>
                     </div>
                     <p style="font-size: 14px; color: #E9D5FF; opacity: 0.8; max-width: 280px;">
                         AI-powered document & marketing asset compliance review for modern enterprise teams.

@@ -1898,7 +1898,6 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
 
             <?php if (!empty($decisionAlert)): ?>
                 <div class="toast-banner <?= $decisionSuccess ? 'success' : 'danger' ?>">
-                    <span><?= $decisionSuccess ? '✓' : '⚠' ?></span>
                     <span><?= htmlspecialchars($decisionAlert) ?></span>
                 </div>
             <?php endif; ?>
@@ -2297,13 +2296,7 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
                             ?>
                                 <div class="timeline-node">
                                     <div class="timeline-badge <?= $bClass ?>">
-                                        <?php if ($vh['status'] === 'approved' || $vh['status'] === 'released'): ?>
-                                            ✓
-                                        <?php elseif ($vh['status'] === 'rejected'): ?>
-                                            ✕
-                                        <?php else: ?>
-                                            V<?= $vh['version_num'] ?>
-                                        <?php endif; ?>
+                                        V<?= $vh['version_num'] ?>
                                     </div>
                                     <span class="timeline-label">V<?= $vh['version_num'] ?><?= $vh['is_current'] ? ' (Current)' : '' ?></span>
                                     <span class="timeline-sub"><?= htmlspecialchars($vh['date_status']) ?></span>
@@ -2320,7 +2313,7 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
                     <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px; display: flex; align-items: center; justify-content: space-between; margin-top: auto;">
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <div style="width: 32px; height: 32px; background: #EBEDFF; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #1F2674;">
-                                📁
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1F2674" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                             </div>
                             <div>
                                 <div style="font-size: 13px; font-weight: 700; color: #161B2E;"><?= htmlspecialchars($selectedAsset['name'] ?? 'Asset Reference') ?></div>
@@ -2343,12 +2336,17 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
                             <?php foreach ($guidelines as $g): ?>
                                 <div class="guideline-row">
                                     <div style="display: flex; align-items: center; gap: 10px;">
-                                        <div style="width: 30px; height: 30px; border-radius: 6px; background: #EBEDFF; display: flex; align-items: center; justify-content: center; color: #1F2674; font-size: 14px;">
-                                            📄
+                                        <div style="width: 30px; height: 30px; border-radius: 6px; background: #EBEDFF; display: flex; align-items: center; justify-content: center; color: #1F2674;">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                                         </div>
                                         <div class="text-2" style="font-size: 13.5px;"><?= htmlspecialchars($g['name']) ?></div>
                                     </div>
-                                    <span style="font-size: 12px; font-weight: 600; color: #767682;"><?= htmlspecialchars($g['tag']) ?></span>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span style="font-size: 12px; font-weight: 600; color: #767682;"><?= htmlspecialchars($g['tag']) ?></span>
+                                        <?php if (!empty($g['url']) && $g['url'] !== '#'): ?>
+                                            <a href="<?= esc_url($g['url']) ?>" target="_blank" style="font-size: 11.5px; color: #1F2674; font-weight: 600; text-decoration: underline;">View</a>
+                                        <?php endif; ?>
+                                    </div>
                                 </div>
                             <?php endforeach; ?>
                         <?php else: ?>
@@ -2431,10 +2429,10 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
 
             <div class="modal-footer">
                 <button type="submit" name="decision" value="rejected" class="btn-modal-reject">
-                    ✕ Reject / Request Changes
+                    Reject / Request Changes
                 </button>
                 <button type="submit" name="decision" value="approved" class="btn-modal-approve">
-                    ✓ Approve Asset
+                    Approve Asset
                 </button>
             </div>
         </form>
@@ -2454,7 +2452,9 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
                     <?php foreach ($guidelines as $g): ?>
                         <div class="guideline-row" style="background: #FFFFFF; border: 1px solid #E2E8F0;">
                             <div style="display: flex; align-items: center; gap: 12px;">
-                                <span style="font-size: 20px;">📄</span>
+                                <span style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #EBEDFF; border-radius: 6px; color: #1F2674;">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                </span>
                                 <div>
                                     <div style="font-weight: 700; font-size: 14px; color: #161B2E;"><?= htmlspecialchars($g['name']) ?></div>
                                     <div style="font-size: 12px; color: #64748B;">Classification: <?= htmlspecialchars($g['tag']) ?></div>

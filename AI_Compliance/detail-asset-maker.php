@@ -89,7 +89,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action'])) {
         if ($campIdPost && function_exists('handle_upload_campaign_guideline')) {
             $gUrl = handle_upload_campaign_guideline($campIdPost);
             if ($gUrl) {
-                $feedbackAlert = 'Brand Guideline document uploaded successfully!';
+                $feedbackAlert = 'Brand Guideline document(s) uploaded successfully!';
+                $feedbackSuccess = true;
+            }
+        }
+    } elseif ($_POST['action'] === 'delete_guideline') {
+        $campIdPost = (int) ($_POST['campaign_id'] ?? 0);
+        $targetUrl = sanitize_text_field($_POST['guideline_url'] ?? '');
+        if ($campIdPost && $targetUrl && function_exists('handle_delete_campaign_guideline')) {
+            $ok = handle_delete_campaign_guideline($campIdPost, $targetUrl);
+            if ($ok) {
+                $feedbackAlert = 'Guideline document removed successfully!';
                 $feedbackSuccess = true;
             }
         }
@@ -911,8 +921,8 @@ $nextVersionNum = $currentVersionNum + 1;
             gap: 10px;
         }
         .node-circle {
-            width: 28px;
-            height: 28px;
+            width: 32px;
+            height: 32px;
             border-radius: 9999px;
             display: flex;
             align-items: center;
@@ -920,6 +930,7 @@ $nextVersionNum = $currentVersionNum + 1;
             font-size: 12px;
             font-weight: 700;
             letter-spacing: 0.24px;
+            flex-shrink: 0;
         }
         .node-circle-normal {
             background: #EBEDFF;
@@ -1197,7 +1208,9 @@ $nextVersionNum = $currentVersionNum + 1;
     <?php if (!$isAllowed): ?>
         <main class="workspace-main">
             <div class="empty-state-box">
-                <div class="empty-icon-circle">🔒</div>
+                <div class="empty-icon-circle">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#E11D48" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </div>
                 <h2 class="empty-title">Access Restricted to Maker Role</h2>
                 <p class="empty-desc">
                     This Campaign Asset Detail screen is dedicated to Content Creators and Makers. 
@@ -1225,7 +1238,7 @@ endif;
     <!-- 3. FEEDBACK / ALERT TOAST -->
     <?php if (!empty($feedbackAlert)): ?>
         <div class="alert-toast alert-success">
-            <span>✓ <?= esc_html($feedbackAlert) ?></span>
+            <span><?= esc_html($feedbackAlert) ?></span>
             <span style="cursor: pointer;" onclick="this.parentElement.style.display='none';">&times;</span>
         </div>
     <?php endif; ?>
@@ -1236,7 +1249,9 @@ endif;
         <?php if ($isDbEmpty): ?>
             <!-- EMPTY STATE: NO CAMPAIGNS IN DATABASE -->
             <div class="empty-state-box">
-                <div class="empty-icon-circle">📂</div>
+                <div class="empty-icon-circle">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                </div>
                 <h2 class="empty-title">No Campaign Found in Database</h2>
                 <p class="empty-desc">
                     There are currently no active campaigns registered in the WordPress compliance repository. 
@@ -1424,7 +1439,7 @@ endif;
                                         <?php if (!empty($ast['file_url']) && preg_match('/\.(png|jpg|jpeg|webp)$/i', $ast['file_url'])): ?>
                                             <img src="<?= esc_url($ast['file_url']) ?>" alt="<?= esc_attr($ast['name']) ?>">
                                         <?php else: ?>
-                                            <span>🎨</span>
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.8"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
                                         <?php endif; ?>
                                     </div>
                                     <div class="asset-info-col">
@@ -1451,9 +1466,9 @@ endif;
 
                                 <div class="action-cell" onclick="event.stopPropagation();">
                                     <?php if ($isRejected): ?>
-                                        <button type="button" class="btn-row-upload" onclick="openUploadModal(<?= (int)$ast['id'] ?>, '<?= esc_js($ast['name']) ?>')">
+                                        <a href="<?= esc_url(pcs_url('smart-maker-upload.php') . '?campaign_id=' . (int)$campaignId . '&asset_id=' . (int)$ast['id'] . '&mode=new_version') ?>" class="btn-row-upload" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; text-align: center;">
                                             Upload New<br>Version
-                                        </button>
+                                        </a>
                                         <button type="button" class="btn-row-feedback" onclick="selectAsset(<?= (int)$ast['id'] ?>)">
                                             Feedback
                                         </button>
@@ -1466,9 +1481,9 @@ endif;
                                             View Release
                                         </a>
                                     <?php else: ?>
-                                        <button type="button" class="btn-row-secondary" onclick="openUploadModal(<?= (int)$ast['id'] ?>, '<?= esc_js($ast['name']) ?>')">
-                                            Continue
-                                        </button>
+                                        <a href="<?= esc_url(pcs_url('smart-maker-upload.php') . '?campaign_id=' . (int)$campaignId . '&asset_id=' . (int)$ast['id'] . '&mode=new_version') ?>" class="btn-row-secondary" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">
+                                            Upload
+                                        </a>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -1525,7 +1540,9 @@ endif;
                             <?php if (!empty($selectedAsset['file_url']) && preg_match('/\.(png|jpg|jpeg|webp)$/i', $selectedAsset['file_url'])): ?>
                                 <img src="<?= esc_url($selectedAsset['file_url']) ?>" alt="<?= esc_attr($selectedAsset['name']) ?>">
                             <?php else: ?>
-                                <div style="font-size: 40px; color: #4E56A6;">🖼️</div>
+                                <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#4E56A6" stroke-width="1.8"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                                </div>
                             <?php endif; ?>
                             <div class="canvas-blur-overlay">
                                 <?= esc_html($selectedAsset['name']) ?> · <?= esc_html($selectedAsset['format']) ?>
@@ -1561,8 +1578,14 @@ endif;
                                 <span class="feedback-flag-pill">Disclaimer</span>
                                 <span class="feedback-flag-pill">Footer</span>
                             <?php else: ?>
-                                <span class="feedback-neutral-pill">MAS Notice 637</span>
-                                <span class="feedback-neutral-pill">Brand Guidelines 2026</span>
+                                <?php if (!empty($guidelines)): ?>
+                                    <?php foreach (array_slice($guidelines, 0, 3) as $g): ?>
+                                        <span class="feedback-neutral-pill"><?= esc_html($g['name']) ?></span>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <span class="feedback-neutral-pill">MAS Notice 637</span>
+                                    <span class="feedback-neutral-pill">Brand Standards</span>
+                                <?php endif; ?>
                             <?php endif; ?>
                         </div>
 
@@ -1641,8 +1664,11 @@ endif;
                                 <div class="pipeline-node">
                                     <div class="node-circle node-circle-normal">V1</div>
                                     <div class="pipeline-node-info">
-                                        <span class="node-primary-text">Initial Draft</span>
-                                        <span class="node-sub-text">Current</span>
+                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                            <span class="node-primary-text">Initial Draft</span>
+                                            <span class="current-badge-chip" style="font-size: 10px; font-weight: 700; background: #E0E0FF; color: #373E8C; padding: 1px 6px; border-radius: 4px; line-height: 1.3;">Current</span>
+                                        </div>
+                                        <span class="node-sub-text">Draft</span>
                                     </div>
                                 </div>
                             <?php else: ?>
@@ -1655,10 +1681,15 @@ endif;
                                     elseif ($vSt === 'released') $circleClass = 'node-circle-released';
                                 ?>
                                     <div class="pipeline-node">
-                                        <div class="node-circle <?= $circleClass ?>"><?= esc_html($vh['version_label']) ?></div>
+                                        <div class="node-circle <?= $circleClass ?>">V<?= (int)($vh['version_num'] ?? ($idx + 1)) ?></div>
                                         <div class="pipeline-node-info">
-                                            <span class="node-primary-text"><?= esc_html($vh['date']) ?></span>
-                                            <span class="node-sub-text" style="color: <?= ($vSt === 'rejected') ? '#BA1A1A' : '#767682' ?>;">
+                                            <div style="display: flex; align-items: center; gap: 6px;">
+                                                <span class="node-primary-text"><?= esc_html($vh['date']) ?></span>
+                                                <?php if (!empty($vh['is_current'])): ?>
+                                                    <span class="current-badge-chip" style="font-size: 10px; font-weight: 700; background: #E0E0FF; color: #373E8C; padding: 1px 6px; border-radius: 4px; line-height: 1.3;">Current</span>
+                                                <?php endif; ?>
+                                            </div>
+                                            <span class="node-sub-text" style="color: <?= ($vSt === 'rejected') ? '#BA1A1A' : ($vSt === 'approved' || $vSt === 'released' ? '#047857' : '#767682') ?>;">
                                                 <?= esc_html($vh['status_label']) ?>
                                             </span>
                                         </div>
@@ -1693,11 +1724,7 @@ endif;
                             <?php if ($idx < count($guidelines) - 1): ?><span>·</span><?php endif; ?>
                         <?php endforeach; ?>
                     <?php else: ?>
-                        <span style="color: #4F57A7;">Brand Guidelines 2026</span>
-                        <span>·</span>
-                        <span style="color: #4F57A7;">MAS Advertising Rules</span>
-                        <span>·</span>
-                        <span style="color: #4F57A7;">Campaign Copy Standards</span>
+                        <span style="color: #94A3B8; font-size: 12px; font-style: italic;">No guideline documents attached yet.</span>
                     <?php endif; ?>
                 </div>
                 <div>
@@ -1752,48 +1779,7 @@ endif;
 
 </div>
 
-<!-- ================= 5. POPUP MODAL: UPLOAD ASSET / NEW VERSION ================= -->
-<div class="modal-overlay" id="uploadModal" style="display: none;">
-    <div class="modal-card">
-        <div class="modal-header">
-            <h3 class="modal-title" id="modalUploadTitle">Upload Creative Asset</h3>
-            <span class="btn-modal-close" onclick="closeUploadModal()">&times;</span>
-        </div>
-        <form method="POST" action="" enctype="multipart/form-data">
-            <input type="hidden" name="action" value="upload_asset">
-            <input type="hidden" name="campaign_id" value="<?= (int)$campaignId ?>">
-            <input type="hidden" name="campaign_name" value="<?= esc_attr($campaignName) ?>">
-            <input type="hidden" name="asset_id" id="modalAssetId" value="0">
-
-            <div class="modal-body">
-                <div>
-                    <label class="form-label" for="modalAssetNameInput">Asset Title / Format</label>
-                    <input type="text" name="asset_name" id="modalAssetNameInput" class="form-input" required placeholder="e.g. Social Banner 1080x1080">
-                </div>
-
-                <div>
-                    <label class="form-label" for="assetFileInput">Master Asset File (PNG, JPG, PDF)</label>
-                    <input type="file" name="asset_file" id="assetFileInput" class="form-input" accept=".png,.jpg,.jpeg,.pdf,.webp" required>
-                    <p style="font-size: 11px; color: #64748B; margin-top: 4px;">Max file size 50MB. Immutable version stamp will be automatically assigned.</p>
-                </div>
-
-                <div>
-                    <label class="form-label">Submission Policy</label>
-                    <div style="padding: 10px 12px; background: #F8FAFC; border-radius: 6px; border: 1px solid #E2E8F0; font-size: 12px; color: #475569; line-height: 18px;">
-                        Uploading this file will create a new, immutable version in the compliance database and trigger AI pre-flight scanning.
-                    </div>
-                </div>
-            </div>
-
-            <div class="modal-footer">
-                <button type="button" class="btn-modal-cancel" onclick="closeUploadModal()">Cancel</button>
-                <button type="submit" class="btn-modal-submit">Upload & Submit for Review</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- ================= 6. POPUP MODAL: GUIDELINES ================= -->
+<!-- ================= 5. POPUP MODAL: GUIDELINES ================= -->
 <div class="modal-overlay" id="guidelinesModal" style="display: none;">
     <div class="modal-card">
         <div class="modal-header">
@@ -1811,11 +1797,19 @@ endif;
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #F8FAFC; border-radius: 6px; border: 1px solid #E2E8F0;">
                             <div>
                                 <strong style="font-size: 13px; color: #1E293B;"><?= esc_html($g['name'] ?? 'Brand Guideline') ?></strong>
-                                <span style="font-size: 11px; color: #64748B; display: block;"><?= esc_html($g['tag'] ?? 'Primary Reference') ?></span>
+                                <span style="font-size: 11px; color: #64748B; display: block;"><?= esc_html($g['tag'] ?? 'Primary Reference') ?> · <?= strtoupper(esc_html($g['ext'] ?? 'pdf')) ?> <?= !empty($g['size']) ? '· ' . esc_html($g['size']) : '' ?></span>
                             </div>
-                            <?php if (!empty($g['url'])): ?>
-                                <a href="<?= esc_url($g['url']) ?>" target="_blank" class="btn-modal-cancel" style="padding: 4px 10px; font-size: 11px; text-decoration: none;">Download</a>
-                            <?php endif; ?>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <?php if (!empty($g['url'])): ?>
+                                    <a href="<?= esc_url($g['url']) ?>" target="_blank" class="btn-modal-cancel" style="padding: 4px 10px; font-size: 11px; text-decoration: none; color: #4F56A6; border-color: #C7D2FE;">View</a>
+                                <?php endif; ?>
+                                <form method="POST" action="" onsubmit="return confirm('Remove guideline document &quot;<?= esc_js($g['name']) ?>&quot; from this campaign?');" style="margin: 0;">
+                                    <input type="hidden" name="action" value="delete_guideline">
+                                    <input type="hidden" name="campaign_id" value="<?= (int)$campaignId ?>">
+                                    <input type="hidden" name="guideline_url" value="<?= esc_attr($g['url']) ?>">
+                                    <button type="submit" style="padding: 4px 8px; font-size: 11px; color: #BA1A1A; background: #FFF1F2; border: 1px solid #FECDD3; border-radius: 4px; cursor: pointer; font-weight: 600;">Delete</button>
+                                </form>
+                            </div>
                         </div>
                     <?php endforeach; ?>
                 <?php else: ?>
@@ -1828,10 +1822,10 @@ endif;
             <form method="POST" action="" enctype="multipart/form-data" style="margin-top: 10px; border-top: 1px solid #E2E8F0; padding-top: 14px;">
                 <input type="hidden" name="action" value="upload_guideline">
                 <input type="hidden" name="campaign_id" value="<?= (int)$campaignId ?>">
-                <label class="form-label">Attach New Brand Guideline Document</label>
+                <label class="form-label">Attach New Brand Guideline Documents (PDF / DOCX / TXT / Images)</label>
                 <div style="display: flex; gap: 8px;">
-                    <input type="file" name="guideline_file" class="form-input" accept=".pdf" required>
-                    <button type="submit" class="btn-modal-submit" style="white-space: nowrap;">Upload</button>
+                    <input type="file" name="guideline_files[]" class="form-input" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" multiple required>
+                    <button type="submit" class="btn-modal-submit" style="white-space: nowrap;">Upload Files</button>
                 </div>
             </form>
         </div>
@@ -1877,22 +1871,6 @@ endif;
         window.location.href = currentUrl.toString();
     }
 
-    // Upload Modal Handlers
-    function openUploadModal(assetId, assetName) {
-        document.getElementById('modalAssetId').value = assetId || 0;
-        document.getElementById('modalAssetNameInput').value = (assetId > 0 && assetName) ? assetName : '';
-        if (assetId > 0) {
-            document.getElementById('modalUploadTitle').textContent = 'Upload New Version for ' + assetName;
-        } else {
-            document.getElementById('modalUploadTitle').textContent = 'Upload Creative Asset';
-        }
-        document.getElementById('uploadModal').style.display = 'flex';
-    }
-
-    function closeUploadModal() {
-        document.getElementById('uploadModal').style.display = 'none';
-    }
-
     // Guidelines Modal Handlers
     function openGuidelinesModal() {
         document.getElementById('guidelinesModal').style.display = 'flex';
@@ -1905,7 +1883,6 @@ endif;
     // Close Modals on ESC
     window.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
-            closeUploadModal();
             closeGuidelinesModal();
         }
     });

@@ -776,7 +776,9 @@ $compareScreenUrl = $data['campaign_id'] ? add_query_arg([
     <?php if (!$isAllowed): ?>
         <main class="workspace-content">
             <div class="access-denied-box">
-                <div style="font-size: 36px;">🔒</div>
+                <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 8px;">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#E11D48" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </div>
                 <h2 style="color: #991B1B; font-size: 20px; font-weight: 700;">Access Restricted</h2>
                 <p style="color: #64748B; font-size: 13.5px; line-height: 20px;">
                     This final production release audit screen is restricted to <strong>Maker</strong> (Asset Author) and <strong>Admin</strong> (Compliance Administrator) roles.
@@ -847,7 +849,9 @@ $compareScreenUrl = $data['campaign_id'] ? add_query_arg([
         <?php if ($isEmpty): ?>
             <!-- EMPTY STATE -->
             <div class="empty-state-box">
-                <div class="empty-icon-circle">📂</div>
+                <div class="empty-icon-circle">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                </div>
                 <h2 class="empty-title">No Released Asset Found</h2>
                 <p class="empty-desc">
                     No production released creative asset is currently selected or registered in the compliance repository. 

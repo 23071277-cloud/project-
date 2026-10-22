@@ -1077,7 +1077,7 @@ sort($uniqueCheckers);
                 <div class="hero-metrics">
                     <div class="metric-counter-row">
                         <span id="heroTotalCounter" class="metric-num"><?php echo (int) $totalAwaiting; ?></span>
-                        <span class="metric-label">Awaiting Release</span>
+                        <span class="metric-label">Approved</span>
                     </div>
                     <div class="attention-pill">
                         <span class="dot-amber"></span>
@@ -1286,7 +1286,7 @@ sort($uniqueCheckers);
                                             <td class="queue-td col-status">
                                                 <span class="status-pill-awaiting">
                                                     <span class="dot-amber"></span>
-                                                    <span>Awaiting Release</span>
+                                                    <span>Approved</span>
                                                 </span>
                                             </td>
 
@@ -1407,7 +1407,7 @@ sort($uniqueCheckers);
                                             <td class="queue-td col-status">
                                                 <span class="status-pill-awaiting">
                                                     <span class="dot-amber"></span>
-                                                    <span>Awaiting Release</span>
+                                                    <span>Approved</span>
                                                 </span>
                                             </td>
 

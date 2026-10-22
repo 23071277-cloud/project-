@@ -9,19 +9,48 @@ if (file_exists(__DIR__ . '/backend.php')) {
 }
 
 // Handle Logout
-if (isset($_GET['action']) && $_GET['action'] === 'logout') {
+if (isset($_GET['action']) && in_array($_GET['action'], ['logout', 'signout', 'switch_account'], true)) {
     if (function_exists('wp_logout')) {
         wp_logout();
     }
+    if (function_exists('wp_clear_auth_cookie')) {
+        wp_clear_auth_cookie();
+    }
+    setcookie('pcs_remember_user', '', time() - 3600, '/');
+    setcookie('pcs_remember_role', '', time() - 3600, '/');
     if (session_status() === PHP_SESSION_ACTIVE) {
         unset($_SESSION['logged_in_user']);
         unset($_SESSION['pcs_user_id']);
         session_destroy();
     }
+    if (!empty($_GET['redirect_to'])) {
+        if (function_exists('pcs_safe_redirect')) {
+            pcs_safe_redirect($_GET['redirect_to']);
+        } else {
+            header('Location: ' . $_GET['redirect_to']);
+            exit;
+        }
+    }
     $login_url = function_exists('pcs_url') ? pcs_url('page-login.php') : 'page-login.php';
-    header('Location: ' . $login_url);
-    exit;
+    $target = $login_url . (strpos($login_url, '?') !== false ? '&' : '?') . (isset($_GET['switched']) ? 'switched=true' : 'loggedout=true');
+    if (function_exists('pcs_safe_redirect')) {
+        pcs_safe_redirect($target);
+    } else {
+        header('Location: ' . $target);
+        exit;
+    }
 }
+
+$homeUrl = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-page.php';
+$loginLogoUrl = 'images/logo.png';
+if (function_exists('get_template_directory_uri')) {
+    $loginLogoUrl = get_template_directory_uri() . '/images/logo.png';
+} elseif (function_exists('get_stylesheet_directory_uri')) {
+    $loginLogoUrl = get_stylesheet_directory_uri() . '/images/logo.png';
+}
+
+$loginError = '';
+$currentUser = function_exists('get_current_user_profile') ? get_current_user_profile() : null;
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['email'])) {
     $user = authenticate_user($_POST['email'], $_POST['password'] ?? '');
@@ -44,6 +73,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['email'])) {
             header('Location: ' . $dest);
             exit;
         }
+    } else {
+        $loginError = 'Invalid credentials or user not found. Please verify your email / username.';
     }
 }
 ?>
@@ -407,16 +438,34 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['email'])) {
 
                 <div class="title-with-logo">
                     <h2>Sign in to</h2>
-                    <a href="home-page.php" title="Back to homepage">
-                        <img src="images/logo.png" alt="ICTS Logo" class="company-logo">
+                    <a href="<?= esc_url($homeUrl) ?>" title="Back to homepage" style="text-decoration: none; display: inline-flex; align-items: center;">
+                        <img src="<?= esc_url($loginLogoUrl) ?>" alt="BrandCompliance Logo" class="company-logo" onerror="this.onerror=null; this.style.display='none'; document.getElementById('loginLogoFallback').style.display='inline-flex';">
+                        <span id="loginLogoFallback" style="display: none; align-items: center; gap: 8px; font-weight: 800; font-size: 20px; color: #1F2674;">
+                            <span style="width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #373E8C, #4F56A6); color: #FFF; display: inline-flex; align-items: center; justify-content: center;">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                            </span>
+                            BrandCompliance
+                        </span>
                     </a>
                 </div>
                 <p class="subtitle-text">Access your review workspace and continue where you left off.</p>
+
+                <?php if (!empty($loginError)): ?>
+                    <div style="background: #FEF2F2; border: 1px solid #FCA5A5; color: #991B1B; padding: 12px 16px; border-radius: 10px; font-size: 13.5px; margin-bottom: 20px; font-weight: 500; display: flex; align-items: center; gap: 8px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                        <span><?= esc_html($loginError) ?></span>
+                    </div>
+                <?php endif; ?>
 
                 <?php if (isset($_GET['switched']) || (isset($_GET['action']) && $_GET['action'] === 'switched')): ?>
                     <div style="background: #EEF2FF; border: 1px solid #C7D2FE; color: #373E8C; padding: 12px 16px; border-radius: 10px; font-size: 13.5px; margin-top: 14px; margin-bottom: 20px; font-weight: 500; display: flex; align-items: center; gap: 8px;">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
                         <span>You have switched accounts. Please sign in with an authorized account.</span>
+                    </div>
+                <?php elseif (isset($_GET['loggedout'])): ?>
+                    <div style="background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46; padding: 12px 16px; border-radius: 10px; font-size: 13.5px; margin-top: 14px; margin-bottom: 20px; font-weight: 500; display: flex; align-items: center; gap: 8px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span>You have been signed out successfully.</span>
                     </div>
                 <?php elseif (isset($_GET['reason']) && $_GET['reason'] === 'login_required'): ?>
                     <div style="background: #FFFBEB; border: 1px solid #FDE68A; color: #92400E; padding: 12px 16px; border-radius: 10px; font-size: 13.5px; margin-top: 14px; margin-bottom: 20px; font-weight: 500; display: flex; align-items: center; gap: 8px;">

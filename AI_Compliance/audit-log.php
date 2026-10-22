@@ -1031,7 +1031,9 @@ $allActivityUrl  = '?' . http_build_query(array_merge($_GET, ['mode' => 'all']))
         <!-- ================= RBAC ACCESS DENIED SCREEN ================= -->
         <main class="main-viewport">
             <div class="access-denied-wrapper">
-                <div class="denied-icon">🔒</div>
+                <div class="denied-icon">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#E11D48" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </div>
                 <h1 class="denied-title">403 Forbidden: Access Restricted</h1>
                 <p class="denied-message">
                     The Regulatory Compliance Audit Trail contains restricted legal and operational records. Access is exclusively granted to authorized <strong>Checker</strong> and <strong>Admin</strong> compliance officers.
@@ -1201,7 +1203,9 @@ $allActivityUrl  = '?' . http_build_query(array_merge($_GET, ['mode' => 'all']))
                             <?php if (empty($events)): ?>
                                 <tr id="noEventsRow">
                                     <td colspan="7" class="empty-row-td">
-                                        <div class="empty-icon">📜</div>
+                                        <div class="empty-icon">
+                                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                                        </div>
                                         <div class="empty-title">No Audit Events Recorded Yet</div>
                                         <p class="empty-desc">
                                             All compliance actions (uploads, AI evaluations, reviewer approvals, overrides, and production releases) are immutably logged into WordPress database automatically.

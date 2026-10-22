@@ -57,6 +57,20 @@ if (!isset($allCampaignsUrl) || empty($allCampaignsUrl)) {
 }
 $unavCampaignsBtnText = !empty($campaignsBtnText) ? $campaignsBtnText : 'All Campaigns';
 
+// Logo URL Target: User request: Clicking logo should navigate to their role dashboard
+$unavRoleDashboardUrl = $allCampaignsUrl;
+if (!empty($currentUser['role'])) {
+    if ($unavRole === 'ADMIN') {
+        $unavRoleDashboardUrl = function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php';
+    } elseif ($unavRole === 'MAKER') {
+        $unavRoleDashboardUrl = function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php';
+    } else {
+        $unavRoleDashboardUrl = function_exists('pcs_url') ? pcs_url('checker-dashboard.php') : 'checker-dashboard.php';
+    }
+} else {
+    $unavRoleDashboardUrl = $unavHomeUrl;
+}
+
 // Avatar Background Color
 $unavAvatarBg = $currentUser['avatar_bg'] ?? '#3B428A';
 if ($unavRole === 'CHECKER') {
@@ -65,6 +79,24 @@ if ($unavRole === 'CHECKER') {
     $unavAvatarBg = '#6C5CE7';
 } elseif ($unavRole === 'ADMIN') {
     $unavAvatarBg = '#00B894';
+}
+
+// Determine logout URL:
+// User rule: "tất cả các role khi đăng xuất ở những trang không phải là home, thì phải trả về trang login. lúc đăng xuất sẽ bắt buộc phải về trang login"
+$unavIsHome = false;
+if (function_exists('is_front_page') && (is_front_page() || is_home())) {
+    $unavIsHome = true;
+} else {
+    $unavReqUri = strtolower($_SERVER['REQUEST_URI'] ?? '');
+    if (strpos($unavReqUri, 'home') !== false || trim(parse_url($unavReqUri, PHP_URL_PATH), '/') === '') {
+        $unavIsHome = true;
+    }
+}
+
+if ($unavIsHome) {
+    $unavLogoutUrl = (function_exists('pcs_url') ? pcs_url('page-login.php') : 'page-login.php') . '?action=logout&redirect_to=' . urlencode($unavHomeUrl);
+} else {
+    $unavLogoutUrl = (function_exists('pcs_url') ? pcs_url('page-login.php') : 'page-login.php') . '?action=logout';
 }
 ?>
 <!-- INLINE UNIFIED NAVBAR STYLES (Self-contained, Bulletproof) -->
@@ -327,13 +359,31 @@ if ($unavRole === 'CHECKER') {
 .unified-top-navbar .unav-dropdown-link.logout:hover {
     background: #FFF1F2 !important;
 }
+
+/* Mobile & iPad Responsiveness */
+@media (max-width: 900px) {
+    .unified-top-navbar .unav-nav-links {
+        display: none !important;
+    }
+}
+@media (max-width: 480px) {
+    .unified-top-navbar .unav-container {
+        padding: 0 14px !important;
+    }
+    .unified-top-navbar .unav-user-info {
+        display: none !important;
+    }
+    .unified-top-navbar .unav-logo-img {
+        height: 30px !important;
+    }
+}
 </style>
 
 <header class="unified-top-navbar">
     <div class="unav-container">
         <!-- Left: Logo & Links -->
         <div class="unav-left">
-            <a href="<?= esc_url($unavHomeUrl) ?>" class="unav-logo-link" title="Brand Compliance AI">
+            <a href="<?= esc_url($unavRoleDashboardUrl) ?>" class="unav-logo-link" title="Dashboard">
                 <img src="<?= esc_url($unavLogoUrl) ?>" alt="ICTS Logo" class="unav-logo-img">
             </a>
             <nav class="unav-nav-links">
@@ -368,7 +418,7 @@ if ($unavRole === 'CHECKER') {
                         <div class="unav-dropdown-email"><?= htmlspecialchars($currentUser['email'] ?? '') ?></div>
                         <span class="unav-dropdown-role-pill"><?= htmlspecialchars($currentUser['role'] ?? 'USER') ?></span>
                     </div>
-                    <a href="?action=logout" class="unav-dropdown-link logout">
+                    <a href="<?= esc_url($unavLogoutUrl) ?>" class="unav-dropdown-link logout">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                         <span>Sign Out</span>
                     </a>
@@ -394,4 +444,67 @@ window.addEventListener('click', function(e) {
         }
     }
 });
+</script>
+
+<!-- Realtime Cross-Role Data Sync Client -->
+<script id="pcs-realtime-sync-script">
+(function() {
+    var lastKnownSync = <?= (int) (function_exists('pcs_get_sync_version') ? pcs_get_sync_version() : time()) ?>;
+    var isChecking = false;
+    var lastCheckTime = Date.now();
+
+    function checkSyncState(forceReload) {
+        if (isChecking) return;
+        var activeEl = document.activeElement;
+        var isEditing = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable);
+        if (isEditing && !forceReload) return;
+
+        isChecking = true;
+        var checkUrl = window.location.pathname + '?action=pcs_sync_heartbeat&t=' + Date.now();
+        fetch(checkUrl, { cache: 'no-store' })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                isChecking = false;
+                lastCheckTime = Date.now();
+                if (data && data.last_sync && data.last_sync > lastKnownSync) {
+                    lastKnownSync = data.last_sync;
+                    showSyncToast();
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 500);
+                }
+            })
+            .catch(function() {
+                isChecking = false;
+            });
+    }
+
+    function showSyncToast() {
+        if (document.getElementById('pcs-sync-toast')) return;
+        var toast = document.createElement('div');
+        toast.id = 'pcs-sync-toast';
+        toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#18224B;color:#ffffff;padding:10px 18px;border-radius:8px;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:0 10px 25px rgba(0,0,0,0.15);z-index:999999;transition:all 0.3s ease;';
+        toast.innerHTML = '<span style="width:8px;height:8px;background:#10B981;border-radius:50%;display:inline-block;"></span> Updating live data...';
+        document.body.appendChild(toast);
+    }
+
+    // 1. Tự động kiểm tra ngay khi chuyển đổi tab / role (tab active trở lại)
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible') {
+            checkSyncState(false);
+        }
+    });
+
+    // 2. Kiểm tra khi cửa sổ nhận focus
+    window.addEventListener('focus', function() {
+        if (Date.now() - lastCheckTime > 3000) {
+            checkSyncState(false);
+        }
+    });
+
+    // 3. Heartbeat ngầm định kỳ mỗi 12 giây
+    setInterval(function() {
+        checkSyncState(false);
+    }, 12000);
+})();
 </script>

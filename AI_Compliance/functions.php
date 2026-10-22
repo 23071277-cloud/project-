@@ -74,3 +74,31 @@ foreach ($backend_paths as $bpath) {
     }
 }
 
+// 3. Khởi tạo PHP Session an toàn trong WordPress
+add_action('init', 'ai_compliance_init_session');
+function ai_compliance_init_session() {
+    if (!session_id() && !headers_sent()) {
+        @session_start();
+    }
+}
+
+// 4. Template Filter: Tự động điều hướng các trang 404 hoặc access-denied sang template chuẩn access-denied.php
+add_filter('template_include', 'ai_compliance_template_router');
+function ai_compliance_template_router($template) {
+    $denied_file = get_template_directory() . '/access-denied.php';
+    if (!file_exists($denied_file)) {
+        $denied_file = __DIR__ . '/access-denied.php';
+    }
+
+    if (is_404() && file_exists($denied_file)) {
+        return $denied_file;
+    }
+
+    $req_uri = strtolower($_SERVER['REQUEST_URI'] ?? '');
+    if ((strpos($req_uri, 'access-denied') !== false || strpos($req_uri, '403') !== false || strpos($req_uri, 'unauthorized') !== false) && file_exists($denied_file)) {
+        return $denied_file;
+    }
+
+    return $template;
+}
+

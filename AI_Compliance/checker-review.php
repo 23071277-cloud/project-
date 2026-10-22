@@ -1105,7 +1105,6 @@ $compareScreenUrl = (function_exists('pcs_url') ? pcs_url('compare-version.php')
 
         <?php if (!empty($decisionAlert)): ?>
             <div class="toast-banner <?= $decisionSuccess ? 'success' : 'danger' ?>">
-                <span><?= $decisionSuccess ? '✓' : '⚠' ?></span>
                 <span><?= htmlspecialchars($decisionAlert) ?></span>
             </div>
         <?php endif; ?>
@@ -1113,7 +1112,7 @@ $compareScreenUrl = (function_exists('pcs_url') ? pcs_url('compare-version.php')
         <?php if (empty($reviewData['version_id'])): ?>
             <div style="max-width: 680px; margin: 60px auto; background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; padding: 48px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
                 <div style="width: 56px; height: 56px; border-radius: 50%; background: #EEF2FF; color: #4F46E5; display: inline-flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 16px;">
-                    🔍
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                 </div>
                 <h2 style="font-size: 20px; font-weight: 700; color: #1E293B; margin-bottom: 8px;">No Asset Version Available for Review</h2>
                 <p style="color: #64748B; font-size: 14px; margin-bottom: 24px; line-height: 1.6;">
@@ -1328,7 +1327,7 @@ $compareScreenUrl = (function_exists('pcs_url') ? pcs_url('compare-version.php')
                                         </div>
                                         <div class="criterion-footer">
                                             <span style="color: <?= $isFail ? '#E11D48' : '#059669' ?>; font-weight: 600;">
-                                                <?= $isFail ? '⚠ Non-compliant deviation identified' : '✓ Verified against Singapore financial rules' ?>
+                                                <?= $isFail ? 'Non-compliant deviation identified' : 'Verified against Singapore financial rules' ?>
                                             </span>
                                             <button type="button" class="btn-override" onclick="openOverrideModal(<?= (int) ($chk['id'] ?? 0) ?>, '<?= esc_attr($chk['name'] ?? '') ?>', '<?= esc_attr($vUpper) ?>')">
                                                 Override Verdict
