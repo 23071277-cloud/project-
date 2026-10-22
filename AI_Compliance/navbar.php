@@ -35,8 +35,18 @@ if (!isset($currentUser) || empty($currentUser)) {
 
 // User Notifications Data (Realtime Cross-Role Hub)
 $unavUserId = (int) ($currentUser['id'] ?? 0);
-$unavNotifications = ($unavUserId > 0 && function_exists('pcs_get_user_notifications')) ? pcs_get_user_notifications($unavUserId, 15) : [];
+$unavNotifications = ($unavUserId > 0 && function_exists('pcs_get_user_notifications')) ? pcs_get_user_notifications($unavUserId, 50) : [];
 $unavUnreadCount = ($unavUserId > 0 && function_exists('pcs_get_unread_notifications_count')) ? pcs_get_unread_notifications_count($unavUserId) : 0;
+
+$unavTotalCount = count($unavNotifications);
+$unavUnreadLoaded = 0;
+foreach ($unavNotifications as $n) {
+    if (empty($n['is_read'])) $unavUnreadLoaded++;
+}
+$unavReadCount = max(0, $unavTotalCount - $unavUnreadLoaded);
+if ($unavUnreadCount < $unavUnreadLoaded) {
+    $unavUnreadCount = $unavUnreadLoaded;
+}
 
 // Logo URL
 $unavLogoUrl = 'images/logo.png?v=2';
@@ -243,6 +253,12 @@ if ($unavIsHome) {
     border-color: #CBD5E1 !important;
 }
 
+.unified-top-navbar .unav-notif-btn.active {
+    background: #EEF2FF !important;
+    color: #4F56A6 !important;
+    border-color: #C7D2FE !important;
+}
+
 .unified-top-navbar .unav-notif-badge {
     position: absolute !important;
     top: -4px !important;
@@ -261,18 +277,20 @@ if ($unavIsHome) {
     border: 2px solid #FFFFFF !important;
     box-shadow: 0 1px 3px rgba(239, 68, 68, 0.4) !important;
     line-height: 1 !important;
+    pointer-events: none !important;
+    transition: transform 0.15s ease !important;
 }
 
 .unified-top-navbar .unav-notif-dropdown {
     position: absolute !important;
     top: calc(100% + 10px) !important;
     right: 0 !important;
-    width: 360px !important;
-    max-width: 90vw !important;
+    width: 390px !important;
+    max-width: 92vw !important;
     background: #FFFFFF !important;
     border: 1px solid #E2E8F0 !important;
-    border-radius: 12px !important;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 12px 30px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.08) !important;
     display: none !important;
     flex-direction: column !important;
     z-index: 10001 !important;
@@ -281,21 +299,21 @@ if ($unavIsHome) {
 
 .unified-top-navbar .unav-notif-dropdown.active {
     display: flex !important;
+    animation: unavFadeIn 0.15s ease-out !important;
 }
 
 .unified-top-navbar .unav-notif-header {
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
-    padding: 14px 16px !important;
-    border-bottom: 1px solid #ECEEF8 !important;
-    background: #F8FAFD !important;
+    padding: 14px 16px 10px 16px !important;
+    background: #FFFFFF !important;
 }
 
 .unified-top-navbar .unav-notif-title {
-    font-size: 13px !important;
+    font-size: 13.5px !important;
     font-weight: 700 !important;
-    color: #161B2E !important;
+    color: #0F172A !important;
     display: flex !important;
     align-items: center !important;
     gap: 8px !important;
@@ -317,11 +335,78 @@ if ($unavIsHome) {
     font-size: 11.5px !important;
     font-weight: 600 !important;
     cursor: pointer !important;
-    padding: 0 !important;
+    padding: 3px 6px !important;
+    border-radius: 4px !important;
+    transition: background 0.12s ease !important;
 }
 
 .unified-top-navbar .unav-notif-mark-all:hover {
-    text-decoration: underline !important;
+    background: #F1EFFF !important;
+    text-decoration: none !important;
+}
+
+/* Tabs: All / Unread / Read */
+.unified-top-navbar .unav-notif-tabs {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 0 16px 10px 16px !important;
+    border-bottom: 1px solid #F1F5F9 !important;
+    background: #FFFFFF !important;
+}
+
+.unified-top-navbar .unav-notif-tab {
+    background: #F8FAFC !important;
+    border: 1px solid #E2E8F0 !important;
+    padding: 5px 11px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    color: #64748B !important;
+    border-radius: 20px !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    transition: all 0.15s ease !important;
+    outline: none !important;
+}
+
+.unified-top-navbar .unav-notif-tab:hover {
+    background: #F1F5F9 !important;
+    color: #1E293B !important;
+    border-color: #CBD5E1 !important;
+}
+
+.unified-top-navbar .unav-notif-tab.active {
+    background: #F1EFFF !important;
+    color: #4F56A6 !important;
+    border-color: #C7D2FE !important;
+    font-weight: 700 !important;
+}
+
+.unified-top-navbar .unav-tab-badge {
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    padding: 1px 6px !important;
+    border-radius: 10px !important;
+    background: #E2E8F0 !important;
+    color: #475569 !important;
+    line-height: 1.2 !important;
+}
+
+.unified-top-navbar .unav-notif-tab.active .unav-tab-badge {
+    background: #4F56A6 !important;
+    color: #FFFFFF !important;
+}
+
+.unified-top-navbar .unav-tab-badge.highlight {
+    background: #FEE2E2 !important;
+    color: #DC2626 !important;
+}
+
+.unified-top-navbar .unav-notif-tab.active .unav-tab-badge.highlight {
+    background: #EF4444 !important;
+    color: #FFFFFF !important;
 }
 
 .unified-top-navbar .unav-notif-list {
@@ -329,6 +414,7 @@ if ($unavIsHome) {
     overflow-y: auto !important;
     display: flex !important;
     flex-direction: column !important;
+    background: #FFFFFF !important;
 }
 
 .unified-top-navbar .unav-notif-empty {
@@ -342,28 +428,70 @@ if ($unavIsHome) {
     font-size: 12.5px !important;
 }
 
+.unified-top-navbar .unav-notif-item-wrap {
+    position: relative !important;
+    display: flex !important;
+    align-items: stretch !important;
+    border-bottom: 1px solid #F1F5F9 !important;
+    transition: background 0.15s ease !important;
+}
+
+.unified-top-navbar .unav-notif-item-wrap.is-unread {
+    background: #F8FAFD !important;
+}
+
+.unified-top-navbar .unav-notif-item-wrap.is-read {
+    background: #FFFFFF !important;
+}
+
+.unified-top-navbar .unav-notif-item-wrap:hover {
+    background: #F8FAFC !important;
+}
+
+.unified-top-navbar .unav-notif-item-wrap.is-unread:hover {
+    background: #F1F3FF !important;
+}
+
 .unified-top-navbar .unav-notif-item {
     display: flex !important;
     align-items: flex-start !important;
     gap: 12px !important;
-    padding: 12px 16px !important;
-    border-bottom: 1px solid #F1F5F9 !important;
+    padding: 12px 14px 12px 16px !important;
     text-decoration: none !important;
     color: inherit !important;
-    transition: background 0.15s ease !important;
-    position: relative !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+    cursor: pointer !important;
 }
 
-.unified-top-navbar .unav-notif-item:hover {
-    background: #F8FAFC !important;
+.unified-top-navbar .unav-notif-quick-read {
+    position: absolute !important;
+    right: 12px !important;
+    top: 12px !important;
+    width: 22px !important;
+    height: 22px !important;
+    border-radius: 50% !important;
+    background: #FFFFFF !important;
+    border: 1px solid #CBD5E1 !important;
+    color: #64748B !important;
+    display: none !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+    z-index: 2 !important;
+    outline: none !important;
 }
 
-.unified-top-navbar .unav-notif-item.unread {
-    background: #FBFBFF !important;
+.unified-top-navbar .unav-notif-item-wrap.is-unread:hover .unav-notif-quick-read {
+    display: flex !important;
 }
 
-.unified-top-navbar .unav-notif-item.unread:hover {
-    background: #F1F3FF !important;
+.unified-top-navbar .unav-notif-quick-read:hover {
+    background: #4F56A6 !important;
+    border-color: #4F56A6 !important;
+    color: #FFFFFF !important;
+    transform: scale(1.1) !important;
 }
 
 .unified-top-navbar .unav-notif-icon-box {
@@ -376,6 +504,7 @@ if ($unavIsHome) {
     flex-shrink: 0 !important;
     background: #F1F5F9 !important;
     color: #64748B !important;
+    margin-top: 1px !important;
 }
 
 .unified-top-navbar .unav-notif-icon-box.approved,
@@ -410,15 +539,24 @@ if ($unavIsHome) {
 
 .unified-top-navbar .unav-notif-item-title {
     font-size: 12px !important;
-    font-weight: 700 !important;
     color: #1E293B !important;
     margin-bottom: 2px !important;
-    line-height: 1.3 !important;
+    line-height: 1.35 !important;
+}
+
+.unified-top-navbar .unav-notif-item-wrap.is-unread .unav-notif-item-title {
+    font-weight: 700 !important;
+    color: #0B132B !important;
+}
+
+.unified-top-navbar .unav-notif-item-wrap.is-read .unav-notif-item-title {
+    font-weight: 600 !important;
+    color: #475569 !important;
 }
 
 .unified-top-navbar .unav-notif-item-msg {
     font-size: 11.5px !important;
-    color: #475569 !important;
+    color: #64748B !important;
     line-height: 1.4 !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
@@ -427,10 +565,15 @@ if ($unavIsHome) {
     -webkit-box-orient: vertical !important;
 }
 
+.unified-top-navbar .unav-notif-item-wrap.is-unread .unav-notif-item-msg {
+    color: #334155 !important;
+}
+
 .unified-top-navbar .unav-notif-item-time {
     font-size: 10.5px !important;
     color: #94A3B8 !important;
     margin-top: 4px !important;
+    font-weight: 500 !important;
 }
 
 .unified-top-navbar .unav-notif-unread-dot {
@@ -632,70 +775,89 @@ if ($unavIsHome) {
         <div class="unav-right">
             <!-- Unified Notification Bell & Dropdown -->
             <div class="unav-notif-wrap">
-                <button type="button" class="unav-notif-btn" onclick="toggleUnifiedNotifDropdown(event)" title="Notifications">
+                <button type="button" class="unav-notif-btn" id="unavNotifBtn" onclick="toggleUnifiedNotifDropdown(event)" title="Notifications" aria-expanded="false">
                     <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                         <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                     </svg>
-                    <?php if ($unavUnreadCount > 0): ?>
-                        <span class="unav-notif-badge" id="unavNotifBadge"><?= $unavUnreadCount > 9 ? '9+' : $unavUnreadCount ?></span>
-                    <?php endif; ?>
+                    <span class="unav-notif-badge" id="unavNotifBadge" style="<?= $unavUnreadCount > 0 ? '' : 'display:none;' ?>"><?= $unavUnreadCount > 99 ? '99+' : $unavUnreadCount ?></span>
                 </button>
 
                 <div class="unav-notif-dropdown" id="unifiedNotifDropdown">
                     <div class="unav-notif-header">
                         <div class="unav-notif-title">
                             <span>Notifications</span>
-                            <?php if ($unavUnreadCount > 0): ?>
-                                <span class="unav-notif-count-pill" id="unavNotifPill"><?= $unavUnreadCount ?> new</span>
-                            <?php endif; ?>
+                            <span class="unav-notif-count-pill" id="unavNotifPill" style="<?= $unavUnreadCount > 0 ? '' : 'display:none;' ?>"><?= $unavUnreadCount ?> new</span>
                         </div>
-                        <?php if ($unavUnreadCount > 0): ?>
-                            <button type="button" class="unav-notif-mark-all" id="unavMarkAllBtn" onclick="markAllNotificationsRead(<?= $unavUserId ?>)">
-                                Mark all as read
-                            </button>
-                        <?php endif; ?>
+                        <button type="button" class="unav-notif-mark-all" id="unavMarkAllBtn" style="<?= $unavUnreadCount > 0 ? '' : 'display:none;' ?>" onclick="markAllNotificationsRead(<?= (int)$unavUserId ?>)">
+                            Mark all as read
+                        </button>
+                    </div>
+
+                    <!-- 3-Filter Tabs: All / Unread / Read -->
+                    <div class="unav-notif-tabs" id="unavNotifTabs">
+                        <button type="button" class="unav-notif-tab active" data-tab="all" onclick="filterNotifTab('all', this)">
+                            <span>All</span>
+                            <span class="unav-tab-badge" id="notifTabCountAll"><?= $unavTotalCount ?></span>
+                        </button>
+                        <button type="button" class="unav-notif-tab" data-tab="unread" onclick="filterNotifTab('unread', this)">
+                            <span>Unread</span>
+                            <span class="unav-tab-badge highlight" id="notifTabCountUnread"><?= $unavUnreadCount ?></span>
+                        </button>
+                        <button type="button" class="unav-notif-tab" data-tab="read" onclick="filterNotifTab('read', this)">
+                            <span>Read</span>
+                            <span class="unav-tab-badge" id="notifTabCountRead"><?= $unavReadCount ?></span>
+                        </button>
                     </div>
 
                     <div class="unav-notif-list" id="unavNotifList">
-                        <?php if (empty($unavNotifications)): ?>
-                            <div class="unav-notif-empty">
-                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8">
-                                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                                </svg>
-                                <span>All caught up! No notifications yet.</span>
-                            </div>
-                        <?php else: ?>
+                        <div class="unav-notif-empty" id="unavNotifEmpty" style="<?= empty($unavNotifications) ? '' : 'display: none;' ?>">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8">
+                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                            </svg>
+                            <span id="unavNotifEmptyMsg">All caught up! No notifications yet.</span>
+                        </div>
+
+                        <?php if (!empty($unavNotifications)): ?>
                             <?php foreach ($unavNotifications as $notif): 
-                                $targetUrl = !empty($notif['link']) ? $notif['link'] : 'javascript:void(0)';
+                                $targetUrl = !empty($notif['link']) ? $notif['link'] : '';
                                 $isUnread = empty($notif['is_read']);
                                 $type = $notif['type'] ?? 'info';
                             ?>
-                                <a href="<?= esc_url($targetUrl) ?>" 
-                                   class="unav-notif-item <?= $isUnread ? 'unread' : '' ?>" 
-                                   onclick="handleNotificationClick(event, <?= (int)$notif['id'] ?>, '<?= esc_js($targetUrl) ?>')">
-                                    <div class="unav-notif-icon-box <?= esc_attr($type) ?>">
-                                        <?php if ($type === 'approved' || $type === 'released'): ?>
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                                        <?php elseif ($type === 'rejected'): ?>
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                        <?php elseif ($type === 'review_ready' || $type === 'in_review' || $type === 'awaiting_release'): ?>
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                                        <?php elseif ($type === 'team_assigned' || $type === 'team_update' || $type === 'campaign'): ?>
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                                        <?php else: ?>
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                <div class="unav-notif-item-wrap <?= $isUnread ? 'is-unread' : 'is-read' ?>" 
+                                     data-status="<?= $isUnread ? 'unread' : 'read' ?>" 
+                                     data-notif-id="<?= (int)$notif['id'] ?>">
+                                    <a href="<?= esc_url($targetUrl ?: 'javascript:void(0)') ?>" 
+                                       class="unav-notif-item" 
+                                       onclick="handleNotificationClick(event, <?= (int)$notif['id'] ?>, '<?= esc_js($targetUrl) ?>', this)">
+                                        <div class="unav-notif-icon-box <?= esc_attr($type) ?>">
+                                            <?php if ($type === 'approved' || $type === 'released'): ?>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                            <?php elseif ($type === 'rejected'): ?>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                            <?php elseif ($type === 'review_ready' || $type === 'in_review' || $type === 'awaiting_release'): ?>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                            <?php elseif ($type === 'team_assigned' || $type === 'team_update' || $type === 'campaign'): ?>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                            <?php else: ?>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="unav-notif-content">
+                                            <div class="unav-notif-item-title"><?= esc_html($notif['title']) ?></div>
+                                            <div class="unav-notif-item-msg"><?= esc_html($notif['message']) ?></div>
+                                            <div class="unav-notif-item-time"><?= esc_html($notif['time_ago']) ?></div>
+                                        </div>
+                                        <?php if ($isUnread): ?>
+                                            <span class="unav-notif-unread-dot" title="Unread"></span>
                                         <?php endif; ?>
-                                    </div>
-                                    <div class="unav-notif-content">
-                                        <div class="unav-notif-item-title"><?= esc_html($notif['title']) ?></div>
-                                        <div class="unav-notif-item-msg"><?= esc_html($notif['message']) ?></div>
-                                        <div class="unav-notif-item-time"><?= esc_html($notif['time_ago']) ?></div>
-                                    </div>
+                                    </a>
                                     <?php if ($isUnread): ?>
-                                        <span class="unav-notif-unread-dot"></span>
+                                        <button type="button" class="unav-notif-quick-read" title="Mark as read" onclick="quickMarkNotifRead(event, <?= (int)$notif['id'] ?>, this)">
+                                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                        </button>
                                     <?php endif; ?>
-                                </a>
+                                </div>
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </div>
@@ -732,10 +894,17 @@ if ($unavIsHome) {
 </header>
 
 <script>
+var unavUserId = <?= (int)$unavUserId ?>;
+var currentUnreadCount = <?= (int)$unavUnreadCount ?>;
+var totalNotifCount = <?= (int)$unavTotalCount ?>;
+var activeNotifTab = 'all';
+
 function toggleUnifiedProfileDropdown(e) {
     if (e) e.stopPropagation();
     const notifMenu = document.getElementById('unifiedNotifDropdown');
+    const notifBtn = document.getElementById('unavNotifBtn');
     if (notifMenu) notifMenu.classList.remove('active');
+    if (notifBtn) notifBtn.classList.remove('active');
     const menu = document.getElementById('unifiedProfileDropdown');
     if (menu) {
         menu.classList.toggle('active');
@@ -747,37 +916,182 @@ function toggleUnifiedNotifDropdown(e) {
     const profMenu = document.getElementById('unifiedProfileDropdown');
     if (profMenu) profMenu.classList.remove('active');
     const notifMenu = document.getElementById('unifiedNotifDropdown');
+    const notifBtn = document.getElementById('unavNotifBtn');
     if (notifMenu) {
-        notifMenu.classList.toggle('active');
+        var isOpen = notifMenu.classList.toggle('active');
+        if (notifBtn) {
+            if (isOpen) notifBtn.classList.add('active');
+            else notifBtn.classList.remove('active');
+        }
     }
 }
 
-function handleNotificationClick(e, notifId, targetUrl) {
-    if (!notifId) return;
-    // Gửi yêu cầu đánh dấu đã đọc ngầm không chặn chuyển hướng
-    var markUrl = window.location.pathname + '?action=pcs_mark_notif_read&notif_id=' + encodeURIComponent(notifId) + '&t=' + Date.now();
-    fetch(markUrl, { method: 'POST', cache: 'no-store' });
+function filterNotifTab(tab, btnEl) {
+    activeNotifTab = tab;
+    var tabs = document.querySelectorAll('.unav-notif-tab');
+    tabs.forEach(function(t) { t.classList.remove('active'); });
+    if (btnEl) btnEl.classList.add('active');
+
+    var items = document.querySelectorAll('.unav-notif-item-wrap');
+    var visibleCount = 0;
+
+    items.forEach(function(it) {
+        var status = it.getAttribute('data-status') || 'read';
+        var match = false;
+        if (tab === 'all') match = true;
+        else if (tab === 'unread' && status === 'unread') match = true;
+        else if (tab === 'read' && status === 'read') match = true;
+
+        if (match) {
+            it.style.display = 'flex';
+            visibleCount++;
+        } else {
+            it.style.display = 'none';
+        }
+    });
+
+    var emptyBox = document.getElementById('unavNotifEmpty');
+    var emptyMsg = document.getElementById('unavNotifEmptyMsg');
+    if (emptyBox) {
+        if (visibleCount === 0) {
+            emptyBox.style.display = 'flex';
+            if (emptyMsg) {
+                if (tab === 'unread') emptyMsg.textContent = "You're all caught up! No unread notifications.";
+                else if (tab === 'read') emptyMsg.textContent = "No read notifications yet.";
+                else emptyMsg.textContent = "All caught up! No notifications yet.";
+            }
+        } else {
+            emptyBox.style.display = 'none';
+        }
+    }
+}
+
+function updateNotifBadges(unreadDelta) {
+    if (typeof unreadDelta === 'number') {
+        currentUnreadCount = Math.max(0, currentUnreadCount - unreadDelta);
+    }
+    
+    // Update Bell Badge
+    var badge = document.getElementById('unavNotifBadge');
+    if (badge) {
+        if (currentUnreadCount > 0) {
+            badge.style.display = 'flex';
+            badge.textContent = currentUnreadCount > 99 ? '99+' : currentUnreadCount;
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
+    // Update Header Pill
+    var pill = document.getElementById('unavNotifPill');
+    if (pill) {
+        if (currentUnreadCount > 0) {
+            pill.style.display = 'inline-block';
+            pill.textContent = currentUnreadCount + ' new';
+        } else {
+            pill.style.display = 'none';
+        }
+    }
+
+    // Update Header Mark All Button
+    var markBtn = document.getElementById('unavMarkAllBtn');
+    if (markBtn) {
+        markBtn.style.display = (currentUnreadCount > 0) ? 'inline-block' : 'none';
+    }
+
+    // Update Tab Badges
+    var tabUnread = document.getElementById('notifTabCountUnread');
+    if (tabUnread) tabUnread.textContent = currentUnreadCount;
+
+    var tabRead = document.getElementById('notifTabCountRead');
+    if (tabRead) {
+        var readCount = Math.max(0, totalNotifCount - currentUnreadCount);
+        tabRead.textContent = readCount;
+    }
+}
+
+function markItemReadLocally(wrap) {
+    if (!wrap) return;
+    wrap.classList.remove('is-unread');
+    wrap.classList.add('is-read');
+    wrap.setAttribute('data-status', 'read');
+    var itemLink = wrap.querySelector('.unav-notif-item');
+    if (itemLink) {
+        itemLink.classList.remove('unread');
+        itemLink.classList.add('read');
+    }
+    var dot = wrap.querySelector('.unav-notif-unread-dot');
+    if (dot) dot.remove();
+    var qBtn = wrap.querySelector('.unav-notif-quick-read');
+    if (qBtn) qBtn.remove();
+}
+
+function handleNotificationClick(e, notifId, targetUrl, el) {
+    var wrap = el ? el.closest('.unav-notif-item-wrap') : null;
+    var wasUnread = wrap && wrap.getAttribute('data-status') === 'unread';
+
+    if (wasUnread) {
+        markItemReadLocally(wrap);
+        updateNotifBadges(1);
+
+        if (notifId && unavUserId) {
+            var markUrl = window.location.pathname + '?action=pcs_mark_notif_read&notif_id=' + encodeURIComponent(notifId) + '&user_id=' + encodeURIComponent(unavUserId) + '&t=' + Date.now();
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon(markUrl);
+            } else {
+                fetch(markUrl, { method: 'POST', cache: 'no-store', keepalive: true });
+            }
+        }
+    }
+
+    if (targetUrl && targetUrl !== '#' && targetUrl !== 'javascript:void(0)') {
+        e.preventDefault();
+        window.location.href = targetUrl;
+    }
+}
+
+function quickMarkNotifRead(e, notifId, btnEl) {
+    if (e) {
+        e.stopPropagation();
+        e.preventDefault();
+    }
+    var wrap = btnEl ? btnEl.closest('.unav-notif-item-wrap') : null;
+    if (!wrap) return;
+
+    markItemReadLocally(wrap);
+    updateNotifBadges(1);
+
+    if (notifId && unavUserId) {
+        var markUrl = window.location.pathname + '?action=pcs_mark_notif_read&notif_id=' + encodeURIComponent(notifId) + '&user_id=' + encodeURIComponent(unavUserId) + '&t=' + Date.now();
+        fetch(markUrl, { method: 'POST', cache: 'no-store', keepalive: true });
+    }
+
+    if (activeNotifTab === 'unread') {
+        wrap.style.display = 'none';
+        var currentActiveBtn = document.querySelector('.unav-notif-tab.active');
+        filterNotifTab('unread', currentActiveBtn);
+    }
 }
 
 function markAllNotificationsRead(userId) {
-    if (!userId) return;
-    var markUrl = window.location.pathname + '?action=pcs_mark_all_notifs_read&user_id=' + encodeURIComponent(userId) + '&t=' + Date.now();
-    fetch(markUrl, { method: 'POST', cache: 'no-store' })
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-            if (data && data.success) {
-                var badge = document.getElementById('unavNotifBadge');
-                if (badge) badge.style.display = 'none';
-                var pill = document.getElementById('unavNotifPill');
-                if (pill) pill.style.display = 'none';
-                var btn = document.getElementById('unavMarkAllBtn');
-                if (btn) btn.style.display = 'none';
-                var dots = document.querySelectorAll('.unav-notif-unread-dot');
-                dots.forEach(function(d) { d.remove(); });
-                var items = document.querySelectorAll('.unav-notif-item.unread');
-                items.forEach(function(it) { it.classList.remove('unread'); });
-            }
-        });
+    var targetId = userId || unavUserId;
+    if (!targetId) return;
+
+    var wraps = document.querySelectorAll('.unav-notif-item-wrap.is-unread');
+    wraps.forEach(function(w) {
+        markItemReadLocally(w);
+    });
+
+    currentUnreadCount = 0;
+    updateNotifBadges();
+
+    var markUrl = window.location.pathname + '?action=pcs_mark_all_notifs_read&user_id=' + encodeURIComponent(targetId) + '&t=' + Date.now();
+    fetch(markUrl, { method: 'POST', cache: 'no-store', keepalive: true });
+
+    if (activeNotifTab === 'unread') {
+        var currentActiveBtn = document.querySelector('.unav-notif-tab.active');
+        filterNotifTab('unread', currentActiveBtn);
+    }
 }
 
 window.addEventListener('click', function(e) {
@@ -789,8 +1103,12 @@ window.addEventListener('click', function(e) {
     }
     if (!e.target.closest('.unav-notif-wrap')) {
         const notifMenu = document.getElementById('unifiedNotifDropdown');
+        const notifBtn = document.getElementById('unavNotifBtn');
         if (notifMenu) {
             notifMenu.classList.remove('active');
+        }
+        if (notifBtn) {
+            notifBtn.classList.remove('active');
         }
     }
 });

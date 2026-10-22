@@ -56,7 +56,8 @@ if (isset($_REQUEST['action']) && $_REQUEST['action'] === 'pcs_mark_notif_read')
     $nid = (int) ($_REQUEST['notif_id'] ?? 0);
     $uid = (int) ($_REQUEST['user_id'] ?? 0);
     $res = function_exists('pcs_mark_notification_read') ? pcs_mark_notification_read($nid, $uid) : false;
-    echo json_encode(['success' => (bool)$res]);
+    $unread_cnt = ($uid > 0 && function_exists('pcs_get_unread_notifications_count')) ? pcs_get_unread_notifications_count($uid) : 0;
+    echo json_encode(['success' => (bool)$res, 'unread_count' => $unread_cnt]);
     exit;
 }
 
@@ -65,7 +66,7 @@ if (isset($_REQUEST['action']) && $_REQUEST['action'] === 'pcs_mark_all_notifs_r
     header('Content-Type: application/json; charset=utf-8');
     $uid = (int) ($_REQUEST['user_id'] ?? 0);
     $res = function_exists('pcs_mark_all_notifications_read') ? pcs_mark_all_notifications_read($uid) : false;
-    echo json_encode(['success' => (bool)$res]);
+    echo json_encode(['success' => (bool)$res, 'unread_count' => 0]);
     exit;
 }
 
@@ -383,6 +384,21 @@ function pcs_resolve_context_names($campaign_id = 0, $asset_id = 0, $version_id 
 }
 
 /**
+ * Helper: Tạo URL điều hướng thông báo đồng bộ và chính xác tuyệt đối theo WordPress slugs & query params
+ */
+if (!function_exists('pcs_get_notification_link')) {
+function pcs_get_notification_link($target_file, $params = []) {
+    $base = function_exists('pcs_url') ? pcs_url($target_file) : $target_file;
+    if (empty($params)) return $base;
+    if (function_exists('add_query_arg')) {
+        return add_query_arg($params, $base);
+    }
+    $query = http_build_query($params);
+    return (strpos($base, '?') !== false) ? ($base . '&' . $query) : ($base . '?' . $query);
+}
+}
+
+/**
  * Gửi thông báo đến 1 User cụ thể
  */
 if (!function_exists('pcs_send_notification')) {
@@ -597,9 +613,6 @@ function pcs_mark_notification_read($notif_id, $user_id = 0) {
 
     if (pcs_is_wp()) {
         update_post_meta($nid, '_is_read', '1');
-        if (function_exists('pcs_bump_sync_version')) {
-            pcs_bump_sync_version();
-        }
         return true;
     } else {
         if (isset($_SESSION['pcs_notifications'])) {
@@ -636,9 +649,6 @@ function pcs_mark_all_notifications_read($user_id) {
         ]);
         foreach ($posts as $pid) {
             update_post_meta($pid, '_is_read', '1');
-        }
-        if (function_exists('pcs_bump_sync_version')) {
-            pcs_bump_sync_version();
         }
         return true;
     } else {
@@ -1812,7 +1822,7 @@ function handle_create_campaign($campaign_name, $deadline = '', $maker_ids = [],
                 'Campaign Created: ' . $campaign_name,
                 'Campaign "' . $campaign_name . '" has been created with assigned team and attached guidelines.',
                 'campaign',
-                function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php',
+                pcs_get_notification_link('detail-asset-admin.php', ['campaign_id' => $cid]),
                 0,
                 0
             );
@@ -1826,7 +1836,7 @@ function handle_create_campaign($campaign_name, $deadline = '', $maker_ids = [],
                     'Assigned to Campaign: ' . $campaign_name,
                     'You have been assigned as Maker on campaign "' . $campaign_name . '".',
                     'team_assigned',
-                    function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php',
+                    pcs_get_notification_link('detail-asset-maker.php', ['campaign_id' => $cid]),
                     $cid
                 );
             }
@@ -1840,7 +1850,7 @@ function handle_create_campaign($campaign_name, $deadline = '', $maker_ids = [],
                     'Assigned to Campaign: ' . $campaign_name,
                     'You have been assigned as Compliance Checker on campaign "' . $campaign_name . '".',
                     'team_assigned',
-                    function_exists('pcs_url') ? pcs_url('checker-dashboard.php') : 'checker-dashboard.php',
+                    pcs_get_notification_link('detail-asset-checker.php', ['campaign_id' => $cid]),
                     $cid
                 );
             }
@@ -1892,7 +1902,7 @@ function handle_update_campaign_team($campaign_id, $maker_ids = [], $checker_ids
             'Team Updated: ' . $c_name,
             'Team member assignments were updated for campaign "' . $c_name . '".',
             'team_update',
-            function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php',
+            pcs_get_notification_link('detail-asset-admin.php', ['campaign_id' => $cid]),
             0,
             0
         );
@@ -1906,7 +1916,7 @@ function handle_update_campaign_team($campaign_id, $maker_ids = [], $checker_ids
                 'Team Updated: ' . $c_name,
                 'You are assigned as Maker on campaign "' . $c_name . '".',
                 'team_assigned',
-                function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php',
+                pcs_get_notification_link('detail-asset-maker.php', ['campaign_id' => $cid]),
                 $cid
             );
         }
@@ -1920,7 +1930,7 @@ function handle_update_campaign_team($campaign_id, $maker_ids = [], $checker_ids
                 'Team Updated: ' . $c_name,
                 'You are assigned as Compliance Checker on campaign "' . $c_name . '".',
                 'team_assigned',
-                function_exists('pcs_url') ? pcs_url('checker-dashboard.php') : 'checker-dashboard.php',
+                pcs_get_notification_link('detail-asset-checker.php', ['campaign_id' => $cid]),
                 $cid
             );
         }
@@ -2020,6 +2030,58 @@ function handle_upload_campaign_guideline($campaign_id) {
 
         if (function_exists('pcs_log')) {
             pcs_log('upload_guideline', 0, 0, '', 'active', 'Uploaded ' . count($uploaded_urls) . ' guideline file(s) to campaign #' . $cid);
+        }
+
+        // Notification: Notify Campaign Owner, Makers, and Checkers about new guidelines
+        if (!empty($uploaded_urls)) {
+            $c_post = get_post($cid);
+            $c_name = $c_post ? $c_post->post_title : ('Campaign #' . $cid);
+            $curr_u = function_exists('get_current_user_profile') ? get_current_user_profile() : [];
+            $uploader_name = $curr_u['name'] ?? 'Team Member';
+            $sender_id = (int) ($curr_u['id'] ?? 0);
+            $file_count = count($uploaded_urls);
+
+            if (function_exists('pcs_notify_campaign_owner')) {
+                pcs_notify_campaign_owner(
+                    $cid,
+                    'Guidelines Updated: ' . $c_name,
+                    $uploader_name . ' added ' . $file_count . ' new guideline document(s) to campaign "' . $c_name . '".',
+                    'campaign',
+                    pcs_get_notification_link('detail-asset-admin.php', ['campaign_id' => $cid]),
+                    0,
+                    0,
+                    $sender_id
+                );
+            }
+
+            $team = function_exists('pcs_get_campaign_team_user_ids') ? pcs_get_campaign_team_user_ids($cid) : [];
+            $makers = $team['maker_ids'] ?? [];
+            foreach ($makers as $m_uid) {
+                if ($m_uid != $sender_id && function_exists('pcs_send_notification')) {
+                    pcs_send_notification(
+                        $m_uid,
+                        'Guidelines Updated: ' . $c_name,
+                        'New guideline document(s) attached to campaign "' . $c_name . '". Please review updated compliance rules.',
+                        'campaign',
+                        pcs_get_notification_link('detail-asset-maker.php', ['campaign_id' => $cid]),
+                        $cid
+                    );
+                }
+            }
+
+            $checkers = $team['checker_ids'] ?? [];
+            foreach ($checkers as $c_uid) {
+                if ($c_uid != $sender_id && function_exists('pcs_send_notification')) {
+                    pcs_send_notification(
+                        $c_uid,
+                        'Guidelines Updated: ' . $c_name,
+                        'New guideline document(s) attached to campaign "' . $c_name . '".',
+                        'campaign',
+                        pcs_get_notification_link('detail-asset-checker.php', ['campaign_id' => $cid]),
+                        $cid
+                    );
+                }
+            }
         }
 
         if (function_exists('pcs_bump_sync_version')) {
@@ -2268,7 +2330,7 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
                 'Asset Submitted: ' . $asset_name . ' (V' . $ver_num . ')',
                 $maker_display . ' submitted V' . $ver_num . ' for asset "' . $asset_name . '" in "' . $camp_name . '". AI Pre-flight completed, awaiting Checker verification.',
                 'in_review',
-                function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php',
+                pcs_get_notification_link('detail-asset-admin.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id, 'version_id' => $version_id]),
                 $asset_id,
                 $version_id
             );
@@ -2288,7 +2350,7 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
                     'Asset Ready for Review: ' . $asset_name . ' (V' . $ver_num . ')',
                     'Maker ' . $maker_display . ' submitted V' . $ver_num . ' of "' . $asset_name . '" in campaign "' . $camp_name . '". Please inspect and sign off.',
                     'review_ready',
-                    function_exists('pcs_url') ? (pcs_url('checker-detail-asset.php') . '?version_id=' . $version_id . '&campaign_id=' . $campaign_id . '&asset_id=' . $asset_id) : 'checker-detail-asset.php',
+                    pcs_get_notification_link('detail-asset-checker.php', ['version_id' => $version_id, 'campaign_id' => $campaign_id, 'asset_id' => $asset_id]),
                     $campaign_id,
                     $asset_id,
                     $version_id
@@ -2696,7 +2758,7 @@ function handle_checker_decision($version_id, $decision, $review_note = '') {
                     'Asset Approved: ' . $asset_name . ' (V' . $v_num . ')',
                     'Checker ' . $checker_name . ' APPROVED "' . $asset_name . '" (V' . $v_num . ') in campaign "' . $camp_name . '". It has moved to the Final Approval Queue awaiting Admin production release.',
                     'approved',
-                    function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php',
+                    pcs_get_notification_link('detail-asset-admin.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id, 'version_id' => $version_id]),
                     $asset_id,
                     $version_id
                 );
@@ -2707,7 +2769,7 @@ function handle_checker_decision($version_id, $decision, $review_note = '') {
                     'Asset Approved: ' . $asset_name . ' (V' . $v_num . ')',
                     'Checker ' . $checker_name . ' approved your asset version (V' . $v_num . '). It is now in the Final Approval Queue awaiting Admin release to production.',
                     'approved',
-                    function_exists('pcs_url') ? (pcs_url('detail-asset-maker.php') . '?campaign_id=' . $campaign_id . '&asset_id=' . $asset_id) : 'detail-asset-maker.php',
+                    pcs_get_notification_link('detail-asset-maker.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id]),
                     $campaign_id,
                     $asset_id,
                     $version_id
@@ -2722,7 +2784,7 @@ function handle_checker_decision($version_id, $decision, $review_note = '') {
                             'Ready for Release: ' . $asset_name . ' (V' . $v_num . ')',
                             'Checker ' . $checker_name . ' approved "' . $asset_name . '" (V' . $v_num . ') in campaign "' . $camp_name . '". Ready for final production release in Admin Dashboard.',
                             'awaiting_release',
-                            function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php',
+                            pcs_get_notification_link('admin-dashboard.php', ['campaign_id' => $campaign_id, 'version_id' => $version_id]) . '#queue-section',
                             $campaign_id,
                             $asset_id,
                             $version_id
@@ -2737,7 +2799,7 @@ function handle_checker_decision($version_id, $decision, $review_note = '') {
                     'Asset Rejected: ' . $asset_name . ' (V' . $v_num . ')',
                     'Checker ' . $checker_name . ' REJECTED "' . $asset_name . '" (V' . $v_num . ') in campaign "' . $camp_name . '". Feedback: ' . ($review_note ?: 'Revisions required before approval.'),
                     'rejected',
-                    function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php',
+                    pcs_get_notification_link('detail-asset-admin.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id, 'version_id' => $version_id]),
                     $asset_id,
                     $version_id
                 );
@@ -2748,7 +2810,7 @@ function handle_checker_decision($version_id, $decision, $review_note = '') {
                     'Revisions Required: ' . $asset_name . ' (V' . $v_num . ')',
                     'Checker ' . $checker_name . ' rejected V' . $v_num . ' and requested revisions. Feedback: "' . ($review_note ?: 'Please review and submit revision.') . '". Please upload V' . ($v_num + 1) . '.',
                     'rejected',
-                    function_exists('pcs_url') ? (pcs_url('smart-maker-upload.php') . '?campaign_id=' . $campaign_id . '&asset_id=' . $asset_id . '&mode=new_version') : 'smart-maker-upload.php',
+                    pcs_get_notification_link('smart-maker-upload.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id, 'mode' => 'new_version']),
                     $campaign_id,
                     $asset_id,
                     $version_id
@@ -3624,7 +3686,7 @@ function handle_admin_release($version_id, $release_notes = '') {
                 'Production Released: ' . $asset_name . ' (V' . $v_num . ')',
                 'Admin ' . $admin_name . ' has officially RELEASED "' . $asset_name . '" (V' . $v_num . ') in campaign "' . $camp_name . '" to production. Immutable MAS compliance record locked.',
                 'released',
-                function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php',
+                pcs_get_notification_link('detail-asset-admin.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id, 'version_id' => $version_id]),
                 $asset_id,
                 $version_id
             );
@@ -3636,7 +3698,7 @@ function handle_admin_release($version_id, $release_notes = '') {
                 'Asset Released: ' . $asset_name . ' (V' . $v_num . ')',
                 'Congratulations! Admin ' . $admin_name . ' released "' . $asset_name . '" (V' . $v_num . ') to production channels.',
                 'released',
-                function_exists('pcs_url') ? (pcs_url('detail-asset-maker.php') . '?campaign_id=' . $campaign_id . '&asset_id=' . $asset_id) : 'detail-asset-maker.php',
+                pcs_get_notification_link('detail-asset-maker.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id]),
                 $campaign_id,
                 $asset_id,
                 $version_id
@@ -3652,7 +3714,7 @@ function handle_admin_release($version_id, $release_notes = '') {
                     'Production Released: ' . $asset_name . ' (V' . $v_num . ')',
                     'Admin ' . $admin_name . ' released "' . $asset_name . '" (V' . $v_num . ') in campaign "' . $camp_name . '" to production.',
                     'released',
-                    function_exists('pcs_url') ? pcs_url('checker-dashboard.php') : 'checker-dashboard.php',
+                    pcs_get_notification_link('detail-asset-checker.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id, 'version_id' => $version_id]),
                     $campaign_id,
                     $asset_id,
                     $version_id
@@ -3733,7 +3795,7 @@ function handle_admin_reject($version_id, $reject_notes = '') {
                 'Asset Rejected by Admin: ' . $asset_name . ' (V' . $v_num . ')',
                 'Admin ' . $admin_name . ' REJECTED "' . $asset_name . '" (V' . $v_num . ') in campaign "' . $camp_name . '". Feedback: "' . $reject_notes . '". Returned to Maker for revision V' . ($v_num + 1) . '.',
                 'rejected',
-                function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php',
+                pcs_get_notification_link('detail-asset-admin.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id, 'version_id' => $version_id]),
                 $asset_id,
                 $version_id
             );
@@ -3745,7 +3807,7 @@ function handle_admin_reject($version_id, $reject_notes = '') {
                 'Action Required: V' . ($v_num + 1) . ' Needed (' . $asset_name . ')',
                 'Admin ' . $admin_name . ' rejected V' . $v_num . ' and requested revisions. Feedback: "' . $reject_notes . '". Please upload V' . ($v_num + 1) . '.',
                 'rejected',
-                function_exists('pcs_url') ? (pcs_url('smart-maker-upload.php') . '?campaign_id=' . $campaign_id . '&asset_id=' . $asset_id . '&mode=new_version') : 'smart-maker-upload.php',
+                pcs_get_notification_link('smart-maker-upload.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id, 'mode' => 'new_version']),
                 $campaign_id,
                 $asset_id,
                 $version_id
@@ -3761,7 +3823,7 @@ function handle_admin_reject($version_id, $reject_notes = '') {
                     'Admin Rejected Asset: ' . $asset_name . ' (V' . $v_num . ')',
                     'Admin ' . $admin_name . ' did not release "' . $asset_name . '" (V' . $v_num . ') and returned it to Maker for revisions. Reason: "' . $reject_notes . '".',
                     'rejected',
-                    function_exists('pcs_url') ? pcs_url('checker-dashboard.php') : 'checker-dashboard.php',
+                    pcs_get_notification_link('detail-asset-checker.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id, 'version_id' => $version_id]),
                     $campaign_id,
                     $asset_id,
                     $version_id
@@ -4602,7 +4664,7 @@ function handle_checker_override($result_id, $new_verdict, $override_reason = ''
             'Checker Override on ' . $crit,
             'Checker ' . ($current_user['name'] ?? 'Checker') . ' overrode "' . $crit . '" on ' . $asset_name . ' (V' . $v_num . ') to ' . strtoupper($new_verdict) . ($override_reason ? ' (Reason: ' . $override_reason . ')' : '') . '.',
             'override',
-            function_exists('pcs_url') ? (pcs_url('checker-detail-asset.php') . '?version_id=' . $vid) : 'checker-detail-asset.php',
+            pcs_get_notification_link('detail-asset-admin.php', ['campaign_id' => $cid, 'asset_id' => $aid, 'version_id' => $vid]),
             $aid,
             $vid
         );
