@@ -326,24 +326,38 @@ $returnLabel  = $data['return_label'] ?? 'Return to Workspace';
             padding: 3px 10px;
             border-radius: 9999px;
             font-size: 11px;
-            font-weight: 600;
+            font-weight: 700;
             line-height: 16.5px;
-        }
-        .badge-rejected {
-            background: #FDEFF1;
-            color: #B83A4B;
-        }
-        .badge-in_review, .badge-in-review {
-            background: #EEF4FF;
-            color: #4E56A6;
-        }
-        .badge-approved, .badge-released {
-            background: #ECFDF5;
-            color: #059669;
         }
         .badge-draft {
             background: #F1F5F9;
             color: #475569;
+            border: 1px solid #CBD5E1;
+        }
+        .badge-scoring {
+            background: #FFFBEB;
+            color: #D97706;
+            border: 1px solid #FCD34D;
+        }
+        .badge-in_review, .badge-in-review {
+            background: #EEF2FF;
+            color: #373E8C;
+            border: 1px solid #C7D2FE;
+        }
+        .badge-rejected {
+            background: #FEF2F2;
+            color: #DC2626;
+            border: 1px solid #FECACA;
+        }
+        .badge-approved {
+            background: #ECFDF5;
+            color: #059669;
+            border: 1px solid #A7F3D0;
+        }
+        .badge-released {
+            background: #F5F3FF;
+            color: #7C3AED;
+            border: 1px solid #DDD6FE;
         }
 
         /* Comparison Center Indicator */

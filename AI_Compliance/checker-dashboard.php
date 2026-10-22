@@ -2001,10 +2001,7 @@ foreach ($campaigns as $c) {
                                             <?= htmlspecialchars($item['deadline']) ?>
                                         </td>
                                         <td style="text-align: center;">
-                                            <span class="status-pill-badge in_review">
-                                                <span class="status-dot"></span>
-                                                <span>In Review</span>
-                                            </span>
+                                            <?= function_exists('pcs_format_status_badge') ? pcs_format_status_badge($item['status'] ?? 'in_review') : '<span class="status-pill-badge in_review"><span class="status-dot"></span><span>In Review</span></span>' ?>
                                         </td>
                                         <td style="text-align: center;">
                                             <button class="btn-open-review-primary" style="margin: 0 auto;" onclick="openReviewModal(<?= htmlspecialchars(json_encode($item)) ?>)">

@@ -626,13 +626,15 @@ $nextVersionNum = $currentVersionNum + 1;
             justify-content: center;
             gap: 6px;
             font-size: 12px;
-            font-weight: 600;
+            font-weight: 700;
             letter-spacing: 0.24px;
         }
-        .status-rejected { color: #BA1A1A; }
-        .status-review { color: #4F57A7; }
-        .status-draft { color: #767682; }
-        .status-released { color: #047857; }
+        .status-cell.status-draft, .status-draft { color: #475569; }
+        .status-cell.status-scoring, .status-scoring { color: #D97706; }
+        .status-cell.status-in_review, .status-cell.status-review, .status-review { color: #373E8C; }
+        .status-cell.status-rejected, .status-rejected { color: #DC2626; }
+        .status-cell.status-approved, .status-approved { color: #059669; }
+        .status-cell.status-released, .status-released { color: #7C3AED; }
 
         .next-step-cell {
             font-size: 12px;
@@ -742,10 +744,12 @@ $nextVersionNum = $currentVersionNum + 1;
             font-size: 11px;
             font-weight: 700;
         }
-        .chip-rejected { background: #FFF1F2; border: 1px solid #FECDD3; color: #BA1A1A; }
-        .chip-review { background: #F3F2FF; border: 1px solid #C7D2FE; color: #4F57A7; }
-        .chip-released { background: #ECFDF5; border: 1px solid #A7F3D0; color: #047857; }
-        .chip-draft { background: #F8FAFC; border: 1px solid #E2E8F0; color: #64748B; }
+        .chip-draft { background: #F1F5F9; border: 1px solid #CBD5E1; color: #475569; }
+        .chip-scoring { background: #FFFBEB; border: 1px solid #FCD34D; color: #D97706; }
+        .chip-review, .chip-in_review { background: #EEF2FF; border: 1px solid #C7D2FE; color: #373E8C; }
+        .chip-rejected { background: #FEF2F2; border: 1px solid #FECACA; color: #DC2626; }
+        .chip-approved { background: #ECFDF5; border: 1px solid #A7F3D0; color: #059669; }
+        .chip-released { background: #F5F3FF; border: 1px solid #DDD6FE; color: #7C3AED; }
 
         .preview-canvas-box {
             width: 100%;
@@ -1392,38 +1396,55 @@ endif;
                         </div>
                     <?php else: ?>
                         <?php foreach ($assets as $ast): 
-                            $isRejected = ($ast['status'] === 'rejected');
-                            $isReview   = ($ast['status'] === 'in_review');
-                            $isReleased = ($ast['status'] === 'released');
-                            $isDraft    = ($ast['status'] === 'draft' || $ast['status'] === 'scoring');
+                            $stRaw = str_replace([' ', '-'], '_', strtolower(trim($ast['status'] ?? 'draft')));
+                            if ($stRaw === 'awaiting_release' || $stRaw === 'awaiting') $stRaw = 'approved';
+
+                            $isDraft    = ($stRaw === 'draft');
+                            $isScoring  = ($stRaw === 'scoring');
+                            $isReview   = ($stRaw === 'in_review');
+                            $isRejected = ($stRaw === 'rejected');
+                            $isApproved = ($stRaw === 'approved');
+                            $isReleased = ($stRaw === 'released');
                             $isSelected = ($selectedAsset && $selectedAsset['id'] === $ast['id']);
 
-                            $statusClass = 'status-draft';
-                            $statusPillColor = '#C7C5D3';
-                            $statusLabel = 'Draft';
-                            $nextRecommendation = 'Continue';
-
-                            if ($isRejected) {
-                                $statusClass = 'status-rejected';
-                                $statusPillColor = '#BA1A1A';
-                                $statusLabel = 'Rejected';
-                                $nextRecommendation = 'Upload V' . ($ast['version_num'] + 1);
+                            $statusClass = 'status-' . $stRaw;
+                            if ($isDraft) {
+                                $statusPillColor = '#475569';
+                                $statusLabel = 'Draft';
+                                $nextRecommendation = 'Upload Artwork';
+                            } elseif ($isScoring) {
+                                $statusPillColor = '#D97706';
+                                $statusLabel = 'Scoring';
+                                $nextRecommendation = 'AI Pre-flight';
                             } elseif ($isReview) {
                                 $statusClass = 'status-review';
-                                $statusPillColor = '#4F57A7';
+                                $statusPillColor = '#373E8C';
                                 $statusLabel = 'In Review';
                                 $nextRecommendation = 'Waiting for Checker';
+                            } elseif ($isRejected) {
+                                $statusPillColor = '#DC2626';
+                                $statusLabel = 'Rejected';
+                                $nextRecommendation = 'Upload V' . ((int)$ast['version_num'] + 1);
+                            } elseif ($isApproved) {
+                                $statusPillColor = '#059669';
+                                $statusLabel = 'Approved';
+                                $nextRecommendation = 'Awaiting Admin Release';
                             } elseif ($isReleased) {
-                                $statusClass = 'status-released';
-                                $statusPillColor = '#10B981';
+                                $statusPillColor = '#7C3AED';
                                 $statusLabel = 'Released';
-                                $nextRecommendation = 'No action';
+                                $nextRecommendation = 'Published & Locked';
+                            } else {
+                                $statusPillColor = '#475569';
+                                $statusLabel = ucfirst($stRaw);
+                                $nextRecommendation = 'Continue';
                             }
 
                             $filterGroup = 'draft';
                             if ($isRejected) $filterGroup = 'needs_action';
                             elseif ($isReview) $filterGroup = 'in_review';
                             elseif ($isReleased) $filterGroup = 'released';
+                            elseif ($isApproved) $filterGroup = 'approved';
+                            elseif ($isScoring) $filterGroup = 'scoring';
 
                             $relDetailUrl = pcs_url('release-detail.php') . '?' . http_build_query([
                                 'version_id'  => $ast['current_version_id'],
@@ -1497,16 +1518,24 @@ endif;
 
             <!-- 05. SELECTED VERSION & FEEDBACK -->
             <?php if ($selectedAsset): 
-                $selStatus = strtolower($selectedAsset['status'] ?? 'draft');
+                $selStatus = str_replace([' ', '-'], '_', strtolower($selectedAsset['status'] ?? 'draft'));
+                if ($selStatus === 'awaiting_release' || $selStatus === 'awaiting') $selStatus = 'approved';
+
                 $selChipClass = 'chip-draft';
                 $selStatusLabel = 'Draft';
 
                 if ($selStatus === 'rejected') {
                     $selChipClass = 'chip-rejected';
-                    $selStatusLabel = 'Needs Revision';
+                    $selStatusLabel = 'Rejected';
                 } elseif ($selStatus === 'in_review') {
                     $selChipClass = 'chip-review';
                     $selStatusLabel = 'In Review';
+                } elseif ($selStatus === 'scoring') {
+                    $selChipClass = 'chip-scoring';
+                    $selStatusLabel = 'Scoring';
+                } elseif ($selStatus === 'approved') {
+                    $selChipClass = 'chip-approved';
+                    $selStatusLabel = 'Approved';
                 } elseif ($selStatus === 'released') {
                     $selChipClass = 'chip-released';
                     $selStatusLabel = 'Released';

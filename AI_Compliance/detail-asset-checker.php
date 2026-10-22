@@ -1224,37 +1224,70 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
             font-weight: 600;
             width: fit-content;
         }
+        .status-pill-table.draft {
+            background-color: #F1F5F9;
+            color: #475569;
+            border: 1px solid #CBD5E1;
+        }
+        .status-pill-table.draft .dot {
+            width: 6px;
+            height: 6px;
+            background-color: #475569;
+            border-radius: 9999px;
+        }
+        .status-pill-table.scoring {
+            background-color: #FFFBEB;
+            color: #D97706;
+            border: 1px solid #FCD34D;
+        }
+        .status-pill-table.scoring .dot {
+            width: 6px;
+            height: 6px;
+            background-color: #D97706;
+            border-radius: 9999px;
+        }
         .status-pill-table.in_review, .status-pill-table.awaiting_review {
-            background-color: #ebedff;
-            color: #1f2674;
-            border: 1px solid #D5D7FF;
+            background-color: #EEF2FF;
+            color: #373E8C;
+            border: 1px solid #C7D2FE;
         }
         .status-pill-table.in_review .dot, .status-pill-table.awaiting_review .dot {
             width: 6px;
             height: 6px;
-            background-color: #1f2674;
+            background-color: #373E8C;
             border-radius: 9999px;
         }
-        .status-pill-table.approved, .status-pill-table.released {
-            background-color: #f0fdfa;
-            color: #115e59;
-            border: 1px solid #CCFBF1;
+        .status-pill-table.approved {
+            background-color: #ECFDF5;
+            color: #059669;
+            border: 1px solid #A7F3D0;
         }
-        .status-pill-table.approved .dot, .status-pill-table.released .dot {
+        .status-pill-table.approved .dot {
             width: 6px;
             height: 6px;
-            background-color: #0d9488;
+            background-color: #059669;
             border-radius: 9999px;
         }
         .status-pill-table.rejected {
-            background-color: #fff1f2;
-            color: #be123c;
-            border: 1px solid #FECDD3;
+            background-color: #FEF2F2;
+            color: #DC2626;
+            border: 1px solid #FECACA;
         }
         .status-pill-table.rejected .dot {
             width: 6px;
             height: 6px;
-            background-color: #be123c;
+            background-color: #DC2626;
+            border-radius: 9999px;
+        }
+        .status-pill-table.released {
+            background-color: #F5F3FF;
+            color: #7C3AED;
+            border: 1px solid #DDD6FE;
+        }
+        .status-pill-table.released .dot {
+            width: 6px;
+            height: 6px;
+            background-color: #7C3AED;
             border-radius: 9999px;
         }
 
@@ -2054,9 +2087,12 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
                             if ($ast['ai_verdict'] === 'Pass') $aiPillClass = 'pass';
                             elseif ($ast['ai_verdict'] === 'Fail') $aiPillClass = 'fail';
 
-                            $statusPillClass = 'in_review';
-                            if ($ast['status'] === 'approved' || $ast['status'] === 'released') $statusPillClass = 'approved';
-                            elseif ($ast['status'] === 'rejected') $statusPillClass = 'rejected';
+                            $stRaw = str_replace([' ', '-'], '_', strtolower(trim($ast['status'] ?? 'draft')));
+                            if ($stRaw === 'awaiting_release' || $stRaw === 'awaiting') $stRaw = 'approved';
+
+                            $statusPillClass = $stRaw;
+                            $statusLabelText = ucfirst(str_replace('_', ' ', $stRaw));
+                            if ($stRaw === 'in_review') $statusLabelText = 'In Review';
                         ?>
                             <div class="asset-table-row <?= $rowClass ?>" 
                                  data-id="<?= $ast['id'] ?>"
@@ -2107,7 +2143,7 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
                                 <div style="text-align: center;">
                                     <span class="status-pill-table <?= $statusPillClass ?>">
                                         <span class="dot"></span>
-                                        <span><?= htmlspecialchars($ast['status_label']) ?></span>
+                                        <span><?= htmlspecialchars($statusLabelText) ?></span>
                                     </span>
                                 </div>
 

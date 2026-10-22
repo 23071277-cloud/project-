@@ -218,13 +218,14 @@ $compareScreenUrl = $data['campaign_id'] ? add_query_arg([
 
         .badge-released {
             padding: 4px 12px;
-            background: #E6F4F1;
+            background: #F5F3FF;
+            color: #7C3AED;
+            border: 1px solid #DDD6FE;
             box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.05);
             border-radius: 9999px;
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            color: #148A78;
             font-size: 10px;
             font-weight: 700;
             text-transform: uppercase;

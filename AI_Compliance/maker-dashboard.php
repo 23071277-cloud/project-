@@ -71,6 +71,23 @@ $comingUpList = get_coming_up_tasks();
 $campaigns = get_all_campaigns();
 $scheduleDays = get_realtime_weekly_schedule();
 
+$kpis = function_exists('get_maker_kpis') ? get_maker_kpis((int)($currentUser['id'] ?? 0)) : (function_exists('get_checker_kpis') ? get_checker_kpis() : [
+    'draft'     => 0,
+    'scoring'   => 0,
+    'in_review' => 0,
+    'rejected'  => 0,
+    'approved'  => 0,
+    'released'  => 0,
+    'total'     => 0
+]);
+
+$draftCount    = (int) ($kpis['draft'] ?? 0);
+$scoringCount  = (int) ($kpis['scoring'] ?? 0);
+$inReviewCount = (int) ($kpis['in_review'] ?? 0);
+$rejectedCount = (int) ($kpis['rejected'] ?? 0);
+$approvedCount = (int) ($kpis['approved'] ?? ($kpis['awaiting_release'] ?? 0));
+$releasedCount = (int) ($kpis['released'] ?? 0);
+
 $totalCamps = count($campaigns);
 
 // Phân loại trạng thái chuẩn theo Maker: Action Required & Awaiting Review
@@ -459,6 +476,90 @@ unset($camp);
             background: #2B3170;
             transform: translateY(-1px);
         }
+
+        /* ================= CORE LIFECYCLE METRIC CARDS ================= */
+        /* Draft -> Scoring -> In Review -> Rejected -> Approved -> Released */
+        .kpi-metrics-bar {
+            display: flex;
+            background: #FFFFFF;
+            border: 1px solid #EBEDFF;
+            border-radius: 16px;
+            box-shadow: 0px 4px 20px -4px rgba(79, 86, 166, 0.08);
+            margin-bottom: 32px;
+            padding: 6px;
+            overflow-x: auto;
+        }
+
+        .kpi-card {
+            flex: 1;
+            min-width: 130px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 16px;
+            border-radius: 12px;
+        }
+
+        .kpi-card:not(:last-child) {
+            border-right: 1px solid #F1F5F9;
+        }
+
+        .kpi-icon-box {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 800;
+            flex-shrink: 0;
+            box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Exact Status Color Coding Aligned with Core Database Lifecycles */
+        .kpi-icon-box.status-draft {
+            background-color: #F1F5F9;
+            color: #475569;
+            border: 1px solid #CBD5E1;
+        }
+        .kpi-icon-box.status-scoring {
+            background-color: #FFFBEB;
+            color: #D97706;
+            border: 1px solid #FCD34D;
+        }
+        .kpi-icon-box.status-in-review {
+            background-color: #EEF2FF;
+            color: #373E8C;
+            border: 1px solid #C7D2FE;
+        }
+        .kpi-icon-box.status-rejected {
+            background-color: #FEF2F2;
+            color: #DC2626;
+            border: 1px solid #FECACA;
+        }
+        .kpi-icon-box.status-approved {
+            background-color: #ECFDF5;
+            color: #059669;
+            border: 1px solid #A7F3D0;
+        }
+        .kpi-icon-box.status-released {
+            background-color: #F5F3FF;
+            color: #7C3AED;
+            border: 1px solid #DDD6FE;
+        }
+
+        .kpi-label {
+            font-size: 13.5px;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+        .kpi-label.status-draft { color: #475569; }
+        .kpi-label.status-scoring { color: #D97706; }
+        .kpi-label.status-in-review { color: #373E8C; }
+        .kpi-label.status-rejected { color: #DC2626; }
+        .kpi-label.status-approved { color: #059669; }
+        .kpi-label.status-released { color: #7C3AED; }
 
         /* ================= 3. WORKSPACE 2-COLUMN GRID ================= */
         .workspace-grid {
@@ -1233,6 +1334,17 @@ unset($camp);
             }
         }
 
+        @media (max-width: 1024px) {
+            .kpi-metrics-bar {
+                flex-wrap: wrap;
+            }
+            .kpi-card {
+                flex: 1 1 calc(50% - 12px);
+                border-right: none !important;
+                border-bottom: 1px solid #F1F5F9;
+            }
+        }
+
         @media (max-width: 768px) {
             .top-navbar .nav-menu {
                 display: none;
@@ -1281,6 +1393,34 @@ unset($camp);
             <div class="hero-action-buttons">
                 <a href="<?= esc_url(pcs_url('detail-asset-maker.php')) ?>" class="btn-secondary" style="display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">View All Assets</a>
                 <a href="<?= esc_url(pcs_url('smart-maker-upload.php')) ?>" class="btn-primary" style="display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">Upload Asset</a>
+            </div>
+        </section>
+
+        <!-- Section 2: Core Lifecycle Metric Cards: Draft -> Scoring -> In Review -> Rejected -> Approved -> Released -->
+        <section class="kpi-metrics-bar">
+            <div class="kpi-card">
+                <div class="kpi-icon-box status-draft"><?= $draftCount ?></div>
+                <div class="kpi-label status-draft">Draft</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon-box status-scoring"><?= $scoringCount ?></div>
+                <div class="kpi-label status-scoring">Scoring</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon-box status-in-review"><?= $inReviewCount ?></div>
+                <div class="kpi-label status-in-review">In Review</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon-box status-rejected"><?= $rejectedCount ?></div>
+                <div class="kpi-label status-rejected">Rejected</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon-box status-approved"><?= $approvedCount ?></div>
+                <div class="kpi-label status-approved">Approved</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon-box status-released"><?= $releasedCount ?></div>
+                <div class="kpi-label status-released">Released</div>
             </div>
         </section>
 
@@ -1373,15 +1513,7 @@ unset($camp);
                                             </div>
                                         </td>
                                         <td style="text-align: center;">
-                                            <?php if ($camp['has_action_required']): ?>
-                                                <span class="status-badge-lg danger">Action Required</span>
-                                            <?php elseif ($camp['has_awaiting_review']): ?>
-                                                <span class="status-badge-lg primary">Awaiting Review</span>
-                                            <?php elseif ($camp['percent'] === 100): ?>
-                                                <span class="status-badge-lg success">Approved</span>
-                                            <?php else: ?>
-                                                <span class="status-badge-lg neutral"><?= htmlspecialchars($camp['status']) ?></span>
-                                            <?php endif; ?>
+                                            <?= function_exists('pcs_format_status_badge') ? pcs_format_status_badge($camp['status']) : '<span class="status-badge-lg neutral">' . htmlspecialchars($camp['status']) . '</span>' ?>
                                         </td>
                                         <td style="text-align: center; white-space: nowrap;">
                                             <div style="display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
@@ -1433,7 +1565,8 @@ unset($camp);
                                                                     <a href="<?= esc_url(pcs_url('detail-asset-maker.php') . '?campaign_id=' . (int)$camp['id'] . '&asset_id=' . (int)$asset['id']) ?>" class="asset-name" style="font-weight: 700; color: #1E293B; text-decoration: none;" onmouseover="this.style.color='#4F56A6'" onmouseout="this.style.color='#1E293B'" title="View Asset Detail">
                                                                         <?= htmlspecialchars($asset['name']) ?>
                                                                     </a>
-                                                                    <span class="status-pill-small <?= $asset['badge_type'] ?>"><?= htmlspecialchars($asset['version']) ?></span>
+                                                                    <span class="status-pill-small <?= $asset['badge_type'] ?>"><?= htmlspecialchars($asset['version_raw'] ?? $asset['version']) ?></span>
+                                                                    <?= function_exists('pcs_format_status_badge') ? pcs_format_status_badge($asset['status']) : '' ?>
                                                                     <span class="asset-next-step" style="font-size: 12px; color: #64748B;"><?= htmlspecialchars($asset['next_step']) ?></span>
                                                                 </div>
                                                                 <div class="asset-actions" style="display: flex; align-items: center; gap: 8px;">

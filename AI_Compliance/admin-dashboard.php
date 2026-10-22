@@ -132,10 +132,13 @@ $queue = function_exists('get_admin_release_queue') ? get_admin_release_queue('a
 $recentlyReleased = function_exists('get_admin_recently_released') ? get_admin_recently_released(3) : [];
 $auditLogs = function_exists('get_admin_audit_logs') ? get_admin_audit_logs(15) : [];
 
-$awaitingReleaseCount = $kpis['awaiting_release'];
-$inReviewCount        = $kpis['in_review'];
-$releasedCount        = $kpis['released'];
-$rejectedCount        = $kpis['rejected'];
+$draftCount    = (int) ($kpis['draft'] ?? 0);
+$scoringCount  = (int) ($kpis['scoring'] ?? 0);
+$inReviewCount = (int) ($kpis['in_review'] ?? 0);
+$rejectedCount = (int) ($kpis['rejected'] ?? 0);
+$approvedCount = (int) ($kpis['approved'] ?? ($kpis['awaiting_release'] ?? 0));
+$releasedCount = (int) ($kpis['released'] ?? 0);
+$awaitingReleaseCount = $approvedCount;
 $totalCampaigns       = count($campaigns);
 $totalQueue           = count($queue);
 
@@ -662,37 +665,49 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.05);
         }
 
-        /* Status Colors Matching Checker */
-        .kpi-icon-box.status-awaiting {
-            background-color: #E0E0FF;
-            color: #373E8C;
-            border: 1px solid #D5D7FF;
+        /* Exact Status Color Coding Aligned with Core Database Lifecycles */
+        .kpi-icon-box.status-draft {
+            background-color: #F1F5F9;
+            color: #475569;
+            border: 1px solid #CBD5E1;
+        }
+        .kpi-icon-box.status-scoring {
+            background-color: #FFFBEB;
+            color: #D97706;
+            border: 1px solid #FCD34D;
         }
         .kpi-icon-box.status-in-review {
-            background-color: #EFF6FF;
-            color: #0284C7;
-            border: 1px solid #BAE6FD;
-        }
-        .kpi-icon-box.status-released {
-            background-color: #D1FAE5;
-            color: #047857;
-            border: 1px solid #A7F3D0;
+            background-color: #EEF2FF;
+            color: #373E8C;
+            border: 1px solid #C7D2FE;
         }
         .kpi-icon-box.status-rejected {
-            background-color: #FFDAD6;
-            color: #BA1A1A;
-            border: 1px solid #FFC7C1;
+            background-color: #FEF2F2;
+            color: #DC2626;
+            border: 1px solid #FECACA;
+        }
+        .kpi-icon-box.status-approved, .kpi-icon-box.status-awaiting {
+            background-color: #ECFDF5;
+            color: #059669;
+            border: 1px solid #A7F3D0;
+        }
+        .kpi-icon-box.status-released {
+            background-color: #F5F3FF;
+            color: #7C3AED;
+            border: 1px solid #DDD6FE;
         }
 
         .kpi-label {
-            font-size: 14px;
+            font-size: 13.5px;
             font-weight: 700;
             line-height: 1.3;
         }
-        .kpi-label.status-awaiting { color: #373E8C; }
-        .kpi-label.status-in-review { color: #0284C7; }
-        .kpi-label.status-released { color: #047857; }
-        .kpi-label.status-rejected { color: #BA1A1A; }
+        .kpi-label.status-draft { color: #475569; }
+        .kpi-label.status-scoring { color: #D97706; }
+        .kpi-label.status-in-review { color: #373E8C; }
+        .kpi-label.status-rejected { color: #DC2626; }
+        .kpi-label.status-approved, .kpi-label.status-awaiting { color: #059669; }
+        .kpi-label.status-released { color: #7C3AED; }
 
         @media (max-width: 1024px) {
             .kpi-metrics-bar {
@@ -1097,21 +1112,35 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             font-weight: 700;
             white-space: nowrap;
         }
-        .status-badge.in_review, .status-badge.scoring {
-            background-color: #E0E0FF;
-            color: #373E8C;
-        }
-        .status-badge.approved, .status-badge.released {
-            background-color: #D1FAE5;
-            color: #047857;
-        }
-        .status-badge.rejected {
-            background-color: #FFDAD6;
-            color: #BA1A1A;
-        }
         .status-badge.draft {
             background-color: #F1F5F9;
-            color: #64748B;
+            color: #475569;
+            border: 1px solid #CBD5E1;
+        }
+        .status-badge.scoring {
+            background-color: #FFFBEB;
+            color: #D97706;
+            border: 1px solid #FCD34D;
+        }
+        .status-badge.in_review, .status-badge.in-review {
+            background-color: #EEF2FF;
+            color: #373E8C;
+            border: 1px solid #C7D2FE;
+        }
+        .status-badge.rejected {
+            background-color: #FEF2F2;
+            color: #DC2626;
+            border: 1px solid #FECACA;
+        }
+        .status-badge.approved, .status-badge.awaiting, .status-badge.awaiting_release {
+            background-color: #ECFDF5;
+            color: #059669;
+            border: 1px solid #A7F3D0;
+        }
+        .status-badge.released {
+            background-color: #F5F3FF;
+            color: #7C3AED;
+            border: 1px solid #DDD6FE;
         }
 
         .btn-view-campaign {
@@ -1885,23 +1914,31 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                 </div>
             </div>
 
-            <!-- Section 2: 4-KPI Metric Cards (Aligned with Checker & System Statuses) -->
+            <!-- Section 2: Core Lifecycle Metric Cards: Draft -> Scoring -> In Review -> Rejected -> Approved -> Released -->
             <section class="kpi-metrics-bar">
                 <div class="kpi-card">
-                    <div class="kpi-icon-box status-awaiting"><?= $awaitingReleaseCount ?></div>
-                    <div class="kpi-label status-awaiting">Awaiting Release</div>
+                    <div class="kpi-icon-box status-draft"><?= $draftCount ?></div>
+                    <div class="kpi-label status-draft">Draft</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon-box status-scoring"><?= $scoringCount ?></div>
+                    <div class="kpi-label status-scoring">Scoring</div>
                 </div>
                 <div class="kpi-card">
                     <div class="kpi-icon-box status-in-review"><?= $inReviewCount ?></div>
                     <div class="kpi-label status-in-review">In Review</div>
                 </div>
                 <div class="kpi-card">
-                    <div class="kpi-icon-box status-released"><?= $releasedCount ?></div>
-                    <div class="kpi-label status-released">Released</div>
-                </div>
-                <div class="kpi-card">
                     <div class="kpi-icon-box status-rejected"><?= $rejectedCount ?></div>
                     <div class="kpi-label status-rejected">Rejected</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon-box status-approved"><?= $approvedCount ?></div>
+                    <div class="kpi-label status-approved">Approved</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon-box status-released"><?= $releasedCount ?></div>
+                    <div class="kpi-label status-released">Released</div>
                 </div>
             </section>
 
@@ -2016,9 +2053,7 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                                 </div>
                                             </td>
                                             <td style="text-align: center;">
-                                                <span class="status-badge <?= htmlspecialchars($camp['status_type']) ?>">
-                                                    <?= htmlspecialchars($camp['status']) ?>
-                                                </span>
+                                                <?= function_exists('pcs_format_status_badge') ? pcs_format_status_badge($camp['status']) : '<span class="status-badge ' . htmlspecialchars($camp['status_type']) . '">' . htmlspecialchars($camp['status']) . '</span>' ?>
                                             </td>
                                             <td>
                                                 <div class="owner-cell">
@@ -2106,9 +2141,7 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                                                         <td style="white-space: nowrap;"><?= htmlspecialchars($asset['maker_name']) ?></td>
                                                                         <td style="white-space: nowrap;"><?= htmlspecialchars($asset['checker_name']) ?></td>
                                                                         <td style="text-align: center;">
-                                                                            <span class="status-badge <?= htmlspecialchars($asset['status']) ?>">
-                                                                                <?= ucfirst(htmlspecialchars($asset['status'])) ?>
-                                                                            </span>
+                                                                            <?= function_exists('pcs_format_status_badge') ? pcs_format_status_badge($asset['status']) : '<span class="status-badge ' . htmlspecialchars($asset['status']) . '">' . ucfirst(htmlspecialchars($asset['status'])) . '</span>' ?>
                                                                         </td>
                                                                         <td style="text-align: center; white-space: nowrap;">
                                                                             <div style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap;">
@@ -2237,9 +2270,7 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                         <td style="text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 12px;"><?= htmlspecialchars($item['approved_at']) ?></td>
                                         <td style="text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 12px;"><?= htmlspecialchars($item['deadline']) ?></td>
                                         <td style="text-align: center;">
-                                            <span class="status-badge <?= htmlspecialchars($item['status']) ?>">
-                                                <?= ucfirst(htmlspecialchars($item['status'])) ?>
-                                            </span>
+                                            <?= function_exists('pcs_format_status_badge') ? pcs_format_status_badge($item['status']) : '<span class="status-badge ' . htmlspecialchars($item['status']) . '">' . ucfirst(htmlspecialchars($item['status'])) . '</span>' ?>
                                         </td>
                                         <td style="text-align: center; white-space: nowrap;">
                                             <div style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap;">

@@ -639,21 +639,35 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
             font-weight: 600;
             white-space: nowrap;
         }
-        .status-pill.approved {
-            background: #DCFCE7;
-            color: #166534;
-        }
-        .status-pill.in-review {
-            background: #FEF3C7;
-            color: #B45309;
-        }
-        .status-pill.rejected {
-            background: #FEE2E2;
-            color: #991B1B;
-        }
         .status-pill.draft {
             background: #F1F5F9;
             color: #475569;
+            border: 1px solid #CBD5E1;
+        }
+        .status-pill.scoring {
+            background: #FFFBEB;
+            color: #D97706;
+            border: 1px solid #FCD34D;
+        }
+        .status-pill.in-review, .status-pill.in_review {
+            background: #EEF2FF;
+            color: #373E8C;
+            border: 1px solid #C7D2FE;
+        }
+        .status-pill.rejected {
+            background: #FEF2F2;
+            color: #DC2626;
+            border: 1px solid #FECACA;
+        }
+        .status-pill.approved {
+            background: #ECFDF5;
+            color: #059669;
+            border: 1px solid #A7F3D0;
+        }
+        .status-pill.released {
+            background: #F5F3FF;
+            color: #7C3AED;
+            border: 1px solid #DDD6FE;
         }
 
         .release-pill {
@@ -665,12 +679,14 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
             white-space: nowrap;
         }
         .release-pill.awaiting {
-            background: #EEF0FB;
-            color: #373E8C;
+            background: #ECFDF5;
+            color: #059669;
+            border: 1px solid #A7F3D0;
         }
         .release-pill.released {
-            background: #ECFDF5;
-            color: #065F46;
+            background: #F5F3FF;
+            color: #7C3AED;
+            border: 1px solid #DDD6FE;
         }
         .release-pill.pending {
             color: #94A3B8;
@@ -1396,23 +1412,39 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                                             <td class="user-cell" style="white-space: nowrap;"><?= esc_html($ast['maker_name']) ?></td>
                                             <td class="user-cell" style="white-space: nowrap;"><?= esc_html($ast['checker_name']) ?></td>
                                             <td style="text-align: center;">
-                                                <?php if ($ast['review_status'] === 'Approved'): ?>
+                                                <?php 
+                                                $rSt = str_replace([' ', '-'], '_', strtolower(trim($ast['review_status'] ?? 'draft')));
+                                                if ($rSt === 'awaiting_release' || $rSt === 'awaiting') $rSt = 'approved';
+                                                if ($rSt === 'approved'): ?>
                                                     <span class="status-pill approved">
-                                                        <span class="status-dot dot-teal"></span>
+                                                        <span class="status-dot" style="background:#059669;"></span>
                                                         <span>Approved</span>
                                                     </span>
-                                                <?php elseif ($ast['review_status'] === 'In Review'): ?>
+                                                <?php elseif ($rSt === 'in_review'): ?>
                                                     <span class="status-pill in-review">
-                                                        <span class="status-dot dot-amber"></span>
+                                                        <span class="status-dot" style="background:#373E8C;"></span>
                                                         <span>In Review</span>
                                                     </span>
-                                                <?php elseif ($ast['review_status'] === 'Rejected'): ?>
+                                                <?php elseif ($rSt === 'scoring'): ?>
+                                                    <span class="status-pill scoring">
+                                                        <span class="status-dot" style="background:#D97706;"></span>
+                                                        <span>Scoring</span>
+                                                    </span>
+                                                <?php elseif ($rSt === 'rejected'): ?>
                                                     <span class="status-pill rejected">
-                                                        <span class="status-dot dot-red"></span>
+                                                        <span class="status-dot" style="background:#DC2626;"></span>
                                                         <span>Rejected</span>
                                                     </span>
+                                                <?php elseif ($rSt === 'released'): ?>
+                                                    <span class="status-pill released">
+                                                        <span class="status-dot" style="background:#7C3AED;"></span>
+                                                        <span>Released</span>
+                                                    </span>
                                                 <?php else: ?>
-                                                    <span class="status-pill draft"><?= esc_html($ast['review_status']) ?></span>
+                                                    <span class="status-pill draft">
+                                                        <span class="status-dot" style="background:#475569;"></span>
+                                                        <span>Draft</span>
+                                                    </span>
                                                 <?php endif; ?>
                                             </td>
                                             <td style="text-align: center;">

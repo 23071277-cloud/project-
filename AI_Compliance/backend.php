@@ -1219,7 +1219,12 @@ function pcs_enforce_rbac($allowed_roles = 'ALL') {
  */
 if (!function_exists('pcs_format_status_badge')) {
 function pcs_format_status_badge($status) {
-    $s = strtolower(trim((string)$status));
+    $raw = strtolower(trim((string)$status));
+    $s = str_replace([' ', '-'], '_', $raw);
+    if ($s === 'awaiting_release' || $s === 'awaiting') {
+        $s = 'approved';
+    }
+
     $config = [
         'draft' => [
             'label'  => 'Draft',
@@ -1235,21 +1240,21 @@ function pcs_format_status_badge($status) {
         ],
         'in_review' => [
             'label'  => 'In Review',
-            'color'  => '#4F46E5',
+            'color'  => '#373E8C',
             'bg'     => '#EEF2FF',
             'border' => '#C7D2FE',
-        ],
-        'approved' => [
-            'label'  => 'Approved',
-            'color'  => '#059669',
-            'bg'     => '#ECFDF5',
-            'border' => '#A7F3D0',
         ],
         'rejected' => [
             'label'  => 'Rejected',
             'color'  => '#DC2626',
             'bg'     => '#FEF2F2',
             'border' => '#FECACA',
+        ],
+        'approved' => [
+            'label'  => 'Approved',
+            'color'  => '#059669',
+            'bg'     => '#ECFDF5',
+            'border' => '#A7F3D0',
         ],
         'released' => [
             'label'  => 'Released',
@@ -1267,7 +1272,7 @@ function pcs_format_status_badge($status) {
     ];
 
     return sprintf(
-        '<span class="pcs-status-pill pcs-status-%s" style="display:inline-flex; align-items:center; padding:3px 10px; border-radius:9999px; font-size:12px; font-weight:700; color:%s; background:%s; border:1px solid %s; line-height:1.3; white-space:nowrap;">%s</span>',
+        '<span class="pcs-status-pill pcs-status-%s" style="display:inline-flex; align-items:center; justify-content:center; padding:3px 10px; border-radius:9999px; font-size:12px; font-weight:700; color:%s; background:%s; border:1px solid %s; line-height:1.3; white-space:nowrap;">%s</span>',
         esc_attr($s),
         esc_attr($cfg['color']),
         esc_attr($cfg['bg']),
@@ -2629,38 +2634,124 @@ function get_checker_review_queue($filter = 'all') {
 
 /**
  * Lấy các chỉ số KPI theo đúng 6 trạng thái thực tế của hệ thống:
- * in_review, scoring, approved, rejected, draft, released
+ * draft -> scoring -> in_review -> rejected -> approved -> released
  */
 if (!function_exists('get_checker_kpis')) {
 function get_checker_kpis() {
     $counts = [
-        'in_review' => 0,
-        'scoring'   => 0,
-        'approved'  => 0,
-        'rejected'  => 0,
         'draft'     => 0,
+        'scoring'   => 0,
+        'in_review' => 0,
+        'rejected'  => 0,
+        'approved'  => 0,
         'released'  => 0,
         'total'     => 0
     ];
 
-    if (!pcs_is_wp() || !function_exists('get_posts')) {
-        return $counts;
+    if (pcs_is_wp() && function_exists('get_posts')) {
+        $all_versions = get_posts([
+            'post_type'      => 'asset_version',
+            'post_status'    => 'any',
+            'posts_per_page' => -1
+        ]);
+
+        foreach ($all_versions as $v) {
+            $st = get_post_meta($v->ID, '_status', true) ?: 'draft';
+            $st = str_replace([' ', '-'], '_', strtolower(trim($st)));
+            if ($st === 'awaiting_release' || $st === 'awaiting') $st = 'approved';
+            if (isset($counts[$st])) {
+                $counts[$st]++;
+            } else {
+                $counts['draft']++;
+            }
+            $counts['total']++;
+        }
     }
 
-    $all_versions = get_posts([
-        'post_type'      => 'asset_version',
-        'post_status'    => 'any',
-        'posts_per_page' => -1
-    ]);
-
-    foreach ($all_versions as $v) {
-        $st = get_post_meta($v->ID, '_status', true) ?: 'draft';
-        if (isset($counts[$st])) {
-            $counts[$st]++;
-        } else {
-            $counts['draft']++;
+    // Fallback if WP returned 0 versions (e.g. mock data mode)
+    if ($counts['total'] === 0 && function_exists('get_all_campaigns')) {
+        $campaigns = get_all_campaigns();
+        foreach ($campaigns as $camp) {
+            if (!empty($camp['assets'])) {
+                foreach ($camp['assets'] as $ast) {
+                    $st = str_replace([' ', '-'], '_', strtolower(trim($ast['status'] ?? 'draft')));
+                    if ($st === 'awaiting_release' || $st === 'awaiting') $st = 'approved';
+                    if (isset($counts[$st])) {
+                        $counts[$st]++;
+                    } else {
+                        $counts['draft']++;
+                    }
+                    $counts['total']++;
+                }
+            }
         }
-        $counts['total']++;
+    }
+
+    return $counts;
+}
+}
+
+/**
+ * Lấy các chỉ số KPI cho Maker theo đúng 6 trạng thái chuẩn:
+ * draft -> scoring -> in_review -> rejected -> approved -> released
+ */
+if (!function_exists('get_maker_kpis')) {
+function get_maker_kpis($makerId = 0) {
+    $counts = [
+        'draft'     => 0,
+        'scoring'   => 0,
+        'in_review' => 0,
+        'rejected'  => 0,
+        'approved'  => 0,
+        'released'  => 0,
+        'total'     => 0
+    ];
+
+    if (pcs_is_wp() && function_exists('get_posts')) {
+        $args = [
+            'post_type'      => 'asset_version',
+            'post_status'    => 'any',
+            'posts_per_page' => -1
+        ];
+        if ($makerId > 0) {
+            $args['meta_key'] = '_uploaded_by';
+            $args['meta_value'] = (int) $makerId;
+        }
+        $all_versions = get_posts($args);
+        if (empty($all_versions) && $makerId > 0) {
+            unset($args['meta_key'], $args['meta_value']);
+            $all_versions = get_posts($args);
+        }
+
+        foreach ($all_versions as $v) {
+            $st = get_post_meta($v->ID, '_status', true) ?: 'draft';
+            $st = str_replace([' ', '-'], '_', strtolower(trim($st)));
+            if ($st === 'awaiting_release' || $st === 'awaiting') $st = 'approved';
+            if (isset($counts[$st])) {
+                $counts[$st]++;
+            } else {
+                $counts['draft']++;
+            }
+            $counts['total']++;
+        }
+    }
+
+    if ($counts['total'] === 0 && function_exists('get_all_campaigns')) {
+        $campaigns = get_all_campaigns();
+        foreach ($campaigns as $camp) {
+            if (!empty($camp['assets'])) {
+                foreach ($camp['assets'] as $ast) {
+                    $st = str_replace([' ', '-'], '_', strtolower(trim($ast['status'] ?? 'draft')));
+                    if ($st === 'awaiting_release' || $st === 'awaiting') $st = 'approved';
+                    if (isset($counts[$st])) {
+                        $counts[$st]++;
+                    } else {
+                        $counts['draft']++;
+                    }
+                    $counts['total']++;
+                }
+            }
+        }
     }
 
     return $counts;
@@ -3317,35 +3408,56 @@ function get_campaign_detail_asset_data($campaign_id = 0, $selected_asset_id = 0
 if (!function_exists('get_admin_kpis')) {
 function get_admin_kpis() {
     $counts = [
-        'awaiting_release' => 0,
-        'in_review'        => 0,
-        'released'         => 0,
-        'rejected'         => 0,
         'draft'            => 0,
         'scoring'          => 0,
+        'in_review'        => 0,
+        'rejected'         => 0,
+        'approved'         => 0,
+        'awaiting_release' => 0,
+        'released'         => 0,
         'total'            => 0
     ];
 
-    if (!pcs_is_wp() || !function_exists('get_posts')) {
-        return $counts;
+    if (pcs_is_wp() && function_exists('get_posts')) {
+        $all_versions = get_posts([
+            'post_type'      => 'asset_version',
+            'post_status'    => 'any',
+            'posts_per_page' => -1
+        ]);
+
+        foreach ($all_versions as $v) {
+            $st = get_post_meta($v->ID, '_status', true) ?: 'draft';
+            $st = str_replace([' ', '-'], '_', strtolower(trim($st)));
+            if ($st === 'approved' || $st === 'awaiting_release' || $st === 'awaiting') {
+                $counts['awaiting_release']++;
+                $counts['approved']++;
+            } elseif (isset($counts[$st])) {
+                $counts[$st]++;
+            } else {
+                $counts['draft']++;
+            }
+            $counts['total']++;
+        }
     }
 
-    $all_versions = get_posts([
-        'post_type'      => 'asset_version',
-        'post_status'    => 'any',
-        'posts_per_page' => -1
-    ]);
-
-    foreach ($all_versions as $v) {
-        $st = get_post_meta($v->ID, '_status', true) ?: 'draft';
-        if ($st === 'approved') {
-            $counts['awaiting_release']++;
-        } elseif (isset($counts[$st])) {
-            $counts[$st]++;
-        } else {
-            $counts['draft']++;
+    if ($counts['total'] === 0 && function_exists('get_all_campaigns')) {
+        $campaigns = get_all_campaigns();
+        foreach ($campaigns as $camp) {
+            if (!empty($camp['assets'])) {
+                foreach ($camp['assets'] as $ast) {
+                    $st = str_replace([' ', '-'], '_', strtolower(trim($ast['status'] ?? 'draft')));
+                    if ($st === 'approved' || $st === 'awaiting_release' || $st === 'awaiting') {
+                        $counts['awaiting_release']++;
+                        $counts['approved']++;
+                    } elseif (isset($counts[$st])) {
+                        $counts[$st]++;
+                    } else {
+                        $counts['draft']++;
+                    }
+                    $counts['total']++;
+                }
+            }
         }
-        $counts['total']++;
     }
 
     return $counts;
