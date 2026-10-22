@@ -2207,13 +2207,15 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
                                     if (in_array($ext, ['png', 'jpg', 'jpeg', 'webp', 'svg'])): 
                                 ?>
                                     <img src="<?= htmlspecialchars($selectedAsset['file_url']) ?>" alt="Asset Preview" class="preview-asset-img" />
+                                <?php elseif ($ext === 'pdf'): ?>
+                                    <iframe src="<?= htmlspecialchars($selectedAsset['file_url']) ?>#toolbar=0&navpanes=0&view=Fit" class="preview-asset-img" style="width: 100%; height: 260px; border: none; border-radius: 6px; pointer-events: none; background: #ffffff;"></iframe>
                                 <?php else: ?>
                                     <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; color: #4F56A6;">
                                         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                                             <polyline points="14 2 14 8 20 8"/>
                                         </svg>
-                                        <span style="font-weight: 700; font-size: 13px;">PDF Document Ready</span>
+                                        <span style="font-weight: 700; font-size: 13px;">Document Ready</span>
                                     </div>
                                 <?php endif; ?>
                             <?php else: ?>

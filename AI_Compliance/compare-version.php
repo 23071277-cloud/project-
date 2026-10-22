@@ -1014,8 +1014,13 @@ $returnLabel  = $data['return_label'] ?? 'Return to Workspace';
 
                             <!-- Preview Viewport -->
                             <?php if ($vPrev && !empty($vPrev['file_url'])): ?>
+                                <?php $isPrevPdf = preg_match('/\.pdf(\?.*)?$/i', $vPrev['file_url']); ?>
                                 <div class="artwork-preview-box">
-                                    <img src="<?= esc_url($vPrev['file_url']) ?>" alt="Previous Version <?= esc_attr($vPrev['label']) ?>" onclick="openLightbox('<?= esc_url($vPrev['file_url']) ?>', '<?= esc_attr($vPrev['label']) ?> · <?= esc_attr($vPrev['file_name']) ?>')">
+                                    <?php if ($isPrevPdf): ?>
+                                        <iframe src="<?= esc_url($vPrev['file_url']) ?>#toolbar=0&navpanes=0&view=Fit" style="width: 100%; height: 100%; min-height: 280px; border: none; background: #fff;"></iframe>
+                                    <?php else: ?>
+                                        <img src="<?= esc_url($vPrev['file_url']) ?>" alt="Previous Version <?= esc_attr($vPrev['label']) ?>" onclick="openLightbox('<?= esc_url($vPrev['file_url']) ?>', '<?= esc_attr($vPrev['label']) ?> · <?= esc_attr($vPrev['file_name']) ?>')">
+                                    <?php endif; ?>
                                 </div>
                             <?php else: ?>
                                 <div class="artwork-preview-box archived-placeholder">
@@ -1071,8 +1076,13 @@ $returnLabel  = $data['return_label'] ?? 'Return to Workspace';
 
                             <!-- Preview Viewport -->
                             <?php if ($vCur && !empty($vCur['file_url'])): ?>
+                                <?php $isCurPdf = preg_match('/\.pdf(\?.*)?$/i', $vCur['file_url']); ?>
                                 <div class="artwork-preview-box">
-                                    <img src="<?= esc_url($vCur['file_url']) ?>" alt="Current Version <?= esc_attr($vCur['label']) ?>" onclick="openLightbox('<?= esc_url($vCur['file_url']) ?>', '<?= esc_attr($vCur['label']) ?> · <?= esc_attr($vCur['file_name']) ?>')">
+                                    <?php if ($isCurPdf): ?>
+                                        <iframe src="<?= esc_url($vCur['file_url']) ?>#toolbar=0&navpanes=0&view=Fit" style="width: 100%; height: 100%; min-height: 280px; border: none; background: #fff;"></iframe>
+                                    <?php else: ?>
+                                        <img src="<?= esc_url($vCur['file_url']) ?>" alt="Current Version <?= esc_attr($vCur['label']) ?>" onclick="openLightbox('<?= esc_url($vCur['file_url']) ?>', '<?= esc_attr($vCur['label']) ?> · <?= esc_attr($vCur['file_name']) ?>')">
+                                    <?php endif; ?>
                                 </div>
                             <?php else: ?>
                                 <div class="artwork-preview-box archived-placeholder">
@@ -1203,7 +1213,11 @@ $returnLabel  = $data['return_label'] ?? 'Return to Workspace';
         <div class="lightbox-content">
             <button type="button" class="lightbox-close-btn" onclick="closeLightboxDirect()">&times;</button>
             <img src="" alt="Full Artwork Preview" class="lightbox-img" id="lightboxImg">
+            <iframe id="lightboxPdf" src="" style="display: none; width: 85vw; height: 75vh; border: none; border-radius: 6px; background: #fff;"></iframe>
             <div class="lightbox-caption" id="lightboxCaption"></div>
+            <div id="lightboxPdfLinkWrap" style="display: none; margin-top: 8px; text-align: center;">
+                <a id="lightboxPdfLink" href="#" target="_blank" rel="noopener noreferrer" style="color: #FFFFFF; font-weight: 700; text-decoration: underline; font-size: 13px;">Open PDF in new window ↗</a>
+            </div>
         </div>
     </div>
 
@@ -1228,13 +1242,35 @@ $returnLabel  = $data['return_label'] ?? 'Return to Workspace';
             window.location.href = url;
         }
 
-        function openLightbox(imgUrl, caption) {
+        function openLightbox(fileUrl, caption) {
             const modal = document.getElementById('artworkLightbox');
             const img = document.getElementById('lightboxImg');
+            const pdf = document.getElementById('lightboxPdf');
             const cap = document.getElementById('lightboxCaption');
-            if (!modal || !img) return;
+            const pdfLinkWrap = document.getElementById('lightboxPdfLinkWrap');
+            const pdfLink = document.getElementById('lightboxPdfLink');
+            if (!modal) return;
 
-            img.src = imgUrl;
+            const isPdf = /\.pdf(\?.*)?$/i.test(fileUrl);
+            if (isPdf) {
+                if (img) { img.style.display = 'none'; img.src = ''; }
+                if (pdf) {
+                    pdf.style.display = 'block';
+                    pdf.src = fileUrl + '#toolbar=1&view=FitH';
+                }
+                if (pdfLinkWrap && pdfLink) {
+                    pdfLinkWrap.style.display = 'block';
+                    pdfLink.href = fileUrl;
+                }
+            } else {
+                if (pdf) { pdf.style.display = 'none'; pdf.src = ''; }
+                if (pdfLinkWrap) { pdfLinkWrap.style.display = 'none'; }
+                if (img) {
+                    img.style.display = 'block';
+                    img.src = fileUrl;
+                }
+            }
+
             if (cap) cap.innerText = caption || '';
             modal.classList.add('active');
             document.body.style.overflow = 'hidden';

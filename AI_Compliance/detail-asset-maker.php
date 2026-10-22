@@ -1460,8 +1460,12 @@ endif;
                                 
                                 <div class="asset-meta-cell">
                                     <div class="asset-thumb-box">
-                                        <?php if (!empty($ast['file_url']) && preg_match('/\.(png|jpg|jpeg|webp)$/i', $ast['file_url'])): ?>
+                                        <?php 
+                                            $isAstPdf = (!empty($ast['file_url']) && preg_match('/\.pdf(\?.*)?$/i', $ast['file_url']));
+                                            if (!empty($ast['file_url']) && preg_match('/\.(png|jpg|jpeg|webp)$/i', $ast['file_url'])): ?>
                                             <img src="<?= esc_url($ast['file_url']) ?>" alt="<?= esc_attr($ast['name']) ?>">
+                                        <?php elseif ($isAstPdf): ?>
+                                            <iframe src="<?= esc_url($ast['file_url']) ?>#toolbar=0&navpanes=0&view=Fit" style="width: 100%; height: 100%; border: none; pointer-events: none; background: #fff;"></iframe>
                                         <?php else: ?>
                                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.8"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
                                         <?php endif; ?>
@@ -1569,15 +1573,22 @@ endif;
                             <span class="status-badge-chip <?= $selChipClass ?>"><?= esc_html($selStatusLabel) ?></span>
                         </div>
                         <div class="preview-canvas-box">
-                            <?php if (!empty($selectedAsset['file_url']) && preg_match('/\.(png|jpg|jpeg|webp)$/i', $selectedAsset['file_url'])): ?>
+                            <?php 
+                                $isSelPdf = (!empty($selectedAsset['file_url']) && preg_match('/\.pdf(\?.*)?$/i', $selectedAsset['file_url']));
+                                if (!empty($selectedAsset['file_url']) && preg_match('/\.(png|jpg|jpeg|webp)$/i', $selectedAsset['file_url'])): ?>
                                 <img src="<?= esc_url($selectedAsset['file_url']) ?>" alt="<?= esc_attr($selectedAsset['name']) ?>">
+                            <?php elseif ($isSelPdf): ?>
+                                <iframe src="<?= esc_url($selectedAsset['file_url']) ?>#toolbar=0&navpanes=0&view=Fit" style="width: 100%; height: 100%; border: none; border-radius: 6px; background: #ffffff;"></iframe>
                             <?php else: ?>
                                 <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">
                                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#4E56A6" stroke-width="1.8"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
                                 </div>
                             <?php endif; ?>
                             <div class="canvas-blur-overlay">
-                                <?= esc_html($selectedAsset['name']) ?> · <?= esc_html($selectedAsset['format']) ?>
+                                <span><?= esc_html($selectedAsset['name']) ?> · <?= esc_html($selectedAsset['format']) ?></span>
+                                <?php if (!empty($selectedAsset['file_url'])): ?>
+                                    <a href="<?= esc_url($selectedAsset['file_url']) ?>" target="_blank" rel="noopener noreferrer" style="color: #FFFFFF; font-size: 11.5px; font-weight: 700; text-decoration: underline; margin-left: 10px;">Open Full ↗</a>
+                                <?php endif; ?>
                             </div>
                         </div>
                         <div class="preview-meta-footer">

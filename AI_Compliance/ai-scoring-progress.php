@@ -1747,8 +1747,8 @@ if (!$activeCheck && !empty($checks)) {
             }
         }, 3200);
 
-        // Countdown Timer & Dynamic Progression
-        let remainingSeconds = 14;
+        // Countdown Timer & Dynamic Progression (Auto-redirect on finish)
+        let remainingSeconds = 4;
         const countdownEl = document.getElementById('timerCountdown');
         const progressBar = document.getElementById('mainProgressBar');
         const nextUrl = "<?= esc_js($nextUrl) ?>";
@@ -1756,12 +1756,12 @@ if (!$activeCheck && !empty($checks)) {
         const countdownInterval = setInterval(function() {
             remainingSeconds--;
             if (countdownEl) {
-                countdownEl.textContent = remainingSeconds;
+                countdownEl.textContent = Math.max(0, remainingSeconds);
             }
 
             // Animate progress bar slightly as timer proceeds
             if (progressBar && remainingSeconds >= 0) {
-                const calculatedPercent = 66.66 + ((14 - remainingSeconds) / 14) * 33.33;
+                const calculatedPercent = 66.66 + ((4 - remainingSeconds) / 4) * 33.34;
                 progressBar.style.width = Math.min(100, calculatedPercent) + '%';
             }
 
@@ -1791,12 +1791,18 @@ if (!$activeCheck && !empty($checks)) {
                     activeSegLabel.classList.add('segment-label-done');
                 }
 
-                // If user doesn't navigate manually, pulse the button
                 var btn = document.getElementById('btnViewResults');
                 if (btn) {
                     btn.style.boxShadow = '0 0 16px rgba(79, 87, 167, 0.8)';
-                    btn.textContent = 'Results Ready · View Now →';
+                    btn.textContent = 'Redirecting to Results...';
                 }
+
+                // Tự động chuyển hướng sang trang kết quả
+                setTimeout(function() {
+                    if (nextUrl) {
+                        window.location.href = nextUrl;
+                    }
+                }, 400);
             }
         }, 1000);
 

@@ -1334,8 +1334,14 @@ $versionStatus = $version['status'] ?? 'scoring';
 
                 <div class="artwork-frame-box">
                     <div class="artwork-canvas-area" id="artworkContainer">
-                        <?php if (!empty($fileUrl)): ?>
-                            <img src="<?= esc_url($fileUrl) ?>" alt="<?= esc_attr($assetName) ?>" class="artwork-actual-image" id="mainArtworkImg" onerror="this.style.display='none'; document.getElementById('graphicFallback').style.display='flex';">
+                        <?php 
+                            $isPdf = (strtolower($fileExt ?? '') === 'pdf' || preg_match('/\.pdf(\?.*)?$/i', $fileUrl));
+                            if (!empty($fileUrl)): 
+                                if ($isPdf): ?>
+                                    <iframe src="<?= esc_url($fileUrl) ?>#toolbar=0&navpanes=0&view=Fit" class="artwork-actual-image artwork-pdf-frame" id="mainArtworkPdf" style="width: 100%; height: 520px; border: none; border-radius: 8px; background: #ffffff;"></iframe>
+                                <?php else: ?>
+                                    <img src="<?= esc_url($fileUrl) ?>" alt="<?= esc_attr($assetName) ?>" class="artwork-actual-image" id="mainArtworkImg" onerror="this.style.display='none'; document.getElementById('graphicFallback').style.display='flex';">
+                                <?php endif; ?>
                             <div id="graphicFallback" class="artwork-graphic-fallback" style="display: none;">
                                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -1969,7 +1975,17 @@ $versionStatus = $version['status'] ?? 'scoring';
         <div style="position: relative; max-width: 90vw; max-height: 90vh; background: #ffffff; border-radius: 12px; overflow: hidden; padding: 12px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);" onclick="event.stopPropagation();">
             <button type="button" onclick="closeFullSizeModal()" style="position: absolute; top: 16px; right: 16px; width: 32px; height: 32px; border-radius: 16px; background: rgba(0,0,0,0.5); color: #fff; font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 20;">&times;</button>
             <?php if (!empty($fileUrl)): ?>
-                <img src="<?= esc_url($fileUrl) ?>" alt="<?= esc_attr($assetName) ?>" style="max-width: 100%; max-height: 80vh; object-fit: contain; display: block; border-radius: 6px;">
+                <?php if ($isPdf): ?>
+                    <iframe src="<?= esc_url($fileUrl) ?>#toolbar=1&view=FitH" style="width: 85vw; height: 75vh; border: none; border-radius: 6px; background: #ffffff;"></iframe>
+                    <div style="margin-top: 8px; text-align: right;">
+                        <a href="<?= esc_url($fileUrl) ?>" target="_blank" rel="noopener noreferrer" style="color: #4F57A7; font-size: 13px; font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;">
+                            <span>Open PDF in new window</span>
+                            <span>↗</span>
+                        </a>
+                    </div>
+                <?php else: ?>
+                    <img src="<?= esc_url($fileUrl) ?>" alt="<?= esc_attr($assetName) ?>" style="max-width: 100%; max-height: 80vh; object-fit: contain; display: block; border-radius: 6px;">
+                <?php endif; ?>
             <?php else: ?>
                 <div style="padding: 40px; text-align: center; color: #64748B;">No direct artwork file image available.</div>
             <?php endif; ?>

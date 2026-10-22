@@ -404,7 +404,7 @@ $selAssetType = $selectedAsset['format'] ?? 'Digital Ad';
         .large-drop-zone {
             width: 100%;
             min-height: 310px;
-            padding: 36px 24px;
+            padding: 30px 24px;
             background: white;
             box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.05);
             border-radius: 12px;
@@ -413,12 +413,23 @@ $selAssetType = $selectedAsset['format'] ?? 'Digital Ad';
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            gap: 20px;
+            gap: 16px;
             transition: all 0.2s ease;
             cursor: pointer;
+            position: relative;
         }
-        .large-drop-zone * {
+        .large-drop-zone.has-file {
+            cursor: default;
+            padding: 18px;
+            border-color: #A5B4FC;
+            background: #FFFFFF;
+        }
+        .drop-zone-prompt * {
             pointer-events: none;
+        }
+        .active-file-container,
+        .active-file-container * {
+            pointer-events: auto !important;
         }
         .large-drop-zone.drag-over {
             background: #F3F2FF;
@@ -438,8 +449,7 @@ $selAssetType = $selectedAsset['format'] ?? 'Digital Ad';
         /* Active File Card */
         .integrated-file-card {
             width: 100%;
-            max-width: 576px;
-            padding: 14px;
+            padding: 12px 16px;
             background: #F3F2FF;
             box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.05);
             border-radius: 8px;
@@ -950,44 +960,56 @@ endif;
 
                             <input type="file" name="asset_file" id="realFileInput" accept=".png,.jpg,.jpeg,.pdf,.webp" style="display: none;" onchange="handleFileSelect(this)">
 
-                            <div class="large-drop-zone" id="dropZoneArea" onclick="document.getElementById('realFileInput').click()">
-                                <div class="cloud-circle-icon">
-                                    <svg width="26" height="19" viewBox="0 0 26 19" fill="none">
-                                        <path d="M6.41667 18.6667C4.64722 18.6667 3.13542 18.0542 1.88125 16.8292C0.627083 15.6042 0 14.1069 0 12.3375C0 10.8208 0.456944 9.46945 1.37083 8.28333C2.28472 7.09722 3.48056 6.33889 4.95833 6.00833C5.44444 4.21944 6.41667 2.77083 7.875 1.6625C9.33333 0.554167 10.9861 0 12.8333 0C15.1083 0 17.0382 0.792361 18.6229 2.37708C20.2076 3.96181 21 5.89167 21 8.16667C22.3417 8.32222 23.4549 8.90069 24.3396 9.90208C25.2243 10.9035 25.6667 12.075 25.6667 13.4167C25.6667 14.875 25.1562 16.1146 24.1354 17.1354C23.1146 18.1562 21.875 18.6667 20.4167 18.6667H14C13.3583 18.6667 12.809 18.4382 12.3521 17.9813C11.8951 17.5243 11.6667 16.975 11.6667 16.3333V10.325L9.8 12.1333L8.16667 10.5L12.8333 5.83333L17.5 10.5L15.8667 12.1333L14 10.325V16.3333H20.4167C21.2333 16.3333 21.9236 16.0514 22.4875 15.4875C23.0514 14.9236 23.3333 14.2333 23.3333 13.4167C23.3333 12.6 23.0514 11.9097 22.4875 11.3458C21.9236 10.7819 21.2333 10.5 20.4167 10.5H18.6667V8.16667C18.6667 6.55278 18.0979 5.17708 16.9604 4.03958C15.8229 2.90208 14.4472 2.33333 12.8333 2.33333C11.2194 2.33333 9.84375 2.90208 8.70625 4.03958C7.56875 5.17708 7 6.55278 7 8.16667H6.41667C5.28889 8.16667 4.32639 8.56528 3.52917 9.3625C2.73194 10.1597 2.33333 11.1222 2.33333 12.25C2.33333 13.3778 2.73194 14.3403 3.52917 15.1375C4.32639 15.9347 5.28889 16.3333 6.41667 16.3333H9.33333V18.6667H6.41667V18.6667M12.8333 10.5" fill="#4F57A7"/>
-                                    </svg>
-                                </div>
-                                <div style="text-align: center;">
-                                    <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
-                                        <span style="color: #1F2674; font-size: 18px; font-weight: 600;">Drop file here</span>
-                                        <span style="color: #464651; font-size: 14px;">or</span>
-                                        <span style="color: #4F57A7; font-size: 13px; font-weight: 600; text-decoration: underline;">choose file</span>
+                            <div class="large-drop-zone" id="dropZoneArea" onclick="handleDropZoneClick(event)">
+                                <!-- 1. Empty State Prompt (Hidden when file is chosen) -->
+                                <div class="drop-zone-prompt" id="dropZonePrompt" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; width: 100%;">
+                                    <div class="cloud-circle-icon">
+                                        <svg width="26" height="19" viewBox="0 0 26 19" fill="none">
+                                            <path d="M6.41667 18.6667C4.64722 18.6667 3.13542 18.0542 1.88125 16.8292C0.627083 15.6042 0 14.1069 0 12.3375C0 10.8208 0.456944 9.46945 1.37083 8.28333C2.28472 7.09722 3.48056 6.33889 4.95833 6.00833C5.44444 4.21944 6.41667 2.77083 7.875 1.6625C9.33333 0.554167 10.9861 0 12.8333 0C15.1083 0 17.0382 0.792361 18.6229 2.37708C20.2076 3.96181 21 5.89167 21 8.16667C22.3417 8.32222 23.4549 8.90069 24.3396 9.90208C25.2243 10.9035 25.6667 12.075 25.6667 13.4167C25.6667 14.875 25.1562 16.1146 24.1354 17.1354C23.1146 18.1562 21.875 18.6667 20.4167 18.6667H14C13.3583 18.6667 12.809 18.4382 12.3521 17.9813C11.8951 17.5243 11.6667 16.975 11.6667 16.3333V10.325L9.8 12.1333L8.16667 10.5L12.8333 5.83333L17.5 10.5L15.8667 12.1333L14 10.325V16.3333H20.4167C21.2333 16.3333 21.9236 16.0514 22.4875 15.4875C23.0514 14.9236 23.3333 14.2333 23.3333 13.4167C23.3333 12.6 23.0514 11.9097 22.4875 11.3458C21.9236 10.7819 21.2333 10.5 20.4167 10.5H18.6667V8.16667C18.6667 6.55278 18.0979 5.17708 16.9604 4.03958C15.8229 2.90208 14.4472 2.33333 12.8333 2.33333C11.2194 2.33333 9.84375 2.90208 8.70625 4.03958C7.56875 5.17708 7 6.55278 7 8.16667H6.41667C5.28889 8.16667 4.32639 8.56528 3.52917 9.3625C2.73194 10.1597 2.33333 11.1222 2.33333 12.25C2.33333 13.3778 2.73194 14.3403 3.52917 15.1375C4.32639 15.9347 5.28889 16.3333 6.41667 16.3333H9.33333V18.6667H6.41667V18.6667M12.8333 10.5" fill="#4F57A7"/>
+                                        </svg>
                                     </div>
-                                    <p style="color: #767682; font-size: 12px; margin-top: 6px;">PDF • PNG • JPG • Max 50 MB</p>
+                                    <div style="text-align: center;">
+                                        <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                            <span style="color: #1F2674; font-size: 18px; font-weight: 600;">Drop file here</span>
+                                            <span style="color: #464651; font-size: 14px;">or</span>
+                                            <span style="color: #4F57A7; font-size: 13px; font-weight: 600; text-decoration: underline;">choose file</span>
+                                        </div>
+                                        <p style="color: #767682; font-size: 12px; margin-top: 6px;">PDF • PNG • JPG • Max 50 MB</p>
+                                    </div>
                                 </div>
 
-                                <!-- Integrated Active File Card (shown when file is picked) -->
-                                <div class="integrated-file-card" id="activeFileCard" style="display: none;" onclick="event.stopPropagation();">
-                                    <div style="display: flex; align-items: center; gap: 14px;">
-                                        <div class="file-thumb-square" id="fileThumbPreview">
-                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                                        </div>
-                                        <div>
-                                            <strong style="color: #161B2E; font-size: 13px; display: block;" id="cardFileName">file.png</strong>
-                                            <div class="file-meta-specs">
-                                                <span id="cardFileFormat">PNG</span>
-                                                <span>•</span>
-                                                <span id="cardFileSize">0 KB</span>
-                                                <span>•</span>
-                                                <div class="file-status-pill">
-                                                    <div style="width: 6px; height: 6px; border-radius: 3px; background: #10B981;"></div>
-                                                    <span>Ready</span>
+                                <!-- 2. Active File Preview Container (Expands to dashed frame) -->
+                                <div class="active-file-container" id="activeFileContainer" style="display: none; width: 100%; flex-direction: column; align-items: center; gap: 14px;" onclick="event.stopPropagation();">
+                                    <!-- Expanded visual frame across the dashed dropzone -->
+                                    <div class="expanded-file-preview-box" id="expandedFilePreviewBox" style="width: 100%; height: 320px; max-height: 400px; background: #FAF8FF; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; border: 1px solid #E2E8F0;">
+                                        <img id="expandedImgPreview" src="" alt="Artwork Preview" style="display: none; max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 6px;">
+                                        <iframe id="expandedPdfPreview" src="" style="display: none; width: 100%; height: 100%; border: none; border-radius: 6px; background: #ffffff;"></iframe>
+                                    </div>
+
+                                    <!-- Integrated Action Bar with Replace and Remove -->
+                                    <div class="integrated-file-card" id="activeFileCard" style="width: 100%;" onclick="event.stopPropagation();">
+                                        <div style="display: flex; align-items: center; gap: 14px;">
+                                            <div class="file-thumb-square" id="fileThumbPreview">
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                            </div>
+                                            <div>
+                                                <strong style="color: #161B2E; font-size: 13px; display: block;" id="cardFileName">file.png</strong>
+                                                <div class="file-meta-specs">
+                                                    <span id="cardFileFormat">PNG</span>
+                                                    <span>•</span>
+                                                    <span id="cardFileSize">0 KB</span>
+                                                    <span>•</span>
+                                                    <div class="file-status-pill">
+                                                        <div style="width: 6px; height: 6px; border-radius: 3px; background: #10B981;"></div>
+                                                        <span>Ready</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div style="display: flex; gap: 12px; align-items: center;">
-                                        <button type="button" style="color: #4F57A7; font-size: 12px; font-weight: 600; text-decoration: underline;" onclick="document.getElementById('realFileInput').click()">Replace</button>
-                                        <button type="button" style="color: #BA1A1A; font-size: 12px; font-weight: 600; text-decoration: underline;" onclick="removeSelectedFile()">Remove</button>
+                                        <div style="display: flex; gap: 16px; align-items: center;">
+                                            <button type="button" class="btn-action-replace" style="color: #4F57A7; font-size: 12.5px; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 4px 8px; border: none; background: none;" onclick="triggerReplaceFile(event)">Replace</button>
+                                            <button type="button" class="btn-action-remove" style="color: #BA1A1A; font-size: 12.5px; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 4px 8px; border: none; background: none;" onclick="triggerRemoveFile(event)">Remove</button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1247,30 +1269,87 @@ endif;
     }
 
     // File Selection & Drag & Drop Handling
+    function handleDropZoneClick(e) {
+        if (hasFile) return;
+        var input = document.getElementById('realFileInput');
+        if (input) input.click();
+    }
+
+    function triggerReplaceFile(e) {
+        if (e) {
+            e.stopPropagation();
+            e.preventDefault();
+        }
+        var input = document.getElementById('realFileInput');
+        if (input) {
+            input.value = '';
+            input.click();
+        }
+    }
+
+    function triggerRemoveFile(e) {
+        if (e) {
+            e.stopPropagation();
+            e.preventDefault();
+        }
+        removeSelectedFile();
+    }
+
     function handleFileSelect(input) {
-        const file = input.files[0];
+        var file = input.files && input.files[0];
         if (!file) return;
 
         hasFile = true;
-        const fileName = file.name;
-        const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
-        const fileExt = fileName.split('.').pop().toUpperCase();
+        var fileName = file.name;
+        var fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
+        var fileExt = fileName.split('.').pop().toUpperCase();
+        var isPdf = (file.type === 'application/pdf' || fileExt === 'PDF');
 
+        // Toggle dropzone states
+        var dropArea = document.getElementById('dropZoneArea');
+        var promptEl = document.getElementById('dropZonePrompt');
+        var fileContainer = document.getElementById('activeFileContainer');
+        var imgPreview = document.getElementById('expandedImgPreview');
+        var pdfPreview = document.getElementById('expandedPdfPreview');
+
+        if (dropArea) dropArea.classList.add('has-file');
+        if (promptEl) promptEl.style.display = 'none';
+        if (fileContainer) fileContainer.style.display = 'flex';
+
+        // Render expanded preview spanning the dashed area
+        if (isPdf) {
+            if (imgPreview) { imgPreview.style.display = 'none'; imgPreview.src = ''; }
+            if (pdfPreview) {
+                pdfPreview.style.display = 'block';
+                pdfPreview.src = URL.createObjectURL(file) + '#toolbar=0&navpanes=0&view=Fit';
+            }
+        } else {
+            if (pdfPreview) { pdfPreview.style.display = 'none'; pdfPreview.src = ''; }
+            if (imgPreview) {
+                imgPreview.style.display = 'block';
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    imgPreview.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Update active file card
         document.getElementById('cardFileName').textContent = fileName;
         document.getElementById('cardFileFormat').textContent = fileExt;
         document.getElementById('cardFileSize').textContent = fileSizeMB + ' MB';
-        document.getElementById('activeFileCard').style.display = 'flex';
 
         // Update thumbnail preview
-        const thumbBox = document.getElementById('fileThumbPreview');
-        if (file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                thumbBox.innerHTML = '<img src="' + e.target.result + '" alt="Preview">';
+        var thumbBox = document.getElementById('fileThumbPreview');
+        if (!isPdf) {
+            var readerThumb = new FileReader();
+            readerThumb.onload = function(e) {
+                thumbBox.innerHTML = '<img src="' + e.target.result + '" alt="Preview" style="width:100%;height:100%;object-fit:cover;">';
             };
-            reader.readAsDataURL(file);
+            readerThumb.readAsDataURL(file);
         } else {
-            thumbBox.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+            thumbBox.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
         }
 
         // Update Summary & Strip
@@ -1284,10 +1363,26 @@ endif;
     }
 
     function removeSelectedFile() {
-        const input = document.getElementById('realFileInput');
-        input.value = '';
+        var input = document.getElementById('realFileInput');
+        if (input) input.value = '';
         hasFile = false;
-        document.getElementById('activeFileCard').style.display = 'none';
+
+        var dropArea = document.getElementById('dropZoneArea');
+        var promptEl = document.getElementById('dropZonePrompt');
+        var fileContainer = document.getElementById('activeFileContainer');
+        var imgPreview = document.getElementById('expandedImgPreview');
+        var pdfPreview = document.getElementById('expandedPdfPreview');
+
+        if (dropArea) dropArea.classList.remove('has-file');
+        if (promptEl) promptEl.style.display = 'flex';
+        if (fileContainer) fileContainer.style.display = 'none';
+
+        if (imgPreview) { imgPreview.src = ''; imgPreview.style.display = 'none'; }
+        if (pdfPreview) { pdfPreview.src = ''; pdfPreview.style.display = 'none'; }
+
+        document.getElementById('cardFileName').textContent = '';
+        document.getElementById('cardFileFormat').textContent = '';
+        document.getElementById('cardFileSize').textContent = '';
 
         document.getElementById('summaryFileName').textContent = 'No file selected';
         document.getElementById('summaryStatusRow').innerHTML = '<div style="width: 6px; height: 6px; border-radius: 3px; background: #94A3B8;"></div><span style="color: #64748B;">Waiting</span>';

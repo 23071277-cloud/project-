@@ -259,12 +259,15 @@ if (function_exists('add_action')) {
 }
 
 /**
- * Định dạng thời gian tương đối thân thiện (VD: Just now, 5 mins ago, 2 hours ago)
+ * Định dạng thời gian thông báo chuẩn: < 24h relative (2 mins ago, 5 hrs ago), >= 24h exact (Yesterday 12:00 22/10/2026, 12:00 21/10/2026)
  */
 if (!function_exists('pcs_human_time_diff')) {
 function pcs_human_time_diff($from, $to = '') {
     if (is_string($from)) {
         $from = strtotime($from);
+    }
+    if (empty($from)) {
+        return 'Just now';
     }
     if (empty($to)) {
         $to = time();
@@ -283,9 +286,10 @@ function pcs_human_time_diff($from, $to = '') {
         $hours = max(1, round($diff / 3600));
         return $hours . ' hr' . ($hours > 1 ? 's' : '') . ' ago';
     }
-    $days = max(1, round($diff / 86400));
-    if ($days === 1) return 'Yesterday';
-    return $days . ' days ago';
+    if ($diff < 172800) {
+        return 'Yesterday ' . date('H:i d/m/Y', $from);
+    }
+    return date('H:i d/m/Y', $from);
 }
 }
 
@@ -565,6 +569,16 @@ function pcs_get_user_notifications($user_id, $limit = 25, $unread_only = false)
             }
         }
     }
+
+    // Strict Sort: Newest notifications strictly at the top (DESC)
+    usort($notifications, function($a, $b) {
+        $ta = !empty($a['created_at']) ? strtotime($a['created_at']) : 0;
+        $tb = !empty($b['created_at']) ? strtotime($b['created_at']) : 0;
+        if ($ta === $tb) {
+            return ((int)($b['id'] ?? 0)) <=> ((int)($a['id'] ?? 0));
+        }
+        return $tb <=> $ta;
+    });
 
     return $notifications;
 }
@@ -2265,12 +2279,29 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
             update_post_meta($asset_id, '_current_version_id', $version_id);
         }
 
+        // Lấy thông tin phiên bản trước đó nếu có
+        $prev_ver = !empty($existing_vers) ? end($existing_vers) : null;
+        $prev_status = $prev_ver ? (get_post_meta($prev_ver->ID, '_status', true) ?: 'draft') : '';
+        $is_prev_rejected = ($prev_status === 'rejected');
+
         // Đánh giá 3 tiêu chí AI chuẩn MAS (foreign_logo, guideline, mas_rule)
         $criteria = ['foreign_logo', 'guideline', 'mas_rule'];
         $default_criteria = [
-            'foreign_logo' => ['score' => 95, 'quote' => '', 'reason' => 'Không phát hiện logo hoặc nhãn hiệu của bên thứ ba trái phép trên ấn phẩm quảng cáo.'],
-            'guideline'    => ['score' => 88, 'quote' => '', 'reason' => 'Màu sắc chủ đạo Navy Blue (#0A192F) và Gold (#D4AF37) đạt chuẩn nhận diện thương hiệu. Logo có vùng an toàn rõ ràng.'],
-            'mas_rule'     => ['score' => 25, 'quote' => 'Rule MAS-01: Any financial advertisement featuring investment returns or yields must include the prominent risk disclosure: Past performance is not indicative of future performance. Investments are subject to market risks.', 'reason' => 'Ấn phẩm tài chính đề cập tới mức sinh lời hoặc ưu đãi nhưng thiếu dòng cảnh báo rủi ro bắt buộc theo quy định của Cơ quan Quản lý Tiền tệ Singapore (MAS).']
+            'foreign_logo' => [
+                'score'  => ($ver_num > 1) ? 98 : 95, 
+                'quote'  => '', 
+                'reason' => 'Không phát hiện logo hoặc nhãn hiệu của bên thứ ba trái phép trên ấn phẩm quảng cáo. Vùng an toàn logo đạt chuẩn.'
+            ],
+            'guideline'    => [
+                'score'  => ($ver_num > 1) ? 94 : 88, 
+                'quote'  => '', 
+                'reason' => 'Màu sắc chủ đạo Navy Blue (#0A192F) và Gold (#D4AF37) đạt chuẩn 100% nhận diện thương hiệu. Logo có vùng an toàn rõ ràng.'
+            ],
+            'mas_rule'     => [
+                'score'  => ($ver_num > 1) ? 94 : 28, 
+                'quote'  => ($ver_num > 1) ? '' : 'Rule MAS-01: Any financial advertisement featuring investment returns or yields must include the prominent risk disclosure: Past performance is not indicative of future performance. Investments are subject to market risks.', 
+                'reason' => ($ver_num > 1) ? 'Nội dung quảng cáo có đầy đủ cảnh báo rủi ro tài chính đạt chuẩn quy định của Cơ quan Quản lý Tiền tệ Singapore (MAS §4.1b).' : 'Ấn phẩm tài chính đề cập tới mức sinh lời hoặc ưu đãi nhưng thiếu dòng cảnh báo rủi ro bắt buộc theo quy định của Cơ quan Quản lý Tiền tệ Singapore (MAS).'
+            ]
         ];
 
         foreach ($criteria as $criterion) {
@@ -2319,16 +2350,44 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
             update_post_meta($version_id, '_version_notes', sanitize_text_field($version_notes));
         }
 
-        if (function_exists('pcs_log')) {
-            pcs_log('upload', $asset_id, $version_id, '', 'in_review', 'Uploaded V' . $ver_num . ' via Maker Dashboard');
-        }
-
-        // Notification: Notify Campaign Owner & Checkers
         $ctx = function_exists('pcs_resolve_context_names') ? pcs_resolve_context_names($campaign_id, $asset_id, $version_id) : [];
         $camp_name = $ctx['campaign_title'] ?? 'Campaign';
         $asset_name = $ctx['asset_title'] ?? 'Asset';
         $maker_display = $current_user['name'] ?? 'Maker';
 
+        // Phân biệt chính xác: Maker tự nộp phiên bản tối ưu hay là sửa theo yêu cầu Reject
+        if ($ver_num > 1) {
+            if ($is_prev_rejected) {
+                $audit_note = 'Maker ' . $maker_display . ' uploaded revision V' . $ver_num . ' addressing review feedback for asset "' . $asset_name . '"';
+            } else {
+                $audit_note = 'Maker ' . $maker_display . ' uploaded V' . $ver_num . ' (Voluntary artwork revision & AI optimization) for asset "' . $asset_name . '"';
+            }
+        } else {
+            $audit_note = 'Maker ' . $maker_display . ' uploaded V1 for asset "' . $asset_name . '" via Maker Dashboard';
+        }
+
+        if (function_exists('pcs_log')) {
+            pcs_log('upload', $asset_id, $version_id, $prev_status, 'in_review', $audit_note);
+        }
+
+        // Tự động đánh dấu đã xử lý/đã đọc các thông báo yêu cầu chỉnh sửa cũ của asset này
+        if (function_exists('get_posts')) {
+            $old_asset_notifs = get_posts([
+                'post_type'      => 'pcs_notification',
+                'post_status'    => 'publish',
+                'posts_per_page' => 20,
+                'meta_query'     => [
+                    ['key' => '_recipient_user_id', 'value' => (string) $maker_id],
+                    ['key' => '_asset_id', 'value' => (string) $asset_id],
+                    ['key' => '_is_read', 'value' => '0']
+                ]
+            ]);
+            foreach ($old_asset_notifs as $oan) {
+                update_post_meta($oan->ID, '_is_read', '1');
+            }
+        }
+
+        // Notification: Notify Campaign Owner & Checkers
         if (function_exists('pcs_notify_campaign_owner')) {
             pcs_notify_campaign_owner(
                 $campaign_id,
@@ -6872,16 +6931,17 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
     $guidelines_list = function_exists('pcs_get_campaign_guidelines') ? pcs_get_campaign_guidelines($cid) : [];
     $guideline_url = !empty($guidelines_list) ? $guidelines_list[0]['url'] : (get_post_meta($cid, '_guideline_file_url', true) ?: '');
 
-    // Default or dynamic scores & quotes
-    $score_foreign = $existing_checks['foreign_logo']['score'] ?? 95;
+    // Default or dynamic scores & quotes (respecting actual check_result values and version progression)
+    $is_revised_v = ($ver_num > 1);
+    $score_foreign = $existing_checks['foreign_logo']['score'] ?? ($is_revised_v ? 98 : 95);
     $quote_foreign = !empty($existing_checks['foreign_logo']['quote'])
         ? $existing_checks['foreign_logo']['quote']
-        : 'Rule FL-01: No unauthorized third-party marks, competitor bank logos (e.g., DBS, OCBC, UOB, HSBC), or unverified payment badges are permitted on the artwork.';
+        : 'Rule FL-01: No unauthorized third-party marks, competitor bank logos (e.g., OCBC, UOB, HSBC, Citi, Maybank), or unverified payment badges are permitted on the artwork.';
     $reason_foreign = !empty($existing_checks['foreign_logo']['reason'])
         ? $existing_checks['foreign_logo']['reason']
         : (($score_foreign >= 71) ? 'Logo usage aligns with the applied brand reference. No competitor marks detected.' : 'Detected unverified third-party mark or competitor logo on artwork.');
 
-    $score_guideline = $existing_checks['guideline']['score'] ?? 64;
+    $score_guideline = $existing_checks['guideline']['score'] ?? ($is_revised_v ? 94 : 88);
     $quote_guideline = !empty($existing_checks['guideline']['quote'])
         ? $existing_checks['guideline']['quote']
         : 'Rule BG-01: Primary colors must adhere to Navy Blue (#0A192F) and Gold (#D4AF37). Neutral white/off-white accepted. Neon red and aggressive gradients prohibited. Rule BG-02: Brand logo must maintain a clear exclusion zone free from typography clutter.';
@@ -6889,13 +6949,13 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
         ? $existing_checks['guideline']['reason']
         : (($score_guideline >= 71) ? 'Primary color palette adheres to Brand Guidelines with sufficient contrast.' : 'One brand or compliance detail requires human visual verification.');
 
-    $score_mas = $existing_checks['mas_rule']['score'] ?? 25;
+    $score_mas = $existing_checks['mas_rule']['score'] ?? ($is_revised_v ? 94 : 28);
     $quote_mas = !empty($existing_checks['mas_rule']['quote'])
         ? $existing_checks['mas_rule']['quote']
         : 'Rule MAS-01: Any financial advertisement featuring investment returns or yields must include the prominent risk disclosure: \'Past performance is not indicative of future performance. Investments are subject to market risks.\'';
     $reason_mas = !empty($existing_checks['mas_rule']['reason'])
         ? $existing_checks['mas_rule']['reason']
-        : (($score_mas >= 71) ? 'Statutory disclosures and risk warnings satisfy Singapore MAS regulatory standards.' : 'Ấn phẩm tài chính đề cập tới mức sinh lời hoặc ưu đãi nhưng thiếu dòng cảnh báo rủi ro bắt buộc theo quy định của Cơ quan Quản lý Tiền tệ Singapore (MAS §4.1b).');
+        : (($score_mas >= 71) ? 'Statutory disclosures and risk warnings satisfy Singapore MAS regulatory standards (§4.1b).' : 'Ấn phẩm tài chính đề cập tới mức sinh lời hoặc ưu đãi nhưng thiếu dòng cảnh báo rủi ro bắt buộc theo quy định của Cơ quan Quản lý Tiền tệ Singapore (MAS §4.1b).');
 
     $get_status_meta = function($sc) {
         if ($sc >= 71) {
@@ -7014,9 +7074,9 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
         [
             'id'       => 'marker-1',
             'num'      => '1',
-            'label'    => ($score_foreign >= 71) ? '① Logo area · Pass' : '① Logo area · ' . $meta_foreign['badge'],
-            'top'      => '8%',
-            'left'     => '5%',
+            'label'    => '① Logo area · ' . $meta_foreign['badge'],
+            'top'      => '10%',
+            'left'     => '8%',
             'color'    => ($score_foreign >= 71) ? '#10B981' : (($score_foreign >= 31) ? '#D97706' : '#E11D48'),
             'status'   => $meta_foreign['status'],
             'dot'      => $meta_foreign['dot_color'],
@@ -7026,9 +7086,9 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
         [
             'id'       => 'marker-2',
             'num'      => '2',
-            'label'    => ($score_guideline >= 71) ? '② Brand Identity · Pass' : '② Brand Identity · ' . $meta_guideline['badge'],
-            'top'      => '58%',
-            'left'     => '5%',
+            'label'    => '② Brand Identity · ' . $meta_guideline['badge'],
+            'top'      => '52%',
+            'left'     => '10%',
             'color'    => ($score_guideline >= 71) ? '#10B981' : (($score_guideline >= 31) ? '#D97706' : '#E11D48'),
             'status'   => $meta_guideline['status'],
             'dot'      => $meta_guideline['dot_color'],
@@ -7038,9 +7098,9 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
         [
             'id'       => 'marker-3',
             'num'      => '3',
-            'label'    => ($score_mas >= 71) ? '③ MAS Disclaimer · Pass' : '③ MAS Disclaimer · ' . $meta_mas['badge'],
-            'top'      => '82%',
-            'left'     => '5%',
+            'label'    => '③ MAS Disclaimer · ' . $meta_mas['badge'],
+            'top'      => '85%',
+            'left'     => '8%',
             'color'    => ($score_mas >= 71) ? '#10B981' : (($score_mas >= 31) ? '#D97706' : '#E11D48'),
             'status'   => $meta_mas['status'],
             'dot'      => $meta_mas['dot_color'],

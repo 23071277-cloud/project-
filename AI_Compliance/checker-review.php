@@ -1208,13 +1208,18 @@ $compareScreenUrl = (function_exists('pcs_url') ? pcs_url('compare-version.php')
                                     if (in_array($ext, ['png', 'jpg', 'jpeg', 'webp', 'svg'])): 
                                 ?>
                                     <img src="<?= esc_url($fileUrl) ?>" alt="Artwork Preview" class="canvas-image" id="artworkMainImage" />
+                                <?php elseif ($ext === 'pdf'): ?>
+                                    <iframe src="<?= esc_url($fileUrl) ?>#toolbar=0&navpanes=0&view=Fit" class="canvas-image" id="artworkMainPdf" style="width: 100%; height: 520px; border: none; border-radius: 8px; background: #ffffff;"></iframe>
+                                    <div style="margin-top: 8px; text-align: right;">
+                                        <a href="<?= esc_url($fileUrl) ?>" target="_blank" rel="noopener noreferrer" style="font-size: 12.5px; font-weight: 700; color: #4F57A7; text-decoration: underline;">Open PDF Full Screen ↗</a>
+                                    </div>
                                 <?php else: ?>
                                     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 320px; color: #4F56A6; gap: 12px;">
                                         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                                             <polyline points="14 2 14 8 20 8"/>
                                         </svg>
-                                        <span style="font-weight: 700; font-size: 14px;">PDF Document Attached</span>
+                                        <span style="font-weight: 700; font-size: 14px;">Document Attached</span>
                                         <a href="<?= esc_url($fileUrl) ?>" target="_blank" style="padding: 6px 14px; background: #1F2A5A; color: #FFF; border-radius: 6px; font-size: 12.5px; font-weight: 600;">Open Document ↗</a>
                                     </div>
                                 <?php endif; ?>
@@ -1397,8 +1402,12 @@ $compareScreenUrl = (function_exists('pcs_url') ? pcs_url('compare-version.php')
                             <span class="score-pill <?= strtolower($overallVerdict) ?>"><?= $overallScore ?>/100 · <?= $overallVerdict ?></span>
                         </div>
                         <div class="compare-img-box">
-                            <?php if (!empty($fileUrl)): ?>
+                            <?php 
+                                $isCurPdf = (!empty($fileUrl) && preg_match('/\.pdf(\?.*)?$/i', $fileUrl));
+                                if (!empty($fileUrl) && !$isCurPdf): ?>
                                 <img src="<?= esc_url($fileUrl) ?>" alt="Current Version" />
+                            <?php elseif ($isCurPdf): ?>
+                                <iframe src="<?= esc_url($fileUrl) ?>#toolbar=0&navpanes=0&view=Fit" style="width: 100%; height: 200px; border: none; pointer-events: none; background: #fff;"></iframe>
                             <?php else: ?>
                                 <span style="font-size: 12px; color: #64748B;"><?= htmlspecialchars($versionLabel) ?> Submitted Artwork</span>
                             <?php endif; ?>
@@ -1415,6 +1424,7 @@ $compareScreenUrl = (function_exists('pcs_url') ? pcs_url('compare-version.php')
                             $pScore = (int) ($pVer['score'] ?? 0);
                             $pStatus = strtoupper($pVer['status'] ?? 'DRAFT');
                             $pStatusClass = ($pVer['status'] === 'approved') ? 'pass' : (($pVer['status'] === 'rejected') ? 'fail' : 'needs_look');
+                            $isPrevPdf = (!empty($pVer['file_url']) && preg_match('/\.pdf(\?.*)?$/i', $pVer['file_url']));
                         ?>
                             <div class="compare-card">
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -1422,8 +1432,10 @@ $compareScreenUrl = (function_exists('pcs_url') ? pcs_url('compare-version.php')
                                     <span class="score-pill <?= $pStatusClass ?>"><?= $pScore ?>/100 · <?= $pStatus ?></span>
                                 </div>
                                 <div class="compare-img-box">
-                                    <?php if (!empty($pVer['file_url'])): ?>
+                                    <?php if (!empty($pVer['file_url']) && !$isPrevPdf): ?>
                                         <img src="<?= esc_url($pVer['file_url']) ?>" alt="Previous Version" />
+                                    <?php elseif ($isPrevPdf): ?>
+                                        <iframe src="<?= esc_url($pVer['file_url']) ?>#toolbar=0&navpanes=0&view=Fit" style="width: 100%; height: 200px; border: none; pointer-events: none; background: #fff;"></iframe>
                                     <?php else: ?>
                                         <span style="font-size: 12px; color: #64748B;"><?= htmlspecialchars($pVer['label'] ?? 'V1') ?> Artwork</span>
                                     <?php endif; ?>

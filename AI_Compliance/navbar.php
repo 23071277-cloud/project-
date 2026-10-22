@@ -38,6 +38,18 @@ $unavUserId = (int) ($currentUser['id'] ?? 0);
 $unavNotifications = ($unavUserId > 0 && function_exists('pcs_get_user_notifications')) ? pcs_get_user_notifications($unavUserId, 50) : [];
 $unavUnreadCount = ($unavUserId > 0 && function_exists('pcs_get_unread_notifications_count')) ? pcs_get_unread_notifications_count($unavUserId) : 0;
 
+// Sort strictly newest first (DESC)
+if (!empty($unavNotifications)) {
+    usort($unavNotifications, function($a, $b) {
+        $ta = !empty($a['created_at']) ? strtotime($a['created_at']) : 0;
+        $tb = !empty($b['created_at']) ? strtotime($b['created_at']) : 0;
+        if ($ta === $tb) {
+            return ((int)($b['id'] ?? 0)) <=> ((int)($a['id'] ?? 0));
+        }
+        return $tb <=> $ta;
+    });
+}
+
 $unavTotalCount = count($unavNotifications);
 $unavUnreadLoaded = 0;
 foreach ($unavNotifications as $n) {
@@ -271,7 +283,7 @@ if ($unavIsHome) {
     height: 17px !important;
     padding: 0 4px !important;
     border-radius: 9px !important;
-    display: flex !important;
+    display: inline-flex;
     align-items: center !important;
     justify-content: center !important;
     border: 2px solid #FFFFFF !important;
@@ -279,6 +291,12 @@ if ($unavIsHome) {
     line-height: 1 !important;
     pointer-events: none !important;
     transition: transform 0.15s ease !important;
+}
+
+.unified-top-navbar .unav-notif-badge.is-hidden,
+.unified-top-navbar .unav-notif-badge[style*="display: none"],
+.unified-top-navbar .unav-notif-badge[style*="display:none"] {
+    display: none !important;
 }
 
 .unified-top-navbar .unav-notif-dropdown {
@@ -415,17 +433,36 @@ if ($unavIsHome) {
     display: flex !important;
     flex-direction: column !important;
     background: #FFFFFF !important;
+    scrollbar-width: thin;
+    scrollbar-color: #CBD5E1 #F8FAFC;
+}
+
+.unified-top-navbar .unav-notif-list::-webkit-scrollbar {
+    width: 6px;
+}
+.unified-top-navbar .unav-notif-list::-webkit-scrollbar-track {
+    background: #F8FAFC;
+}
+.unified-top-navbar .unav-notif-list::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 3px;
 }
 
 .unified-top-navbar .unav-notif-empty {
     padding: 36px 20px !important;
     text-align: center !important;
-    display: flex !important;
+    display: flex;
     flex-direction: column !important;
     align-items: center !important;
     gap: 10px !important;
     color: #94A3B8 !important;
     font-size: 12.5px !important;
+}
+
+.unified-top-navbar .unav-notif-empty.is-hidden,
+.unified-top-navbar .unav-notif-empty[style*="display: none"],
+.unified-top-navbar .unav-notif-empty[style*="display:none"] {
+    display: none !important;
 }
 
 .unified-top-navbar .unav-notif-item-wrap {
@@ -780,7 +817,7 @@ if ($unavIsHome) {
                         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                         <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                     </svg>
-                    <span class="unav-notif-badge" id="unavNotifBadge" style="<?= $unavUnreadCount > 0 ? '' : 'display:none;' ?>"><?= $unavUnreadCount > 99 ? '99+' : $unavUnreadCount ?></span>
+                    <span class="unav-notif-badge <?= $unavUnreadCount > 0 ? '' : 'is-hidden' ?>" id="unavNotifBadge" style="<?= $unavUnreadCount > 0 ? '' : 'display:none;' ?>"><?= $unavUnreadCount > 99 ? '99+' : $unavUnreadCount ?></span>
                 </button>
 
                 <div class="unav-notif-dropdown" id="unifiedNotifDropdown">
@@ -811,7 +848,7 @@ if ($unavIsHome) {
                     </div>
 
                     <div class="unav-notif-list" id="unavNotifList">
-                        <div class="unav-notif-empty" id="unavNotifEmpty" style="<?= empty($unavNotifications) ? '' : 'display: none;' ?>">
+                        <div class="unav-notif-empty <?= empty($unavNotifications) ? '' : 'is-hidden' ?>" id="unavNotifEmpty" style="<?= empty($unavNotifications) ? '' : 'display: none;' ?>">
                             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8">
                                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                             </svg>
@@ -898,6 +935,20 @@ var unavUserId = <?= (int)$unavUserId ?>;
 var currentUnreadCount = <?= (int)$unavUnreadCount ?>;
 var totalNotifCount = <?= (int)$unavTotalCount ?>;
 var activeNotifTab = 'all';
+var pcsBackendEndpoint = '<?= esc_js(function_exists('pcs_url') ? pcs_url('backend.php') : 'backend.php') ?>';
+
+function getNotifAjaxUrl(action, params) {
+    var base = pcsBackendEndpoint || window.location.pathname;
+    var query = '?action=' + encodeURIComponent(action);
+    if (params) {
+        for (var k in params) {
+            if (params.hasOwnProperty(k)) {
+                query += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+            }
+        }
+    }
+    return base + query + '&t=' + Date.now();
+}
 
 function toggleUnifiedProfileDropdown(e) {
     if (e) e.stopPropagation();
@@ -943,10 +994,10 @@ function filterNotifTab(tab, btnEl) {
         else if (tab === 'read' && status === 'read') match = true;
 
         if (match) {
-            it.style.display = 'flex';
+            it.style.setProperty('display', 'flex', 'important');
             visibleCount++;
         } else {
-            it.style.display = 'none';
+            it.style.setProperty('display', 'none', 'important');
         }
     });
 
@@ -954,14 +1005,16 @@ function filterNotifTab(tab, btnEl) {
     var emptyMsg = document.getElementById('unavNotifEmptyMsg');
     if (emptyBox) {
         if (visibleCount === 0) {
-            emptyBox.style.display = 'flex';
+            emptyBox.classList.remove('is-hidden');
+            emptyBox.style.setProperty('display', 'flex', 'important');
             if (emptyMsg) {
                 if (tab === 'unread') emptyMsg.textContent = "You're all caught up! No unread notifications.";
                 else if (tab === 'read') emptyMsg.textContent = "No read notifications yet.";
                 else emptyMsg.textContent = "All caught up! No notifications yet.";
             }
         } else {
-            emptyBox.style.display = 'none';
+            emptyBox.classList.add('is-hidden');
+            emptyBox.style.setProperty('display', 'none', 'important');
         }
     }
 }
@@ -975,10 +1028,12 @@ function updateNotifBadges(unreadDelta) {
     var badge = document.getElementById('unavNotifBadge');
     if (badge) {
         if (currentUnreadCount > 0) {
-            badge.style.display = 'flex';
+            badge.classList.remove('is-hidden');
+            badge.style.setProperty('display', 'inline-flex', 'important');
             badge.textContent = currentUnreadCount > 99 ? '99+' : currentUnreadCount;
         } else {
-            badge.style.display = 'none';
+            badge.classList.add('is-hidden');
+            badge.style.setProperty('display', 'none', 'important');
         }
     }
 
@@ -1035,7 +1090,7 @@ function handleNotificationClick(e, notifId, targetUrl, el) {
         updateNotifBadges(1);
 
         if (notifId && unavUserId) {
-            var markUrl = window.location.pathname + '?action=pcs_mark_notif_read&notif_id=' + encodeURIComponent(notifId) + '&user_id=' + encodeURIComponent(unavUserId) + '&t=' + Date.now();
+            var markUrl = getNotifAjaxUrl('pcs_mark_notif_read', { notif_id: notifId, user_id: unavUserId });
             if (navigator.sendBeacon) {
                 navigator.sendBeacon(markUrl);
             } else {
@@ -1062,12 +1117,12 @@ function quickMarkNotifRead(e, notifId, btnEl) {
     updateNotifBadges(1);
 
     if (notifId && unavUserId) {
-        var markUrl = window.location.pathname + '?action=pcs_mark_notif_read&notif_id=' + encodeURIComponent(notifId) + '&user_id=' + encodeURIComponent(unavUserId) + '&t=' + Date.now();
+        var markUrl = getNotifAjaxUrl('pcs_mark_notif_read', { notif_id: notifId, user_id: unavUserId });
         fetch(markUrl, { method: 'POST', cache: 'no-store', keepalive: true });
     }
 
     if (activeNotifTab === 'unread') {
-        wrap.style.display = 'none';
+        wrap.style.setProperty('display', 'none', 'important');
         var currentActiveBtn = document.querySelector('.unav-notif-tab.active');
         filterNotifTab('unread', currentActiveBtn);
     }
@@ -1085,7 +1140,7 @@ function markAllNotificationsRead(userId) {
     currentUnreadCount = 0;
     updateNotifBadges();
 
-    var markUrl = window.location.pathname + '?action=pcs_mark_all_notifs_read&user_id=' + encodeURIComponent(targetId) + '&t=' + Date.now();
+    var markUrl = getNotifAjaxUrl('pcs_mark_all_notifs_read', { user_id: targetId });
     fetch(markUrl, { method: 'POST', cache: 'no-store', keepalive: true });
 
     if (activeNotifTab === 'unread') {

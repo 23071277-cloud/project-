@@ -930,7 +930,13 @@ $compareScreenUrl = $data['campaign_id'] ? add_query_arg([
                     <!-- Canvas Container -->
                     <div id="canvasContainer" class="artwork-canvas-wrap">
                         <?php if (!empty($data['file_url'])): ?>
-                            <img id="previewArtworkImg" src="<?php echo esc_url($data['file_url']); ?>" alt="<?php echo esc_attr($data['asset_name']); ?>" class="artwork-img">
+                            <?php 
+                                $isPdfAdmin = preg_match('/\.pdf(\?.*)?$/i', $data['file_url']);
+                                if ($isPdfAdmin): ?>
+                                <iframe src="<?php echo esc_url($data['file_url']); ?>#toolbar=0&navpanes=0&view=Fit" style="width: 100%; height: 500px; border: none; border-radius: 8px; background: #ffffff;"></iframe>
+                            <?php else: ?>
+                                <img id="previewArtworkImg" src="<?php echo esc_url($data['file_url']); ?>" alt="<?php echo esc_attr($data['asset_name']); ?>" class="artwork-img">
+                            <?php endif; ?>
                         <?php else: ?>
                             <div class="artwork-empty-canvas">
                                 <div class="artwork-empty-icon">
