@@ -55,10 +55,8 @@ $unavUnreadLoaded = 0;
 foreach ($unavNotifications as $n) {
     if (empty($n['is_read'])) $unavUnreadLoaded++;
 }
-$unavReadCount = max(0, $unavTotalCount - $unavUnreadLoaded);
-if ($unavUnreadCount < $unavUnreadLoaded) {
-    $unavUnreadCount = $unavUnreadLoaded;
-}
+$unavUnreadCount = $unavUnreadLoaded;
+$unavReadCount = max(0, $unavTotalCount - $unavUnreadCount);
 
 // Logo URL
 $unavLogoUrl = 'images/logo.png?v=2';
@@ -935,11 +933,11 @@ var unavUserId = <?= (int)$unavUserId ?>;
 var currentUnreadCount = <?= (int)$unavUnreadCount ?>;
 var totalNotifCount = <?= (int)$unavTotalCount ?>;
 var activeNotifTab = 'all';
-var pcsBackendEndpoint = '<?= esc_js(function_exists('pcs_url') ? pcs_url('backend.php') : 'backend.php') ?>';
+var pcsAjaxUrl = '<?= esc_js(function_exists('admin_url') ? admin_url('admin-ajax.php') : (function_exists('pcs_url') ? pcs_url('backend.php') : 'backend.php')) ?>';
 
 function getNotifAjaxUrl(action, params) {
-    var base = pcsBackendEndpoint || window.location.pathname;
-    var query = '?action=' + encodeURIComponent(action);
+    var base = pcsAjaxUrl || window.location.pathname;
+    var query = (base.indexOf('?') !== -1 ? '&' : '?') + 'action=' + encodeURIComponent(action);
     if (params) {
         for (var k in params) {
             if (params.hasOwnProperty(k)) {
@@ -1093,15 +1091,18 @@ function handleNotificationClick(e, notifId, targetUrl, el) {
             var markUrl = getNotifAjaxUrl('pcs_mark_notif_read', { notif_id: notifId, user_id: unavUserId });
             if (navigator.sendBeacon) {
                 navigator.sendBeacon(markUrl);
-            } else {
-                fetch(markUrl, { method: 'POST', cache: 'no-store', keepalive: true });
             }
+            try {
+                fetch(markUrl, { method: 'POST', cache: 'no-store', keepalive: true });
+            } catch(err) {}
         }
     }
 
     if (targetUrl && targetUrl !== '#' && targetUrl !== 'javascript:void(0)') {
         e.preventDefault();
-        window.location.href = targetUrl;
+        setTimeout(function() {
+            window.location.href = targetUrl;
+        }, wasUnread ? 120 : 0);
     }
 }
 

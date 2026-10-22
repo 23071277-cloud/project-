@@ -438,17 +438,36 @@ $versionStatus = $version['status'] ?? 'scoring';
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden;
+            overflow: auto;
+            padding: 12px;
+        }
+
+        .artwork-render-stage {
+            position: relative;
+            display: inline-block;
+            max-width: 100%;
+            line-height: 0;
+            text-align: center;
         }
 
         .artwork-actual-image {
-            width: 100%;
-            height: 100%;
-            min-height: 382px;
-            max-height: 480px;
-            object-fit: cover;
+            width: auto;
+            max-width: 100%;
+            max-height: 520px;
+            height: auto;
+            object-fit: contain;
             display: block;
+            margin: 0 auto;
             border-radius: 6px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        }
+
+        .artwork-actual-image.artwork-pdf-frame {
+            width: 100%;
+            min-width: 520px;
+            height: 560px;
+            max-height: 560px;
+            box-shadow: none;
         }
 
         .artwork-graphic-fallback {
@@ -1336,12 +1355,30 @@ $versionStatus = $version['status'] ?? 'scoring';
                     <div class="artwork-canvas-area" id="artworkContainer">
                         <?php 
                             $isPdf = (strtolower($fileExt ?? '') === 'pdf' || preg_match('/\.pdf(\?.*)?$/i', $fileUrl));
-                            if (!empty($fileUrl)): 
-                                if ($isPdf): ?>
-                                    <iframe src="<?= esc_url($fileUrl) ?>#toolbar=0&navpanes=0&view=Fit" class="artwork-actual-image artwork-pdf-frame" id="mainArtworkPdf" style="width: 100%; height: 520px; border: none; border-radius: 8px; background: #ffffff;"></iframe>
+                            if (!empty($fileUrl)): ?>
+                            <div class="artwork-render-stage" id="artworkRenderStage">
+                                <?php if ($isPdf): ?>
+                                    <iframe src="<?= esc_url($fileUrl) ?>#toolbar=0&navpanes=0&view=Fit" class="artwork-actual-image artwork-pdf-frame" id="mainArtworkPdf"></iframe>
                                 <?php else: ?>
                                     <img src="<?= esc_url($fileUrl) ?>" alt="<?= esc_attr($assetName) ?>" class="artwork-actual-image" id="mainArtworkImg" onerror="this.style.display='none'; document.getElementById('graphicFallback').style.display='flex';">
                                 <?php endif; ?>
+
+                                <!-- Interactive Markers overlaid strictly on artwork coordinates -->
+                                <?php foreach ($evidenceMarkers as $m): ?>
+                                    <div class="lens-marker-wrapper" id="<?= esc_attr($m['id']) ?>" style="top: <?= esc_attr($m['top']) ?>; left: <?= esc_attr($m['left']) ?>;" onclick="scrollToBand('<?= esc_js($m['band_id']) ?>')">
+                                        <div class="marker-circle-badge" style="background: <?= esc_attr($m['color']) ?>;">
+                                            <?= esc_html($m['num']) ?>
+                                        </div>
+                                        <div class="marker-glass-label" style="<?= !empty($m['outline']) ? 'outline: 1px solid ' . esc_attr($m['outline']) . ';' : '' ?>">
+                                            <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                                                <rect width="8" height="8" rx="4" fill="<?= esc_attr($m['dot']) ?>"/>
+                                            </svg>
+                                            <span><?= esc_html($m['label']) ?></span>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+
                             <div id="graphicFallback" class="artwork-graphic-fallback" style="display: none;">
                                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -1360,21 +1397,6 @@ $versionStatus = $version['status'] ?? 'scoring';
                                 <span style="font-size: 14px; font-weight: 600;"><?= esc_html($assetName) ?> · <?= esc_html($versionLabel) ?></span>
                             </div>
                         <?php endif; ?>
-
-                        <!-- Interactive Markers overlaid on artwork -->
-                        <?php foreach ($evidenceMarkers as $m): ?>
-                            <div class="lens-marker-wrapper" id="<?= esc_attr($m['id']) ?>" style="top: <?= esc_attr($m['top']) ?>; left: <?= esc_attr($m['left']) ?>;" onclick="scrollToBand('<?= esc_js($m['band_id']) ?>')">
-                                <div class="marker-circle-badge" style="background: <?= esc_attr($m['color']) ?>;">
-                                    <?= esc_html($m['num']) ?>
-                                </div>
-                                <div class="marker-glass-label" style="<?= !empty($m['outline']) ? 'outline: 1px solid ' . esc_attr($m['outline']) . ';' : '' ?>">
-                                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                                        <rect width="8" height="8" rx="4" fill="<?= esc_attr($m['dot']) ?>"/>
-                                    </svg>
-                                    <span><?= esc_html($m['label']) ?></span>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
                     </div>
 
                     <!-- Artwork Sub-bar -->
@@ -1692,7 +1714,7 @@ $versionStatus = $version['status'] ?? 'scoring';
                             <svg width="15" height="13" viewBox="0 0 15 13" fill="none">
                                 <path d="M0 12.6667L7.33333 0L14.6667 12.6667H0ZM7.33333 10.6667C7.52222 10.6667 7.68056 10.6028 7.80833 10.475C7.93611 10.3472 8 10.1889 8 10C8 9.81111 7.93611 9.65278 7.80833 9.525C7.68056 9.39722 7.52222 9.33333 7.33333 9.33333C7.14444 9.33333 6.98611 9.39722 6.85833 9.525C6.73056 9.65278 6.66667 9.81111 6.66667 10C6.66667 10.1889 6.73056 10.3472 6.85833 10.475C6.98611 10.6028 7.14444 10.6667 7.33333 10.6667ZM6.66667 8.66667H8V5.33333H6.66667V8.66667Z" fill="#D97706"/>
                             </svg>
-                            <span><?= esc_html($chk2['evidence_tag'] ?? 'Evidence: Disclaimer area · Marker ②') ?></span>
+                            <span><?= esc_html($chk2['evidence_tag'] ?? 'Evidence: Visual Hero & Brand Identity · Marker ②') ?></span>
                         </div>
                         <div class="btn-view-in-artwork" onclick="highlightMarker('marker-2')">
                             <span>View in artwork</span>
@@ -1770,7 +1792,7 @@ $versionStatus = $version['status'] ?? 'scoring';
                             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                                 <path d="M4.26667 10L6.66667 7.6L9.06667 10L10 9.06667L7.6 6.66667L10 4.26667L9.06667 3.33333L6.66667 5.73333L4.26667 3.33333L3.33333 4.26667L5.73333 6.66667L3.33333 9.06667L4.26667 10ZM6.66667 13.3333C5.74444 13.3333 4.87778 13.1583 4.06667 12.8083C3.25556 12.4583 2.55 11.9833 1.95 11.3833C1.35 10.7833 0.875 10.0778 0.525 9.26667C0.175 8.45555 0 7.58889 0 6.66667C0 5.74444 0.175 4.87778 0.525 4.06667C0.875 3.25556 1.35 2.55 1.95 1.95C2.55 1.35 3.25556 0.875 4.06667 0.525C4.87778 0.175 5.74444 0 6.66667 0C7.58889 0 8.45555 0.175 9.26667 0.525C10.0778 0.875 10.7833 1.35 11.3833 1.95C11.9833 2.55 12.4583 3.25556 12.8083 4.06667C13.1583 4.87778 13.3333 5.74444 13.3333 6.66667C13.3333 7.58889 13.1583 8.45555 12.8083 9.26667C12.4583 10.0778 11.9833 10.7833 11.3833 11.3833C10.7833 11.9833 10.0778 12.4583 9.26667 12.8083C8.45555 13.1583 7.58889 13.3333 6.66667 13.3333ZM6.66667 12C8.15556 12 9.41667 11.4833 10.45 10.45C11.4833 9.41667 12 8.15556 12 6.66667C12 5.17778 11.4833 3.91667 10.45 2.88333C9.41667 1.85 8.15556 1.33333 6.66667 1.33333C5.17778 1.33333 3.91667 1.85 2.88333 2.88333C1.85 3.91667 1.33333 5.17778 1.33333 6.66667C1.33333 8.15556 1.85 9.41667 2.88333 10.45C3.91667 11.4833 5.17778 12 6.66667 12Z" fill="#E11D48"/>
                             </svg>
-                            <span><?= esc_html($chk3['evidence_tag'] ?? 'Marker ③: Disclaimer / notice area') ?></span>
+                            <span><?= esc_html($chk3['evidence_tag'] ?? 'Evidence: Footer Statutory Disclaimer · Marker ③') ?></span>
                         </div>
                         <div class="btn-view-in-artwork" onclick="highlightMarker('marker-3')">
                             <span>View in artwork</span>

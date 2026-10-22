@@ -64,13 +64,21 @@ $campaignName    = $detailData['campaign_name'] ?? 'Campaign Asset Detail';
 $ownerName       = $detailData['owner_name'] ?? 'Cam Anh';
 $deadline        = $detailData['deadline'] ?? 'No deadline';
 $priority        = $detailData['priority'] ?? 'High Priority';
-$totalAssets     = $detailData['total_assets'] ?? 0;
-$reviewedCount   = $detailData['reviewed_count'] ?? 0;
-$percent         = $detailData['percent'] ?? 0;
-$awaitingCount   = $detailData['awaiting_count'] ?? 0;
-$inReviewCount   = $detailData['in_review_count'] ?? 0;
-$completeCount   = $detailData['complete_count'] ?? 0;
 $assets          = $detailData['assets'] ?? [];
+$totalAssets     = $detailData['total_assets'] ?? count($assets);
+$inReviewCount   = 0;
+$rejectedCount   = 0;
+$approvedCount   = 0;
+$releasedCount   = 0;
+foreach ($assets as $ast) {
+    $st = str_replace([' ', '-'], '_', strtolower(trim($ast['status'] ?? 'draft')));
+    if ($st === 'in_review') $inReviewCount++;
+    elseif ($st === 'rejected') $rejectedCount++;
+    elseif ($st === 'approved' || $st === 'awaiting_release') $approvedCount++;
+    elseif ($st === 'released') $releasedCount++;
+}
+$reviewedCount   = $rejectedCount + $approvedCount + $releasedCount;
+$percent         = $totalAssets > 0 ? round(($reviewedCount / $totalAssets) * 100) : 0;
 $selectedAsset   = $detailData['selected_asset'] ?? null;
 $versionHistory  = $detailData['version_history'] ?? [];
 $guidelines      = $detailData['guidelines'] ?? [];
@@ -2013,31 +2021,30 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
             </div>
 
             <!-- ================= SECTION: COMPACT REVIEW PROGRESS ================= -->
-            <div class="section-COMPACT">
+            <div class="section-COMPACT" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
                 <div class="container-8">
-                    <div class="div-3"><div class="text-8">REVIEW PROGRESS</div></div>
+                    <div class="div-3"><div class="text-8">REVIEW OVERVIEW</div></div>
                     <div class="paragraph-2">
                         <div class="text-9"><?= $reviewedCount ?> / <?= $totalAssets ?></div>
                         <div class="text-10">assets reviewed (<?= $percent ?>%)</div>
                     </div>
                 </div>
-                <div class="container-9">
-                    <div class="background-wrapper">
-                        <div class="background-4" style="width: <?= $percent ?>%;"></div>
+                <div class="container-9" style="display: flex; gap: 12px; align-items: center; width: auto; flex-wrap: wrap;">
+                    <div class="container-6" style="padding: 6px 14px; background: rgba(59, 130, 246, 0.08); border-radius: 6px; border: 1px solid rgba(59, 130, 246, 0.2); display: flex; align-items: center; gap: 8px;">
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #3B82F6; display: inline-block;"></span>
+                        <div class="text-12" style="font-weight: 600; color: #1D4ED8; font-size: 13px;"><?= $inReviewCount ?> In Review</div>
                     </div>
-                    <div class="container-10">
-                        <div class="container-6">
-                            <div class="background-5"></div>
-                            <div class="text-11"><?= $awaitingCount ?> Awaiting Checker</div>
-                        </div>
-                        <div class="container-6">
-                            <div class="background-6"></div>
-                            <div class="text-12"><?= $inReviewCount ?> In Review</div>
-                        </div>
-                        <div class="container-6">
-                            <div class="background-7"></div>
-                            <div class="text-13"><?= $completeCount ?> Complete</div>
-                        </div>
+                    <div class="container-6" style="padding: 6px 14px; background: rgba(239, 68, 68, 0.08); border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.2); display: flex; align-items: center; gap: 8px;">
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #EF4444; display: inline-block;"></span>
+                        <div class="text-11" style="font-weight: 600; color: #B91C1C; font-size: 13px;"><?= $rejectedCount ?> Rejected</div>
+                    </div>
+                    <div class="container-6" style="padding: 6px 14px; background: rgba(16, 185, 129, 0.08); border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.2); display: flex; align-items: center; gap: 8px;">
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #10B981; display: inline-block;"></span>
+                        <div class="text-13" style="font-weight: 600; color: #047857; font-size: 13px;"><?= $approvedCount ?> Approved</div>
+                    </div>
+                    <div class="container-6" style="padding: 6px 14px; background: rgba(99, 102, 241, 0.08); border-radius: 6px; border: 1px solid rgba(99, 102, 241, 0.2); display: flex; align-items: center; gap: 8px;">
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #6366F1; display: inline-block;"></span>
+                        <div class="text-13" style="font-weight: 600; color: #4338CA; font-size: 13px;"><?= $releasedCount ?> Released</div>
                     </div>
                 </div>
             </div>
@@ -2052,9 +2059,10 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
                     <div class="div-4">
                         <div class="background-9">
                             <button class="button-3 filter-btn active" onclick="filterAssetTab('all', this)">All (<?= count($assets) ?>)</button>
-                            <button class="button-4 filter-btn" onclick="filterAssetTab('awaiting', this)">Awaiting Review (<?= $awaitingCount ?>)</button>
-                            <button class="button-4 filter-btn" onclick="filterAssetTab('in_review', this)">In Review (<?= $inReviewCount ?>)</button>
-                            <button class="button-4 filter-btn" onclick="filterAssetTab('reviewed', this)">Reviewed (<?= $reviewedCount ?>)</button>
+                            <button class="button-4 filter-btn" onclick="filterAssetTab('need_review', this)">Need Review (<?= $inReviewCount ?>)</button>
+                            <button class="button-4 filter-btn" onclick="filterAssetTab('rejected', this)">Rejected (<?= $rejectedCount ?>)</button>
+                            <button class="button-4 filter-btn" onclick="filterAssetTab('approved', this)">Approved (<?= $approvedCount ?>)</button>
+                            <button class="button-4 filter-btn" onclick="filterAssetTab('released', this)">Released (<?= $releasedCount ?>)</button>
                         </div>
                         <div class="input-box-wrapper">
                             <svg class="icon-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
@@ -2572,15 +2580,17 @@ function filterAssetTab(filter, btn) {
 
     const rows = document.querySelectorAll('.asset-table-row');
     rows.forEach(r => {
-        const st = r.getAttribute('data-status');
+        const st = (r.getAttribute('data-status') || '').toLowerCase().replace(/[\s-]/g, '_');
         if (filter === 'all') {
             r.style.display = 'grid';
-        } else if (filter === 'awaiting') {
-            r.style.display = (st === 'in_review' || st === 'scoring' || st === 'draft') ? 'grid' : 'none';
-        } else if (filter === 'in_review') {
+        } else if (filter === 'need_review' || filter === 'in_review') {
             r.style.display = (st === 'in_review') ? 'grid' : 'none';
-        } else if (filter === 'reviewed') {
-            r.style.display = (st === 'approved' || st === 'rejected' || st === 'released') ? 'grid' : 'none';
+        } else if (filter === 'rejected') {
+            r.style.display = (st === 'rejected') ? 'grid' : 'none';
+        } else if (filter === 'approved') {
+            r.style.display = (st === 'approved' || st === 'awaiting_release') ? 'grid' : 'none';
+        } else if (filter === 'released') {
+            r.style.display = (st === 'released') ? 'grid' : 'none';
         }
     });
 }

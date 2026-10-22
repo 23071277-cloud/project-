@@ -27,7 +27,7 @@ function pcs_call_gemini_api( $file_url, $criterion, $prompt_version = 'v1.2' ) 
     $base64_data  = base64_encode( $file_content );
 
     $grounding_rules = [
-        'foreign_logo' => "- Rule FL-01: No unauthorized third-party marks, competitor bank logos (e.g., DBS, OCBC, UOB, HSBC), or unverified payment badges are permitted on the artwork.",
+        'foreign_logo' => "- Rule FL-01: No unauthorized third-party marks, competitor bank logos (e.g., OCBC, UOB, HSBC, Citi, Maybank), or unverified payment badges are permitted on the artwork.",
         'guideline'    => "- Rule BG-01: Primary colors must adhere to Navy Blue (#0A192F) and Gold (#D4AF37). Neutral white/off-white accepted. Neon red and aggressive gradients prohibited.\n- Rule BG-02: Brand logo must maintain a clear exclusion zone free from typography clutter.",
         'mas_rule'     => "- Rule MAS-01: Any financial advertisement featuring investment returns or yields must include the prominent risk disclosure: 'Past performance is not indicative of future performance. Investments are subject to market risks.'\n- Rule MAS-02: Claims of 'Free' or '0% Fee' must clearly state qualifying conditions in immediate proximity."
     ];
