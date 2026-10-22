@@ -530,6 +530,50 @@ $versionStatus = $version['status'] ?? 'scoring';
             white-space: nowrap;
         }
 
+        .draggable-marker {
+            cursor: grab !important;
+            user-select: none;
+            touch-action: none;
+        }
+
+        .draggable-marker:active,
+        .draggable-marker.is-dragging {
+            cursor: grabbing !important;
+            transform: scale(1.1) !important;
+            z-index: 100 !important;
+            filter: drop-shadow(0 8px 18px rgba(0,0,0,0.28)) !important;
+        }
+
+        .lens-drag-hint {
+            font-size: 11px;
+            color: #94A3B8;
+            font-weight: 700;
+            margin-left: 2px;
+            letter-spacing: -1px;
+        }
+
+        .evidence-lens-box {
+            position: absolute;
+            pointer-events: none;
+            border: 2px dashed #4F57A7;
+            background: rgba(79, 87, 167, 0.08);
+            border-radius: 6px;
+            z-index: 15;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0.35;
+        }
+
+        .evidence-lens-box.lens-box-active {
+            opacity: 1 !important;
+            box-shadow: 0 0 0 3px rgba(79, 87, 167, 0.25);
+            animation: pulse-lens-box 1.8s infinite ease-in-out;
+        }
+
+        @keyframes pulse-lens-box {
+            0%, 100% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.02); opacity: 1; }
+        }
+
         .artwork-sub-bar {
             display: flex;
             justify-content: space-between;
@@ -841,6 +885,45 @@ $versionStatus = $version['status'] ?? 'scoring';
             font-size: 14px;
             font-weight: 400;
             line-height: 20px;
+        }
+
+        /* Structured Problem Breakdown & Grounding Cards */
+        .compliance-breakdown-card {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.85);
+            border: 1px solid rgba(199, 197, 211, 0.45);
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin-top: 2px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        }
+
+        .compliance-breakdown-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: 13px;
+            line-height: 19px;
+        }
+
+        .compliance-breakdown-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.35px;
+            color: #4F57A7;
+            flex-shrink: 0;
+            min-width: 115px;
+            padding-top: 1px;
+        }
+
+        .compliance-breakdown-val {
+            color: #161B2E;
+            font-size: 13px;
+            line-height: 19px;
+            word-break: break-word;
         }
 
         .band-evidence-box {
@@ -1360,12 +1443,17 @@ $versionStatus = $version['status'] ?? 'scoring';
                                 <?php if ($isPdf): ?>
                                     <iframe src="<?= esc_url($fileUrl) ?>#toolbar=0&navpanes=0&view=Fit" class="artwork-actual-image artwork-pdf-frame" id="mainArtworkPdf"></iframe>
                                 <?php else: ?>
-                                    <img src="<?= esc_url($fileUrl) ?>" alt="<?= esc_attr($assetName) ?>" class="artwork-actual-image" id="mainArtworkImg" onerror="this.style.display='none'; document.getElementById('graphicFallback').style.display='flex';">
+                                    <img src="<?= esc_url($fileUrl) ?>" alt="<?= esc_attr($assetName) ?>" class="artwork-actual-image" id="mainArtworkImg" onload="initDynamicArtworkEvidenceLens(this)" onerror="this.style.display='none'; document.getElementById('graphicFallback').style.display='flex';">
                                 <?php endif; ?>
+
+                                <!-- Evidence Lens Bounding Boxes -->
+                                <div class="evidence-lens-box" id="lensBox-marker-1" style="display: none;"></div>
+                                <div class="evidence-lens-box" id="lensBox-marker-2" style="display: none;"></div>
+                                <div class="evidence-lens-box" id="lensBox-marker-3" style="display: none;"></div>
 
                                 <!-- Interactive Markers overlaid strictly on artwork coordinates -->
                                 <?php foreach ($evidenceMarkers as $m): ?>
-                                    <div class="lens-marker-wrapper" id="<?= esc_attr($m['id']) ?>" style="top: <?= esc_attr($m['top']) ?>; left: <?= esc_attr($m['left']) ?>;" onclick="scrollToBand('<?= esc_js($m['band_id']) ?>')">
+                                    <div class="lens-marker-wrapper draggable-marker" id="<?= esc_attr($m['id']) ?>" data-marker-num="<?= esc_attr($m['num']) ?>" data-band-id="<?= esc_attr($m['band_id']) ?>" style="top: <?= esc_attr($m['top']) ?>; left: <?= esc_attr($m['left']) ?>;" onclick="scrollToBand('<?= esc_js($m['band_id']) ?>')">
                                         <div class="marker-circle-badge" style="background: <?= esc_attr($m['color']) ?>;">
                                             <?= esc_html($m['num']) ?>
                                         </div>
@@ -1374,6 +1462,7 @@ $versionStatus = $version['status'] ?? 'scoring';
                                                 <rect width="8" height="8" rx="4" fill="<?= esc_attr($m['dot']) ?>"/>
                                             </svg>
                                             <span><?= esc_html($m['label']) ?></span>
+                                            <span class="lens-drag-hint" title="Drag marker to reposition pin">::</span>
                                         </div>
                                     </div>
                                 <?php endforeach; ?>
@@ -1628,8 +1717,25 @@ $versionStatus = $version['status'] ?? 'scoring';
                 </div>
 
                 <div class="band-reason-col">
-                    <div class="band-section-subhead">Reason</div>
-                    <p class="band-reason-text"><?= esc_html($chk1['reason'] ?? 'Logo usage aligns with the applied brand reference.') ?></p>
+                    <div class="band-section-subhead">Reason & Compliance Evaluation</div>
+
+                    <div class="compliance-breakdown-card">
+                        <div class="compliance-breakdown-item">
+                            <span class="compliance-breakdown-label">Vấn đề phát hiện:</span>
+                            <span class="compliance-breakdown-val"><?= esc_html($chk1['finding'] ?? $chk1['reason'] ?? 'Đảm bảo tính độc quyền thương hiệu.') ?></span>
+                        </div>
+                        <div class="compliance-breakdown-item">
+                            <span class="compliance-breakdown-label">Vị trí đối soát:</span>
+                            <span class="compliance-breakdown-val" style="display: inline-flex; align-items: center; gap: 6px;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: #4F57A7; flex-shrink: 0;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                <?= esc_html($chk1['location'] ?? 'Khu vực hiển thị biểu trưng ấn phẩm (Marker ①)') ?>
+                            </span>
+                        </div>
+                        <div class="compliance-breakdown-item">
+                            <span class="compliance-breakdown-label">Đánh giá tuân thủ:</span>
+                            <span class="compliance-breakdown-val"><?= esc_html($chk1['analysis'] ?? $chk1['reason'] ?? 'Đạt tiêu chuẩn thương hiệu.') ?></span>
+                        </div>
+                    </div>
 
                     <div class="band-evidence-box" style="background: #F3F2FF; margin-top: 6px;">
                         <div class="evidence-tag-left">
@@ -1706,8 +1812,25 @@ $versionStatus = $version['status'] ?? 'scoring';
                 </div>
 
                 <div class="band-reason-col">
-                    <div class="band-section-subhead">Reason</div>
-                    <p class="band-reason-text"><?= esc_html($chk2['reason'] ?? 'One brand or compliance detail requires human review.') ?></p>
+                    <div class="band-section-subhead">Reason & Compliance Evaluation</div>
+
+                    <div class="compliance-breakdown-card">
+                        <div class="compliance-breakdown-item">
+                            <span class="compliance-breakdown-label">Vấn đề phát hiện:</span>
+                            <span class="compliance-breakdown-val"><?= esc_html($chk2['finding'] ?? $chk2['reason'] ?? 'Bảng màu và phân cấp chữ trên ấn phẩm.') ?></span>
+                        </div>
+                        <div class="compliance-breakdown-item">
+                            <span class="compliance-breakdown-label">Vị trí đối soát:</span>
+                            <span class="compliance-breakdown-val" style="display: inline-flex; align-items: center; gap: 6px;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: #4F57A7; flex-shrink: 0;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                <?= esc_html($chk2['location'] ?? 'Khu vực Visual Hero & Tiêu đề chính (Marker ②)') ?>
+                            </span>
+                        </div>
+                        <div class="compliance-breakdown-item">
+                            <span class="compliance-breakdown-label">Đánh giá tuân thủ:</span>
+                            <span class="compliance-breakdown-val"><?= esc_html($chk2['analysis'] ?? $chk2['reason'] ?? 'Đối soát cùng tài liệu chiến dịch.') ?></span>
+                        </div>
+                    </div>
 
                     <div class="band-evidence-box" style="background: #ffffff; margin-top: 6px;">
                         <div class="evidence-tag-left">
@@ -1784,8 +1907,25 @@ $versionStatus = $version['status'] ?? 'scoring';
                 </div>
 
                 <div class="band-reason-col">
-                    <div class="band-section-subhead">Reason</div>
-                    <p class="band-reason-text"><?= esc_html($chk3['reason'] ?? 'Statutory disclaimer prominence or critical notice does not meet compliance threshold.') ?></p>
+                    <div class="band-section-subhead">Reason & Compliance Evaluation</div>
+
+                    <div class="compliance-breakdown-card">
+                        <div class="compliance-breakdown-item">
+                            <span class="compliance-breakdown-label">Vấn đề phát hiện:</span>
+                            <span class="compliance-breakdown-val"><?= esc_html($chk3['finding'] ?? $chk3['reason'] ?? 'Điều khoản cảnh báo rủi ro pháp lý MAS Singapore.') ?></span>
+                        </div>
+                        <div class="compliance-breakdown-item">
+                            <span class="compliance-breakdown-label">Vị trí đối soát:</span>
+                            <span class="compliance-breakdown-val" style="display: inline-flex; align-items: center; gap: 6px;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: #4F57A7; flex-shrink: 0;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                <?= esc_html($chk3['location'] ?? 'Dải chân trang Footer Statutory Area (Marker ③)') ?>
+                            </span>
+                        </div>
+                        <div class="compliance-breakdown-item">
+                            <span class="compliance-breakdown-label">Đánh giá tuân thủ:</span>
+                            <span class="compliance-breakdown-val"><?= esc_html($chk3['analysis'] ?? $chk3['reason'] ?? 'Đối soát theo Singapore MAS Notice §4.1b.') ?></span>
+                        </div>
+                    </div>
 
                     <div class="band-evidence-box" style="background: rgba(255, 241, 242, 0.65); outline: 1px solid #FFE4E6; margin-top: 6px;">
                         <div class="evidence-tag-left">
@@ -2116,15 +2256,173 @@ $versionStatus = $version['status'] ?? 'scoring';
                 
                 // Pulse the marker
                 marker.style.transition = 'all 0.3s ease';
-                marker.style.transform = 'scale(1.2)';
+                marker.style.transform = 'scale(1.22)';
                 marker.style.zIndex = '50';
                 
+                // Also highlight corresponding focus box if present
+                const box = document.getElementById('lensBox-' + markerId);
+                if (box) {
+                    box.style.display = 'block';
+                    box.classList.add('lens-box-active');
+                    box.style.top = Math.max(0, parseFloat(marker.style.top) - 2) + '%';
+                    box.style.left = Math.max(0, parseFloat(marker.style.left) - 2) + '%';
+                    box.style.width = (markerId === 'marker-3') ? '280px' : ((markerId === 'marker-2') ? '220px' : '150px');
+                    box.style.height = (markerId === 'marker-2') ? '60px' : '42px';
+                    
+                    setTimeout(() => {
+                        box.classList.remove('lens-box-active');
+                    }, 2400);
+                }
+
                 setTimeout(() => {
                     marker.style.transform = 'scale(1)';
                     marker.style.zIndex = '20';
                 }, 1800);
             }
         }
+
+        // Layout-adaptive coordinates detection on image load
+        function initDynamicArtworkEvidenceLens(imgEl) {
+            if (!imgEl || !imgEl.naturalWidth || !imgEl.naturalHeight) return;
+
+            const storageKey = 'pcs_lens_markers_<?= (int)$targetAssetId ?>_<?= (int)$targetVersionId ?>';
+            const saved = localStorage.getItem(storageKey);
+            if (saved) {
+                try {
+                    const pos = JSON.parse(saved);
+                    Object.keys(pos).forEach(mId => {
+                        const el = document.getElementById(mId);
+                        if (el && pos[mId].top && pos[mId].left) {
+                            el.style.top = pos[mId].top;
+                            el.style.left = pos[mId].left;
+                        }
+                    });
+                    return;
+                } catch(e) {}
+            }
+
+            const aspect = imgEl.naturalWidth / imgEl.naturalHeight;
+            const m1 = document.getElementById('marker-1');
+            const m2 = document.getElementById('marker-2');
+            const m3 = document.getElementById('marker-3');
+
+            const hasSavedCustomM1 = <?= (!empty($existing_checks['foreign_logo']['marker_top'])) ? 'true' : 'false' ?>;
+            if (!hasSavedCustomM1) {
+                if (aspect < 0.8) {
+                    // Portrait / Story (9:16)
+                    if (m1) { m1.style.top = '5%'; m1.style.left = '58%'; }
+                    if (m2) { m2.style.top = '32%'; m2.style.left = '16%'; }
+                    if (m3) { m3.style.top = '93%'; m3.style.left = '6%'; }
+                } else if (aspect >= 0.8 && aspect <= 1.3) {
+                    // Square (1:1)
+                    if (m1) { m1.style.top = '6%'; m1.style.left = '68%'; }
+                    if (m2) { m2.style.top = '42%'; m2.style.left = '18%'; }
+                    if (m3) { m3.style.top = '91%'; m3.style.left = '8%'; }
+                } else {
+                    // Landscape Banner (> 1.3)
+                    if (m1) { m1.style.top = '7%'; m1.style.left = '70%'; }
+                    if (m2) { m2.style.top = '38%'; m2.style.left = '15%'; }
+                    if (m3) { m3.style.top = '88%'; m3.style.left = '6%'; }
+                }
+            }
+        }
+
+        // Draggable Evidence Lens Markers
+        function initDraggableMarkers() {
+            const stage = document.getElementById('artworkRenderStage');
+            if (!stage) return;
+
+            const markers = stage.querySelectorAll('.draggable-marker');
+            markers.forEach(marker => {
+                let isDragging = false;
+                let startX, startY, origLeft, origTop;
+
+                marker.addEventListener('mousedown', function(e) {
+                    if (e.button !== 0) return;
+                    isDragging = true;
+                    marker.classList.add('is-dragging');
+
+                    startX = e.clientX;
+                    startY = e.clientY;
+
+                    origLeft = marker.offsetLeft;
+                    origTop = marker.offsetTop;
+
+                    function onMouseMove(ev) {
+                        if (!isDragging) return;
+                        ev.preventDefault();
+
+                        const deltaX = ev.clientX - startX;
+                        const deltaY = ev.clientY - startY;
+
+                        let newLeftPx = origLeft + deltaX;
+                        let newTopPx = origTop + deltaY;
+
+                        const maxLeft = stage.clientWidth - marker.offsetWidth;
+                        const maxTop = stage.clientHeight - marker.offsetHeight;
+
+                        newLeftPx = Math.max(0, Math.min(newLeftPx, maxLeft));
+                        newTopPx = Math.max(0, Math.min(newTopPx, maxTop));
+
+                        const leftPct = ((newLeftPx / stage.clientWidth) * 100).toFixed(1) + '%';
+                        const topPct = ((newTopPx / stage.clientHeight) * 100).toFixed(1) + '%';
+
+                        marker.style.left = leftPct;
+                        marker.style.top = topPct;
+                    }
+
+                    function onMouseUp() {
+                        if (!isDragging) return;
+                        isDragging = false;
+                        marker.classList.remove('is-dragging');
+                        document.removeEventListener('mousemove', onMouseMove);
+                        document.removeEventListener('mouseup', onMouseUp);
+
+                        const storageKey = 'pcs_lens_markers_<?= (int)$targetAssetId ?>_<?= (int)$targetVersionId ?>';
+                        let saved = {};
+                        try { saved = JSON.parse(localStorage.getItem(storageKey)) || {}; } catch(e){}
+                        saved[marker.id] = {
+                            top: marker.style.top,
+                            left: marker.style.left
+                        };
+                        localStorage.setItem(storageKey, JSON.stringify(saved));
+
+                        saveMarkerCoordinatesAjax(marker.id, marker.style.top, marker.style.left);
+                    }
+
+                    document.addEventListener('mousemove', onMouseMove);
+                    document.addEventListener('mouseup', onMouseUp);
+                });
+            });
+        }
+
+        function saveMarkerCoordinatesAjax(markerId, top, left) {
+            const critMap = {
+                'marker-1': 'foreign_logo',
+                'marker-2': 'guideline',
+                'marker-3': 'mas_rule'
+            };
+            const crit = critMap[markerId];
+            if (!crit) return;
+
+            const params = new URLSearchParams({
+                action: 'pcs_save_evidence_marker',
+                version_id: '<?= (int)$targetVersionId ?>',
+                criterion: crit,
+                marker_top: top,
+                marker_left: left
+            });
+
+            fetch('<?= admin_url("admin-ajax.php") ?>', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params.toString()
+            }).catch(e => console.log('Marker pos auto-save error:', e));
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initDraggableMarkers();
+        });
 
         // Full Size Modal Handlers
         function openFullSizeModal() {
