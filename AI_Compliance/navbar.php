@@ -218,9 +218,8 @@ if ($unavIsHome) {
 .unified-top-navbar .unav-left {
     display: flex !important;
     align-items: center !important;
-    flex: 1 1 0 !important;
+    flex: 0 0 auto !important;
     justify-content: flex-start !important;
-    min-width: 180px !important;
 }
 
 .unified-top-navbar .unav-logo-link {
@@ -246,9 +245,10 @@ if ($unavIsHome) {
 .unified-top-navbar .unav-nav-center {
     display: flex !important;
     align-items: center !important;
-    justify-content: center !important;
-    gap: 8px !important;
-    flex: 0 0 auto !important;
+    justify-content: flex-start !important;
+    gap: 10px !important;
+    flex: 1 1 auto !important;
+    margin-left: 36px !important;
 }
 
 .unified-top-navbar .unav-nav-item {
@@ -259,7 +259,7 @@ if ($unavIsHome) {
     display: inline-flex !important;
     align-items: center !important;
     gap: 6px !important;
-    padding: 8px 14px !important;
+    padding: 8px 16px !important;
     border-radius: 8px !important;
     transition: all 0.15s ease !important;
     cursor: pointer !important;
@@ -282,9 +282,9 @@ if ($unavIsHome) {
     display: flex !important;
     align-items: center !important;
     gap: 16px !important;
-    flex: 1 1 0 !important;
+    flex: 0 0 auto !important;
     justify-content: flex-end !important;
-    min-width: 180px !important;
+    margin-left: auto !important;
 }
 
 .unified-top-navbar .unav-btn-login {
@@ -876,7 +876,8 @@ if ($unavIsHome) {
 /* Mobile & iPad Responsiveness */
 @media (max-width: 1024px) {
     .unified-top-navbar .unav-nav-center {
-        gap: 4px !important;
+        gap: 6px !important;
+        margin-left: 20px !important;
     }
     .unified-top-navbar .unav-nav-item {
         padding: 6px 10px !important;
@@ -892,7 +893,8 @@ if ($unavIsHome) {
         min-width: 0 !important;
     }
     .unified-top-navbar .unav-right {
-        flex: 1 !important;
+        flex: 0 0 auto !important;
+        margin-left: auto !important;
         min-width: 0 !important;
     }
 }
@@ -922,7 +924,7 @@ if ($unavIsHome) {
             </a>
         </div>
 
-        <!-- 2. Center: Dynamic Role-Based Links (Balanced in Center) -->
+        <!-- 2. Dynamic Role-Based Links (Left-aligned, evenly spaced) -->
         <nav class="unav-nav-center">
             <?php if ($unavIsHome): ?>
                 <a href="<?= esc_url($unavHomeUrl) ?>" class="unav-nav-item">
