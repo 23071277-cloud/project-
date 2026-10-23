@@ -2217,7 +2217,7 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             </div>
 
             <!-- ================= 5. FULL-WIDTH FINAL APPROVAL QUEUE ================= -->
-            <section class="queue-section">
+            <section class="queue-section" id="queue-section">
                 <div class="queue-header-wrap">
                     <div class="queue-header-left">
                         <div class="queue-title-row">

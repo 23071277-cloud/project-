@@ -1462,7 +1462,7 @@ unset($camp);
             </aside>
 
             <!-- --- CỘT PHẢI: BẢNG CAMPAIGNS --- -->
-            <section class="campaigns-card">
+            <section class="campaigns-card" id="campaigns-section">
                 <div class="campaigns-top-bar">
                     <h2 class="campaigns-heading">Campaigns</h2>
                     <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">

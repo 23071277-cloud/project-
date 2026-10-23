@@ -5591,9 +5591,15 @@ function get_audit_log_screen_data($asset_id = 0, $version_id = 0, $campaign_id 
  */
 if (!function_exists('pcs_render_top_navbar')) {
 function pcs_render_top_navbar($options = []) {
-    $currentUser = $options['user'] ?? (function_exists('get_current_user_profile') ? get_current_user_profile() : []);
-    $allCampaignsUrl = $options['all_campaigns_url'] ?? '';
-    $campaignsBtnText = $options['btn_text'] ?? 'All Campaigns';
+    if (is_array($options) && (isset($options['role']) || isset($options['name']) || isset($options['id']))) {
+        $currentUser = $options;
+        $allCampaignsUrl = '';
+        $campaignsBtnText = 'All Campaigns';
+    } else {
+        $currentUser = $options['user'] ?? (function_exists('get_current_user_profile') ? get_current_user_profile() : []);
+        $allCampaignsUrl = $options['all_campaigns_url'] ?? '';
+        $campaignsBtnText = $options['btn_text'] ?? 'All Campaigns';
+    }
 
     $paths = [
         __DIR__ . '/navbar.php',

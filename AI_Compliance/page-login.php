@@ -438,7 +438,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['email'])) {
 
                 <div class="title-with-logo">
                     <h2>Sign in to</h2>
-                    <a href="<?= esc_url($homeUrl) ?>" title="Back to homepage" style="text-decoration: none; display: inline-flex; align-items: center;">
+                    <span class="company-logo-wrapper" style="display: inline-flex; align-items: center; cursor: default; user-select: none;">
                         <img src="<?= esc_url($loginLogoUrl) ?>" alt="BrandCompliance Logo" class="company-logo" onerror="this.onerror=null; this.style.display='none'; document.getElementById('loginLogoFallback').style.display='inline-flex';">
                         <span id="loginLogoFallback" style="display: none; align-items: center; gap: 8px; font-weight: 800; font-size: 20px; color: #1F2674;">
                             <span style="width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #373E8C, #4F56A6); color: #FFF; display: inline-flex; align-items: center; justify-content: center;">
@@ -446,7 +446,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['email'])) {
                             </span>
                             BrandCompliance
                         </span>
-                    </a>
+                    </span>
                 </div>
                 <p class="subtitle-text">Access your review workspace and continue where you left off.</p>
 

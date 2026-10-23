@@ -78,8 +78,42 @@ if (function_exists('get_template_directory_uri')) {
 // Home URL
 $unavHomeUrl = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-page.php';
 
+// Current Script / Page Detection
+$unavCurScript = basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '');
+if (empty($unavCurScript) || $unavCurScript === 'index.php') {
+    $unavCurScript = basename($_SERVER['SCRIPT_NAME'] ?? '');
+}
+
+// Determine if we are on Home page
+$unavIsHome = false;
+if (function_exists('is_front_page') && (is_front_page() || is_home())) {
+    $unavIsHome = true;
+} else {
+    $unavReqUri = strtolower($_SERVER['REQUEST_URI'] ?? '');
+    if (strpos($unavReqUri, 'home') !== false || trim(parse_url($unavReqUri, PHP_URL_PATH), '/') === '' || $unavCurScript === 'home-page.php') {
+        $unavIsHome = true;
+    }
+}
+
+// Normalized role
+$unavRole = strtoupper($currentUser['role'] ?? '');
+if (empty($unavRole) || $unavRole === 'GUEST' || $unavRole === 'USER') {
+    if (strpos($unavCurScript, 'admin') !== false) {
+        $unavRole = 'ADMIN';
+    } elseif (strpos($unavCurScript, 'checker') !== false) {
+        $unavRole = 'CHECKER';
+    } elseif (strpos($unavCurScript, 'maker') !== false) {
+        $unavRole = 'MAKER';
+    } else {
+        $unavRole = 'GUEST';
+    }
+}
+
+// Check if Guest / not logged in
+$unavIsGuest = (empty($currentUser['id']) || $unavRole === 'GUEST' || empty($unavUserId));
+$unavShowLoginBtn = ($unavIsGuest || ($unavIsHome && empty($unavUserId)));
+
 // Back to All Campaigns URL
-$unavRole = strtoupper($currentUser['role'] ?? 'CHECKER');
 if (!isset($allCampaignsUrl) || empty($allCampaignsUrl)) {
     if ($unavRole === 'MAKER') {
         $allCampaignsUrl = function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php';
@@ -91,16 +125,16 @@ if (!isset($allCampaignsUrl) || empty($allCampaignsUrl)) {
 }
 $unavCampaignsBtnText = !empty($campaignsBtnText) ? $campaignsBtnText : 'All Campaigns';
 
-// Logo URL Target: User request: Clicking logo should navigate to their role dashboard
-$unavRoleDashboardUrl = $allCampaignsUrl;
-if (!empty($currentUser['role'])) {
-    if ($unavRole === 'ADMIN') {
-        $unavRoleDashboardUrl = function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php';
-    } elseif ($unavRole === 'MAKER') {
-        $unavRoleDashboardUrl = function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php';
-    } else {
-        $unavRoleDashboardUrl = function_exists('pcs_url') ? pcs_url('checker-dashboard.php') : 'checker-dashboard.php';
-    }
+// Logo URL Target: User request:
+// "Khi ấn vào cái logo ở các trang khác thì vẫn giữ là chuyển trang về trang dashboard hay gì đó, nhưng riêng cái logo ở trang login thì sẽ là ảnh tĩnh, không chuyển hướng sang trang nào hết"
+if ($unavIsHome && $unavIsGuest) {
+    $unavRoleDashboardUrl = $unavHomeUrl;
+} elseif ($unavRole === 'ADMIN') {
+    $unavRoleDashboardUrl = function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php';
+} elseif ($unavRole === 'MAKER') {
+    $unavRoleDashboardUrl = function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php';
+} elseif ($unavRole === 'CHECKER') {
+    $unavRoleDashboardUrl = function_exists('pcs_url') ? pcs_url('checker-dashboard.php') : 'checker-dashboard.php';
 } else {
     $unavRoleDashboardUrl = $unavHomeUrl;
 }
@@ -108,7 +142,7 @@ if (!empty($currentUser['role'])) {
 // Avatar Background Color
 $unavAvatarBg = $currentUser['avatar_bg'] ?? '#3B428A';
 if ($unavRole === 'CHECKER') {
-    $unavAvatarBg = '#3B428A'; // Exact match to user reference screenshot
+    $unavAvatarBg = '#3B428A';
 } elseif ($unavRole === 'MAKER') {
     $unavAvatarBg = '#6C5CE7';
 } elseif ($unavRole === 'ADMIN') {
@@ -116,17 +150,6 @@ if ($unavRole === 'CHECKER') {
 }
 
 // Determine logout URL:
-// User rule: "tất cả các role khi đăng xuất ở những trang không phải là home, thì phải trả về trang login. lúc đăng xuất sẽ bắt buộc phải về trang login"
-$unavIsHome = false;
-if (function_exists('is_front_page') && (is_front_page() || is_home())) {
-    $unavIsHome = true;
-} else {
-    $unavReqUri = strtolower($_SERVER['REQUEST_URI'] ?? '');
-    if (strpos($unavReqUri, 'home') !== false || trim(parse_url($unavReqUri, PHP_URL_PATH), '/') === '') {
-        $unavIsHome = true;
-    }
-}
-
 if ($unavIsHome) {
     $unavLogoutUrl = (function_exists('pcs_url') ? pcs_url('page-login.php') : 'page-login.php') . '?action=logout&redirect_to=' . urlencode($unavHomeUrl);
 } else {
@@ -172,7 +195,9 @@ if ($unavIsHome) {
 .unified-top-navbar .unav-left {
     display: flex !important;
     align-items: center !important;
-    gap: 36px !important;
+    flex: 1 1 0 !important;
+    justify-content: flex-start !important;
+    min-width: 180px !important;
 }
 
 .unified-top-navbar .unav-logo-link {
@@ -180,6 +205,12 @@ if ($unavIsHome) {
     align-items: center !important;
     text-decoration: none !important;
     line-height: 1 !important;
+    cursor: pointer !important;
+    transition: opacity 0.15s ease !important;
+}
+
+.unified-top-navbar .unav-logo-link:hover {
+    opacity: 0.88 !important;
 }
 
 .unified-top-navbar .unav-logo-img {
@@ -189,10 +220,12 @@ if ($unavIsHome) {
     object-fit: contain !important;
 }
 
-.unified-top-navbar .unav-nav-links {
+.unified-top-navbar .unav-nav-center {
     display: flex !important;
     align-items: center !important;
-    gap: 28px !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    flex: 0 0 auto !important;
 }
 
 .unified-top-navbar .unav-nav-item {
@@ -202,19 +235,58 @@ if ($unavIsHome) {
     text-decoration: none !important;
     display: inline-flex !important;
     align-items: center !important;
-    gap: 5px !important;
-    transition: color 0.15s ease !important;
+    gap: 6px !important;
+    padding: 8px 14px !important;
+    border-radius: 8px !important;
+    transition: all 0.15s ease !important;
     cursor: pointer !important;
+    white-space: nowrap !important;
+    line-height: 1.2 !important;
 }
 
 .unified-top-navbar .unav-nav-item:hover {
     color: #1F2674 !important;
+    background: #F1F5F9 !important;
+}
+
+.unified-top-navbar .unav-nav-item.active {
+    color: #373E8C !important;
+    font-weight: 700 !important;
+    background: #EEF2FF !important;
 }
 
 .unified-top-navbar .unav-right {
     display: flex !important;
     align-items: center !important;
     gap: 16px !important;
+    flex: 1 1 0 !important;
+    justify-content: flex-end !important;
+    min-width: 180px !important;
+}
+
+.unified-top-navbar .unav-btn-login {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    padding: 9px 24px !important;
+    background: #373E8C !important;
+    color: #FFFFFF !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    border-radius: 10px !important;
+    text-decoration: none !important;
+    border: none !important;
+    cursor: pointer !important;
+    transition: all 0.18s ease !important;
+    box-shadow: 0 2px 6px rgba(55, 62, 140, 0.2) !important;
+}
+
+.unified-top-navbar .unav-btn-login:hover {
+    background: #2B3170 !important;
+    color: #FFFFFF !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(55, 62, 140, 0.3) !important;
 }
 
 .unified-top-navbar .unav-btn-campaigns {
@@ -779,9 +851,26 @@ if ($unavIsHome) {
 }
 
 /* Mobile & iPad Responsiveness */
-@media (max-width: 900px) {
-    .unified-top-navbar .unav-nav-links {
+@media (max-width: 1024px) {
+    .unified-top-navbar .unav-nav-center {
+        gap: 4px !important;
+    }
+    .unified-top-navbar .unav-nav-item {
+        padding: 6px 10px !important;
+        font-size: 13px !important;
+    }
+}
+@media (max-width: 860px) {
+    .unified-top-navbar .unav-nav-center {
         display: none !important;
+    }
+    .unified-top-navbar .unav-left {
+        flex: 1 !important;
+        min-width: 0 !important;
+    }
+    .unified-top-navbar .unav-right {
+        flex: 1 !important;
+        min-width: 0 !important;
     }
 }
 @media (max-width: 480px) {
@@ -794,145 +883,186 @@ if ($unavIsHome) {
     .unified-top-navbar .unav-logo-img {
         height: 30px !important;
     }
+    .unified-top-navbar .unav-btn-login {
+        padding: 7px 16px !important;
+        font-size: 13px !important;
+    }
 }
 </style>
 
 <header class="unified-top-navbar">
     <div class="unav-container">
-        <!-- Left: Logo & Links -->
+        <!-- 1. Left: Logo -->
         <div class="unav-left">
-            <a href="<?= esc_url($unavRoleDashboardUrl) ?>" class="unav-logo-link" title="Dashboard">
-                <img src="<?= esc_url($unavLogoUrl) ?>" alt="ICTS Logo" class="unav-logo-img">
+            <a href="<?= esc_url($unavRoleDashboardUrl) ?>" class="unav-logo-link" title="<?= esc_attr($unavRole === 'GUEST' ? 'Brand Compliance' : 'Dashboard') ?>">
+                <img src="<?= esc_url($unavLogoUrl) ?>" alt="BrandCompliance Logo" class="unav-logo-img">
             </a>
-            <nav class="unav-nav-links">
-                <a href="javascript:void(0)" class="unav-nav-item">
+        </div>
+
+        <!-- 2. Center: Dynamic Role-Based Links (Balanced in Center) -->
+        <nav class="unav-nav-center">
+            <?php if ($unavIsHome): ?>
+                <a href="<?= esc_url($unavHomeUrl) ?>" class="unav-nav-item">
                     <span>Product</span>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
                 </a>
                 <a href="<?= esc_url($unavHomeUrl) ?>#standards" class="unav-nav-item">Standards</a>
                 <a href="<?= esc_url($unavHomeUrl) ?>#success-stories" class="unav-nav-item">Success Stories</a>
                 <a href="<?= esc_url($unavHomeUrl) ?>#about" class="unav-nav-item">About</a>
-            </nav>
-        </div>
+            <?php elseif ($unavRole === 'ADMIN'): ?>
+                <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php') ?>" class="unav-nav-item <?= ($unavCurScript === 'admin-dashboard.php' && strpos($_SERVER['REQUEST_URI'] ?? '', '#') === false) ? 'active' : '' ?>">Dashboard</a>
+                <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php') . '#campaigns-section') ?>" class="unav-nav-item <?= ($unavCurScript === 'detail-asset-admin.php') ? 'active' : '' ?>">Campaign</a>
+                <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('approval-queue-admin.php') : 'approval-queue-admin.php') ?>" class="unav-nav-item <?= in_array($unavCurScript, ['approval-queue-admin.php', 'final-review-admin.php', 'release-detail.php'], true) ? 'active' : '' ?>">Final Approval</a>
+                <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('audit-log.php') : 'audit-log.php') ?>" class="unav-nav-item <?= ($unavCurScript === 'audit-log.php') ? 'active' : '' ?>">Audit History</a>
+            <?php elseif ($unavRole === 'CHECKER'): ?>
+                <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('checker-dashboard.php') : 'checker-dashboard.php') ?>" class="unav-nav-item <?= ($unavCurScript === 'checker-dashboard.php' && strpos($_SERVER['REQUEST_URI'] ?? '', '#') === false) ? 'active' : '' ?>">Dashboard</a>
+                <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('checker-dashboard.php') : 'checker-dashboard.php') . '#queue-section') ?>" class="unav-nav-item">Review Queue</a>
+                <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('checker-review.php') : 'checker-review.php') ?>" class="unav-nav-item <?= in_array($unavCurScript, ['checker-review.php', 'detail-asset-checker.php', 'compare-version.php'], true) ? 'active' : '' ?>">My Review</a>
+                <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('audit-log.php') : 'audit-log.php') ?>" class="unav-nav-item <?= ($unavCurScript === 'audit-log.php') ? 'active' : '' ?>">Audit History</a>
+            <?php elseif ($unavRole === 'MAKER'): ?>
+                <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php') ?>" class="unav-nav-item <?= ($unavCurScript === 'maker-dashboard.php' && strpos($_SERVER['REQUEST_URI'] ?? '', '#') === false) ? 'active' : '' ?>">Dashboard</a>
+                <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php') . '#campaigns-section') ?>" class="unav-nav-item">My Campaigns</a>
+                <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('detail-asset-maker.php') : 'detail-asset-maker.php') ?>" class="unav-nav-item <?= in_array($unavCurScript, ['detail-asset-maker.php', 'smart-maker-upload.php'], true) ? 'active' : '' ?>">My Assets</a>
+                <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('ai-scoring-result.php') : 'ai-scoring-result.php') ?>" class="unav-nav-item <?= in_array($unavCurScript, ['ai-scoring-result.php', 'ai-scoring-progress.php'], true) ? 'active' : '' ?>">Review Results</a>
+            <?php else: ?>
+                <a href="<?= esc_url($unavHomeUrl) ?>" class="unav-nav-item">
+                    <span>Product</span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+                </a>
+                <a href="<?= esc_url($unavHomeUrl) ?>#standards" class="unav-nav-item">Standards</a>
+                <a href="<?= esc_url($unavHomeUrl) ?>#success-stories" class="unav-nav-item">Success Stories</a>
+                <a href="<?= esc_url($unavHomeUrl) ?>#about" class="unav-nav-item">About</a>
+            <?php endif; ?>
+        </nav>
 
-        <!-- Right: Notifications & Profile Badge -->
+        <!-- 3. Right: Actions (Log in OR Notification Bell + User Profile) -->
         <div class="unav-right">
-            <!-- Unified Notification Bell & Dropdown -->
-            <div class="unav-notif-wrap">
-                <button type="button" class="unav-notif-btn" id="unavNotifBtn" onclick="toggleUnifiedNotifDropdown(event)" title="Notifications" aria-expanded="false">
-                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                    </svg>
-                    <span class="unav-notif-badge <?= $unavUnreadCount > 0 ? '' : 'is-hidden' ?>" id="unavNotifBadge" style="<?= $unavUnreadCount > 0 ? '' : 'display:none;' ?>"><?= $unavUnreadCount > 99 ? '99+' : $unavUnreadCount ?></span>
-                </button>
+            <?php if ($unavShowLoginBtn): ?>
+                <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('page-login.php') : 'page-login.php') ?>" class="unav-btn-login">
+                    <span>Log in</span>
+                </a>
+            <?php else: ?>
+                <!-- Unified Notification Bell & Dropdown -->
+                <div class="unav-notif-wrap">
+                    <button type="button" class="unav-notif-btn" id="unavNotifBtn" onclick="toggleUnifiedNotifDropdown(event)" title="Notifications" aria-expanded="false">
+                        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                        </svg>
+                        <span class="unav-notif-badge <?= $unavUnreadCount > 0 ? '' : 'is-hidden' ?>" id="unavNotifBadge" style="<?= $unavUnreadCount > 0 ? '' : 'display:none;' ?>"><?= $unavUnreadCount > 99 ? '99+' : $unavUnreadCount ?></span>
+                    </button>
 
-                <div class="unav-notif-dropdown" id="unifiedNotifDropdown">
-                    <div class="unav-notif-header">
-                        <div class="unav-notif-title">
-                            <span>Notifications</span>
-                            <span class="unav-notif-count-pill" id="unavNotifPill" style="<?= $unavUnreadCount > 0 ? '' : 'display:none;' ?>"><?= $unavUnreadCount ?> new</span>
-                        </div>
-                        <button type="button" class="unav-notif-mark-all" id="unavMarkAllBtn" style="<?= $unavUnreadCount > 0 ? '' : 'display:none;' ?>" onclick="markAllNotificationsRead(<?= (int)$unavUserId ?>)">
-                            Mark all as read
-                        </button>
-                    </div>
-
-                    <!-- 3-Filter Tabs: All / Unread / Read -->
-                    <div class="unav-notif-tabs" id="unavNotifTabs">
-                        <button type="button" class="unav-notif-tab active" data-tab="all" onclick="filterNotifTab('all', this)">
-                            <span>All</span>
-                            <span class="unav-tab-badge" id="notifTabCountAll"><?= $unavTotalCount ?></span>
-                        </button>
-                        <button type="button" class="unav-notif-tab" data-tab="unread" onclick="filterNotifTab('unread', this)">
-                            <span>Unread</span>
-                            <span class="unav-tab-badge highlight" id="notifTabCountUnread"><?= $unavUnreadCount ?></span>
-                        </button>
-                        <button type="button" class="unav-notif-tab" data-tab="read" onclick="filterNotifTab('read', this)">
-                            <span>Read</span>
-                            <span class="unav-tab-badge" id="notifTabCountRead"><?= $unavReadCount ?></span>
-                        </button>
-                    </div>
-
-                    <div class="unav-notif-list" id="unavNotifList">
-                        <div class="unav-notif-empty <?= empty($unavNotifications) ? '' : 'is-hidden' ?>" id="unavNotifEmpty" style="<?= empty($unavNotifications) ? '' : 'display: none;' ?>">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8">
-                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                            </svg>
-                            <span id="unavNotifEmptyMsg">All caught up! No notifications yet.</span>
+                    <div class="unav-notif-dropdown" id="unifiedNotifDropdown">
+                        <div class="unav-notif-header">
+                            <div class="unav-notif-title">
+                                <span>Notifications</span>
+                                <span class="unav-notif-count-pill" id="unavNotifPill" style="<?= $unavUnreadCount > 0 ? '' : 'display:none;' ?>"><?= $unavUnreadCount ?> new</span>
+                            </div>
+                            <button type="button" class="unav-notif-mark-all" id="unavMarkAllBtn" style="<?= $unavUnreadCount > 0 ? '' : 'display:none;' ?>" onclick="markAllNotificationsRead(<?= (int)$unavUserId ?>)">
+                                Mark all as read
+                            </button>
                         </div>
 
-                        <?php if (!empty($unavNotifications)): ?>
-                            <?php foreach ($unavNotifications as $notif): 
-                                $targetUrl = !empty($notif['link']) ? $notif['link'] : '';
-                                $isUnread = empty($notif['is_read']);
-                                $type = $notif['type'] ?? 'info';
-                            ?>
-                                <div class="unav-notif-item-wrap <?= $isUnread ? 'is-unread' : 'is-read' ?>" 
-                                     data-status="<?= $isUnread ? 'unread' : 'read' ?>" 
-                                     data-notif-id="<?= (int)$notif['id'] ?>">
-                                    <a href="<?= esc_url($targetUrl ?: 'javascript:void(0)') ?>" 
-                                       class="unav-notif-item" 
-                                       onclick="handleNotificationClick(event, <?= (int)$notif['id'] ?>, '<?= esc_js($targetUrl) ?>', this)">
-                                        <div class="unav-notif-icon-box <?= esc_attr($type) ?>">
-                                            <?php if ($type === 'approved' || $type === 'released'): ?>
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                                            <?php elseif ($type === 'rejected'): ?>
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                            <?php elseif ($type === 'review_ready' || $type === 'in_review' || $type === 'awaiting_release'): ?>
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                                            <?php elseif ($type === 'team_assigned' || $type === 'team_update' || $type === 'campaign'): ?>
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                                            <?php else: ?>
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        <!-- 3-Filter Tabs: All / Unread / Read -->
+                        <div class="unav-notif-tabs" id="unavNotifTabs">
+                            <button type="button" class="unav-notif-tab active" data-tab="all" onclick="filterNotifTab('all', this)">
+                                <span>All</span>
+                                <span class="unav-tab-badge" id="notifTabCountAll"><?= $unavTotalCount ?></span>
+                            </button>
+                            <button type="button" class="unav-notif-tab" data-tab="unread" onclick="filterNotifTab('unread', this)">
+                                <span>Unread</span>
+                                <span class="unav-tab-badge highlight" id="notifTabCountUnread"><?= $unavUnreadCount ?></span>
+                            </button>
+                            <button type="button" class="unav-notif-tab" data-tab="read" onclick="filterNotifTab('read', this)">
+                                <span>Read</span>
+                                <span class="unav-tab-badge" id="notifTabCountRead"><?= $unavReadCount ?></span>
+                            </button>
+                        </div>
+
+                        <div class="unav-notif-list" id="unavNotifList">
+                            <div class="unav-notif-empty <?= empty($unavNotifications) ? '' : 'is-hidden' ?>" id="unavNotifEmpty" style="<?= empty($unavNotifications) ? '' : 'display: none;' ?>">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8">
+                                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                                </svg>
+                                <span id="unavNotifEmptyMsg">All caught up! No notifications yet.</span>
+                            </div>
+
+                            <?php if (!empty($unavNotifications)): ?>
+                                <?php foreach ($unavNotifications as $notif): 
+                                    $targetUrl = !empty($notif['link']) ? $notif['link'] : '';
+                                    $isUnread = empty($notif['is_read']);
+                                    $type = $notif['type'] ?? 'info';
+                                ?>
+                                    <div class="unav-notif-item-wrap <?= $isUnread ? 'is-unread' : 'is-read' ?>" 
+                                         data-status="<?= $isUnread ? 'unread' : 'read' ?>" 
+                                         data-notif-id="<?= (int)$notif['id'] ?>">
+                                        <a href="<?= esc_url($targetUrl ?: 'javascript:void(0)') ?>" 
+                                           class="unav-notif-item" 
+                                           onclick="handleNotificationClick(event, <?= (int)$notif['id'] ?>, '<?= esc_js($targetUrl) ?>', this)">
+                                            <div class="unav-notif-icon-box <?= esc_attr($type) ?>">
+                                                <?php if ($type === 'approved' || $type === 'released'): ?>
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                                <?php elseif ($type === 'rejected'): ?>
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                                <?php elseif ($type === 'review_ready' || $type === 'in_review' || $type === 'awaiting_release'): ?>
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                                <?php elseif ($type === 'team_assigned' || $type === 'team_update' || $type === 'campaign'): ?>
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                                <?php else: ?>
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                                <?php endif; ?>
+                                            </div>
+                                            <div class="unav-notif-content">
+                                                <div class="unav-notif-item-title"><?= esc_html($notif['title']) ?></div>
+                                                <div class="unav-notif-item-msg"><?= esc_html($notif['message']) ?></div>
+                                                <div class="unav-notif-item-time"><?= esc_html($notif['time_ago']) ?></div>
+                                            </div>
+                                            <?php if ($isUnread): ?>
+                                                <span class="unav-notif-unread-dot" title="Unread"></span>
                                             <?php endif; ?>
-                                        </div>
-                                        <div class="unav-notif-content">
-                                            <div class="unav-notif-item-title"><?= esc_html($notif['title']) ?></div>
-                                            <div class="unav-notif-item-msg"><?= esc_html($notif['message']) ?></div>
-                                            <div class="unav-notif-item-time"><?= esc_html($notif['time_ago']) ?></div>
-                                        </div>
+                                        </a>
                                         <?php if ($isUnread): ?>
-                                            <span class="unav-notif-unread-dot" title="Unread"></span>
+                                            <button type="button" class="unav-notif-quick-read" title="Mark as read" onclick="quickMarkNotifRead(event, <?= (int)$notif['id'] ?>, this)">
+                                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                            </button>
                                         <?php endif; ?>
-                                    </a>
-                                    <?php if ($isUnread): ?>
-                                        <button type="button" class="unav-notif-quick-read" title="Mark as read" onclick="quickMarkNotifRead(event, <?= (int)$notif['id'] ?>, this)">
-                                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                                        </button>
-                                    <?php endif; ?>
-                                </div>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
-
-            <div class="unav-profile-wrap">
-                <div class="unav-profile-badge" onclick="toggleUnifiedProfileDropdown(event)">
-                    <div class="unav-avatar-box">
-                        <span><?= htmlspecialchars($currentUser['initials'] ?? 'US') ?></span>
-                        <span class="unav-online-dot"></span>
-                    </div>
-                    <div class="unav-user-info">
-                        <span class="unav-user-name"><?= htmlspecialchars($currentUser['name'] ?? 'User') ?></span>
-                        <span class="unav-user-role"><?= htmlspecialchars($currentUser['role'] ?? 'USER') ?></span>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Dropdown Menu (User Profile & Sign Out Only) -->
-                <div class="unav-dropdown-menu" id="unifiedProfileDropdown">
-                    <div class="unav-dropdown-header">
-                        <div class="unav-dropdown-name"><?= htmlspecialchars($currentUser['name'] ?? 'User') ?></div>
-                        <div class="unav-dropdown-email"><?= htmlspecialchars($currentUser['email'] ?? '') ?></div>
-                        <span class="unav-dropdown-role-pill"><?= htmlspecialchars($currentUser['role'] ?? 'USER') ?></span>
+                <div class="unav-profile-wrap">
+                    <div class="unav-profile-badge" onclick="toggleUnifiedProfileDropdown(event)">
+                        <div class="unav-avatar-box">
+                            <span><?= htmlspecialchars($currentUser['initials'] ?? 'US') ?></span>
+                            <span class="unav-online-dot"></span>
+                        </div>
+                        <div class="unav-user-info">
+                            <span class="unav-user-name"><?= htmlspecialchars($currentUser['name'] ?? 'User') ?></span>
+                            <span class="unav-user-role"><?= htmlspecialchars($currentUser['role'] ?? 'USER') ?></span>
+                        </div>
                     </div>
-                    <a href="<?= esc_url($unavLogoutUrl) ?>" class="unav-dropdown-link logout">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                        <span>Sign Out</span>
-                    </a>
+
+                    <!-- Dropdown Menu (User Profile & Sign Out Only) -->
+                    <div class="unav-dropdown-menu" id="unifiedProfileDropdown">
+                        <div class="unav-dropdown-header">
+                            <div class="unav-dropdown-name"><?= htmlspecialchars($currentUser['name'] ?? 'User') ?></div>
+                            <div class="unav-dropdown-email"><?= htmlspecialchars($currentUser['email'] ?? '') ?></div>
+                            <span class="unav-dropdown-role-pill"><?= htmlspecialchars($currentUser['role'] ?? 'USER') ?></span>
+                        </div>
+                        <a href="<?= esc_url($unavRoleDashboardUrl) ?>" class="unav-dropdown-link">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v7H3z"/><path d="M14 3h7v7h-7z"/><path d="M14 14h7v7h-7z"/><path d="M3 14h7v7H3z"/></svg>
+                            <span>Workspace Dashboard</span>
+                        </a>
+                        <a href="<?= esc_url($unavLogoutUrl) ?>" class="unav-dropdown-link logout">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                            <span>Sign Out</span>
+                        </a>
+                    </div>
                 </div>
-            </div>
+            <?php endif; ?>
         </div>
     </div>
 </header>

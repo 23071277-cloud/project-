@@ -1756,7 +1756,7 @@ foreach ($campaigns as $c) {
                 </aside>
 
                 <!-- Right Column: Campaigns Table -->
-                <section class="campaigns-card">
+                <section class="campaigns-card" id="campaigns-section">
                     <div class="campaigns-top-bar">
                         <div class="campaigns-heading-group">
                             <h2 class="campaigns-heading">Campaigns</h2>
@@ -1919,7 +1919,7 @@ foreach ($campaigns as $c) {
             </div>
 
             <!-- ================= 3. SECTION 4: REVIEW QUEUE ================= -->
-            <section class="queue-section">
+            <section class="queue-section" id="queue-section">
                 <div class="queue-top-gradient-bar"></div>
 
                 <div class="queue-header">
