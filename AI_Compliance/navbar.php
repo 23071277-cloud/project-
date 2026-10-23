@@ -86,11 +86,32 @@ if (empty($unavCurScript) || $unavCurScript === 'index.php') {
 
 // Determine if we are on Home page
 $unavIsHome = false;
-if (function_exists('is_front_page') && (is_front_page() || is_home())) {
+if (!empty($options['is_home']) || !empty($is_home) || !empty($isHome)) {
     $unavIsHome = true;
-} else {
+} elseif (function_exists('is_front_page') && (is_front_page() || is_home())) {
+    $unavIsHome = true;
+} elseif (function_exists('is_page') && is_page(['home', 'homepage', 'home-page'])) {
+    $unavIsHome = true;
+} elseif (function_exists('is_page_template') && (is_page_template('home-page.php') || is_page_template('page-home.php'))) {
+    $unavIsHome = true;
+} elseif (function_exists('get_queried_object')) {
+    $qObj = get_queried_object();
+    if ($qObj && isset($qObj->post_name) && in_array($qObj->post_name, ['home', 'homepage', 'home-page'], true)) {
+        $unavIsHome = true;
+    }
+}
+
+if (!$unavIsHome) {
     $unavReqUri = strtolower($_SERVER['REQUEST_URI'] ?? '');
-    if (strpos($unavReqUri, 'home') !== false || trim(parse_url($unavReqUri, PHP_URL_PATH), '/') === '' || $unavCurScript === 'home-page.php') {
+    $unavReqPath = trim(parse_url($unavReqUri, PHP_URL_PATH) ?: '', '/');
+    if (
+        $unavReqPath === '' || 
+        $unavReqPath === 'home' || 
+        $unavReqPath === 'homepage' || 
+        preg_match('#(^|/)home(/|$)#i', $unavReqPath) || 
+        $unavCurScript === 'home-page.php' || 
+        $unavCurScript === 'index.php'
+    ) {
         $unavIsHome = true;
     }
 }
@@ -111,7 +132,9 @@ if (empty($unavRole) || $unavRole === 'GUEST' || $unavRole === 'USER') {
 
 // Check if Guest / not logged in
 $unavIsGuest = (empty($currentUser['id']) || $unavRole === 'GUEST' || empty($unavUserId));
-$unavShowLoginBtn = ($unavIsGuest || ($unavIsHome && empty($unavUserId)));
+
+// If on Home page OR user is a guest, ALWAYS show the "Log in" button (never show bell or avatar)
+$unavShowLoginBtn = ($unavIsHome || $unavIsGuest);
 
 // Back to All Campaigns URL
 if (!isset($allCampaignsUrl) || empty($allCampaignsUrl)) {
@@ -127,7 +150,7 @@ $unavCampaignsBtnText = !empty($campaignsBtnText) ? $campaignsBtnText : 'All Cam
 
 // Logo URL Target: User request:
 // "Khi ấn vào cái logo ở các trang khác thì vẫn giữ là chuyển trang về trang dashboard hay gì đó, nhưng riêng cái logo ở trang login thì sẽ là ảnh tĩnh, không chuyển hướng sang trang nào hết"
-if ($unavIsHome && $unavIsGuest) {
+if ($unavIsHome) {
     $unavRoleDashboardUrl = $unavHomeUrl;
 } elseif ($unavRole === 'ADMIN') {
     $unavRoleDashboardUrl = function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php';
@@ -1052,10 +1075,6 @@ if ($unavIsHome) {
                             <div class="unav-dropdown-email"><?= htmlspecialchars($currentUser['email'] ?? '') ?></div>
                             <span class="unav-dropdown-role-pill"><?= htmlspecialchars($currentUser['role'] ?? 'USER') ?></span>
                         </div>
-                        <a href="<?= esc_url($unavRoleDashboardUrl) ?>" class="unav-dropdown-link">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v7H3z"/><path d="M14 3h7v7h-7z"/><path d="M14 14h7v7h-7z"/><path d="M3 14h7v7H3z"/></svg>
-                            <span>Workspace Dashboard</span>
-                        </a>
                         <a href="<?= esc_url($unavLogoutUrl) ?>" class="unav-dropdown-link logout">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                             <span>Sign Out</span>

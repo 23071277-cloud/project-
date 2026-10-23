@@ -614,8 +614,10 @@ if (function_exists('get_template_directory_uri')) {
     <!-- ================= 1. HEADER (100% UNIFIED TOP NAVBAR) ================= -->
     <?php 
     if (function_exists('pcs_render_top_navbar')) {
-        pcs_render_top_navbar();
+        pcs_render_top_navbar(['is_home' => true]);
     } else {
+        $is_home = true;
+        $unavIsHome = true;
         @include __DIR__ . '/inc/navbar.php';
     }
     ?>
