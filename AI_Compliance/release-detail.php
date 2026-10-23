@@ -759,8 +759,6 @@ $compareScreenUrl = $data['campaign_id'] ? add_query_arg([
 </head>
 <body>
 
-<div class="ReleaseDetailFinalAuditMaker">
-
     <!-- 1. UNIFIED TOP NAVBAR -->
     <?php
     if (function_exists('pcs_render_top_navbar')) {
@@ -772,6 +770,8 @@ $compareScreenUrl = $data['campaign_id'] ? add_query_arg([
         ]);
     }
     ?>
+
+<div class="ReleaseDetailFinalAuditMaker">
 
     <!-- 2. RBAC CHECK (Admin + Maker allowed) -->
     <?php if (!$isAllowed): ?>

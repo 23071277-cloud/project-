@@ -151,14 +151,14 @@ $compareScreenUrl = $data['campaign_id'] ? add_query_arg([
 
         .FinalReviewAdmin {
             width: 100%;
-            max-width: 1300px;
+            max-width: 1400px;
             margin: 0 auto;
             background: linear-gradient(0deg, #FAF8FF 0%, #FAF8FF 100%), white;
             flex-direction: column;
             justify-content: flex-start;
             align-items: stretch;
             display: flex;
-            min-height: 100vh;
+            min-height: calc(100vh - 72px);
         }
 
         /* Top Lavender Header */
@@ -767,8 +767,6 @@ $compareScreenUrl = $data['campaign_id'] ? add_query_arg([
 </head>
 <body>
 
-<div data-layer="final review - admin" class="FinalReviewAdmin">
-
     <!-- 1. TOP NAVBAR (UNIFIED ACROSS ALL SCREENS) -->
     <?php
     if (function_exists('pcs_render_top_navbar')) {
@@ -779,6 +777,8 @@ $compareScreenUrl = $data['campaign_id'] ? add_query_arg([
         ]);
     }
     ?>
+
+<div data-layer="final review - admin" class="FinalReviewAdmin">
 
     <!-- 2. SECTION - TOP BANNER / COMPACT LAVENDER PAGE HEADER -->
     <header data-layer="Section - Top Banner / Compact Lavender Page Header" class="header-banner">

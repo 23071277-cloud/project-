@@ -817,17 +817,15 @@ $returnLabel  = $data['return_label'] ?? 'Return to Workspace';
 <body>
 
     <!-- ================= 1. UNIFIED TOP NAVBAR ================= -->
-    <div class="top-navbar-wrapper">
-        <?php
-        if (function_exists('pcs_render_top_navbar')) {
-            pcs_render_top_navbar([
-                'user'              => $currentUser,
-                'all_campaigns_url' => $returnUrl,
-                'btn_text'          => $returnLabel
-            ]);
-        }
-        ?>
-    </div>
+    <?php
+    if (function_exists('pcs_render_top_navbar')) {
+        pcs_render_top_navbar([
+            'user'              => $currentUser,
+            'all_campaigns_url' => $returnUrl,
+            'btn_text'          => $returnLabel
+        ]);
+    }
+    ?>
 
     <!-- ================= 2. MAIN COMPARE WRAPPER ================= -->
     <div class="compare-page-wrapper">

@@ -150,9 +150,9 @@ $allActivityUrl  = '?' . http_build_query(array_merge($_GET, ['mode' => 'all']))
         /* ================= MAIN CONTAINER ================= */
         .main-viewport {
             width: 100%;
-            max-width: 1300px;
+            max-width: 1400px;
             margin: 0 auto;
-            padding: 24px 24px 60px 24px;
+            padding: 24px 28px 60px 28px;
             display: flex;
             flex-direction: column;
             gap: 16px;
@@ -1174,17 +1174,15 @@ $allActivityUrl  = '?' . http_build_query(array_merge($_GET, ['mode' => 'all']))
 <body>
 
     <!-- ================= 1. UNIFIED TOP NAVBAR ================= -->
-    <div class="top-navbar-wrapper">
-        <?php
-        if (function_exists('pcs_render_top_navbar')) {
-            pcs_render_top_navbar([
-                'user'               => $currentUser,
-                'all_campaigns_url'  => $returnUrl,
-                'btn_text'           => $returnLabel
-            ]);
-        }
-        ?>
-    </div>
+    <?php
+    if (function_exists('pcs_render_top_navbar')) {
+        pcs_render_top_navbar([
+            'user'               => $currentUser,
+            'all_campaigns_url'  => $returnUrl,
+            'btn_text'           => $returnLabel
+        ]);
+    }
+    ?>
 
     <?php if (!$isAllowed): ?>
         <!-- ================= RBAC ACCESS DENIED SCREEN ================= -->

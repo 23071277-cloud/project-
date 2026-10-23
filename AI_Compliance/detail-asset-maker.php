@@ -1202,14 +1202,14 @@ $nextVersionNum = $currentVersionNum + 1;
 </head>
 <body>
 
-<div class="DetailAssetMaker">
-
     <!-- 1. TOP NAVIGATION BAR (UNIFIED) -->
     <?php 
     if (function_exists('pcs_render_top_navbar')) {
         pcs_render_top_navbar($currentUser, 'campaigns');
     }
     ?>
+
+<div class="DetailAssetMaker">
 
     <!-- 2. ACCESS RESTRICTION NOTICE (IF ROLE IS UNAUTHORIZED) -->
     <?php if (!$isAllowed): ?>

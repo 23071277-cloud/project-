@@ -1918,8 +1918,6 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
 </head>
 <body>
 
-<div class="detail-asset-checker">
-
     <!-- ================= 1. HEADER (100% UNIFIED TOP NAVBAR) ================= -->
     <?php 
     if (function_exists('pcs_render_top_navbar')) {
@@ -1932,6 +1930,8 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
         @include __DIR__ . '/inc/navbar.php';
     }
     ?>
+
+<div class="detail-asset-checker">
 
     <!-- ================= 2. MAIN CONTAINER ================= -->
     <div class="main">

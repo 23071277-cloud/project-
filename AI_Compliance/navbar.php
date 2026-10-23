@@ -68,12 +68,23 @@ $unavUnreadCount = $unavUnreadLoaded;
 $unavReadCount = max(0, $unavTotalCount - $unavUnreadCount);
 
 // Logo URL
-$unavLogoUrl = 'images/logo.png?v=2';
+$unavLogoUrl = 'images/logo.png?v=3';
 if (function_exists('get_template_directory_uri')) {
-    $unavLogoUrl = get_template_directory_uri() . '/images/logo.png?v=2';
+    $unavLogoUrl = get_template_directory_uri() . '/images/logo.png?v=3';
 } elseif (function_exists('get_stylesheet_directory_uri')) {
-    $unavLogoUrl = get_stylesheet_directory_uri() . '/images/logo.png?v=2';
+    $unavLogoUrl = get_stylesheet_directory_uri() . '/images/logo.png?v=3';
 }
+
+// Inline Base64 Data URI for Instant Zero-Delay Rendering (0ms latency, zero HTTP requests)
+$unavLogoDataUri = '';
+$unavLogoFsPath = __DIR__ . '/images/logo.png';
+if (file_exists($unavLogoFsPath)) {
+    $rawLogo = @file_get_contents($unavLogoFsPath);
+    if (!empty($rawLogo)) {
+        $unavLogoDataUri = 'data:image/png;base64,' . base64_encode($rawLogo);
+    }
+}
+$unavFinalLogoSrc = !empty($unavLogoDataUri) ? $unavLogoDataUri : $unavLogoUrl;
 
 // Home URL
 $unavHomeUrl = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-page.php';
@@ -920,7 +931,7 @@ if ($unavIsHome) {
         <!-- 1. Left: Logo -->
         <div class="unav-left">
             <a href="<?= esc_url($unavRoleDashboardUrl) ?>" class="unav-logo-link" title="<?= esc_attr($unavRole === 'GUEST' ? 'Brand Compliance' : 'Dashboard') ?>">
-                <img src="<?= esc_url($unavLogoUrl) ?>" alt="BrandCompliance Logo" class="unav-logo-img">
+                <img src="<?= $unavFinalLogoSrc ?>" alt="BrandCompliance Logo" class="unav-logo-img" loading="eager" fetchpriority="high" decoding="sync">
             </a>
         </div>
 
@@ -936,7 +947,7 @@ if ($unavIsHome) {
                 <a href="<?= esc_url($unavHomeUrl) ?>#about" class="unav-nav-item">About</a>
             <?php elseif ($unavRole === 'ADMIN'): ?>
                 <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php') ?>" class="unav-nav-item <?= ($unavCurScript === 'admin-dashboard.php' && strpos($_SERVER['REQUEST_URI'] ?? '', '#') === false) ? 'active' : '' ?>">Dashboard</a>
-                <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php') . '#campaigns-section') ?>" class="unav-nav-item <?= ($unavCurScript === 'detail-asset-admin.php') ? 'active' : '' ?>">Campaign</a>
+                <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php') . '#campaigns-section') ?>" class="unav-nav-item <?= ($unavCurScript === 'detail-asset-admin.php') ? 'active' : '' ?>" onclick="handleAdminCampaignsNavClick(event, this)">Campaigns</a>
                 <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('approval-queue-admin.php') : 'approval-queue-admin.php') ?>" class="unav-nav-item <?= in_array($unavCurScript, ['approval-queue-admin.php', 'final-review-admin.php', 'release-detail.php'], true) ? 'active' : '' ?>">Final Approval</a>
                 <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('audit-log.php') : 'audit-log.php') ?>" class="unav-nav-item <?= ($unavCurScript === 'audit-log.php') ? 'active' : '' ?>">Audit History</a>
             <?php elseif ($unavRole === 'CHECKER'): ?>
@@ -1351,6 +1362,25 @@ if (window.history && window.history.replaceState && window.location.search.inde
         });
         window.history.replaceState({}, document.title, cleanUrl);
     } catch(e) {}
+}
+
+// Admin Campaigns Navigation Handler: Expand to Full Width and scroll down
+function handleAdminCampaignsNavClick(e, link) {
+    var campSec = document.getElementById('campaigns-section');
+    if (campSec) {
+        if (e) e.preventDefault();
+        if (typeof toggleCampaignsExpansion === 'function') {
+            toggleCampaignsExpansion(true);
+        } else {
+            campSec.classList.add('campaigns-expanded');
+            var btnText = document.getElementById('btnToggleCampaignsText');
+            if (btnText) btnText.textContent = 'Split View';
+        }
+        campSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        try {
+            window.history.pushState(null, '', '#campaigns-section');
+        } catch(err) {}
+    }
 }
 
 window.addEventListener('click', function(e) {

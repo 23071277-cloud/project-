@@ -3450,6 +3450,27 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                 m.classList.remove('active');
             }
         }
+
+        // Auto expand Campaigns to Full Width when entering via #campaigns-section
+        function checkCampaignsHashAndExpand() {
+            var h = window.location.hash;
+            if (h === '#campaigns-section' || h === '#campaigns') {
+                setTimeout(function() {
+                    if (typeof toggleCampaignsExpansion === 'function') {
+                        toggleCampaignsExpansion(true);
+                    }
+                    var camp = document.getElementById('campaigns-section');
+                    if (camp) {
+                        camp.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }, 100);
+            }
+        }
+        window.addEventListener('load', checkCampaignsHashAndExpand);
+        window.addEventListener('hashchange', checkCampaignsHashAndExpand);
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            checkCampaignsHashAndExpand();
+        }
     </script>
 </body>
 </html>

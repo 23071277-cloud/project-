@@ -1196,8 +1196,6 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
 </head>
 <body>
 
-<div class="detail-asset-admin">
-
     <!-- ================= 1. HEADER (100% UNIFIED TOP NAVBAR) ================= -->
     <?php 
     if (function_exists('pcs_render_top_navbar')) {
@@ -1210,6 +1208,8 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
         @include __DIR__ . '/navbar.php';
     }
     ?>
+
+<div class="detail-asset-admin">
 
     <?php if (!$isAllowed): ?>
         <!-- RBAC ACCESS DENIED VIEW -->

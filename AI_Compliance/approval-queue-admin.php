@@ -142,20 +142,20 @@ sort($uniqueCheckers);
 
         .ApprovalQueueAdmin {
             width: 100%;
-            max-width: 1300px;
+            max-width: 1400px;
             margin: 0 auto;
             background: linear-gradient(0deg, #FAF8FF 0%, #FAF8FF 100%), white;
             flex-direction: column;
             justify-content: flex-start;
             align-items: stretch;
             display: flex;
-            min-height: 100vh;
+            min-height: calc(100vh - 72px);
         }
 
         .main-viewport {
             align-self: stretch;
             min-height: 800px;
-            padding: 24px 32px 48px;
+            padding: 24px 28px 48px;
             background: #FAF8FF;
             flex-direction: column;
             justify-content: flex-start;
@@ -1001,8 +1001,6 @@ sort($uniqueCheckers);
 </head>
 <body>
 
-<div data-layer="approval queue - admin" class="ApprovalQueueAdmin">
-
     <!-- 1. TOP NAVBAR (UNIFIED ACROSS ALL SCREENS) -->
     <?php
     if (function_exists('pcs_render_top_navbar')) {
@@ -1013,6 +1011,8 @@ sort($uniqueCheckers);
         ]);
     }
     ?>
+
+<div data-layer="approval queue - admin" class="ApprovalQueueAdmin">
 
     <!-- 2. MAIN VIEWPORT CONTENT -->
     <main data-layer="Main" class="main-viewport">

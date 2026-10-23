@@ -1287,18 +1287,11 @@ $versionStatus = $version['status'] ?? 'scoring';
 <body>
 
     <!-- 1. TOP NAVBAR (Shared Unified Component) -->
-    <header class="wp-navbar-wrapper">
-        <?php 
-        if (function_exists('pcs_render_top_navbar')) {
-            echo pcs_render_top_navbar($currentUser, 'campaigns');
-        } else {
-        ?>
-            <div style="padding: 16px 32px; display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-weight: 700; color: #1F2674;">BrandCompliance AI</span>
-                <span style="font-size: 13px; color: #464651;"><?= esc_html($currentUser['name'] ?? 'Maker') ?></span>
-            </div>
-        <?php } ?>
-    </header>
+    <?php 
+    if (function_exists('pcs_render_top_navbar')) {
+        pcs_render_top_navbar($currentUser, 'campaigns');
+    }
+    ?>
 
     <!-- RBAC Guard Notice if Unauthorized -->
     <?php if (!$isAllowed): ?>

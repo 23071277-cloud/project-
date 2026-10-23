@@ -768,14 +768,14 @@ $selAssetType = $selectedAsset['format'] ?? 'Digital Ad';
 </head>
 <body>
 
-<div class="BrandComplianceAiSmartMakerUploadWorkspaceRefined">
-
     <!-- 1. TOP NAVIGATION BAR (UNIFIED) -->
     <?php 
     if (function_exists('pcs_render_top_navbar')) {
         pcs_render_top_navbar($currentUser, 'campaigns');
     }
     ?>
+
+<div class="BrandComplianceAiSmartMakerUploadWorkspaceRefined">
 
     <!-- 2. ACCESS RESTRICTION NOTICE (IF ROLE IS UNAUTHORIZED) -->
     <?php if (!$isAllowed): ?>
