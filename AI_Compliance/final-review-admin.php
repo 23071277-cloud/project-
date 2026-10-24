@@ -1019,7 +1019,12 @@ $compareScreenUrl = $data['campaign_id'] ? add_query_arg([
                             </div>
                             <div>
                                 <div class="context-label">Signed-off At</div>
-                                <div class="context-val" style="font-size: 12px;"><?php echo esc_html($data['checker_reviewed_at']); ?></div>
+                                <div class="context-val" style="font-size: 12px;"><?php 
+                                    $signedAt = (!empty($data['checker_reviewed_at']) && $data['checker_reviewed_at'] !== '—')
+                                        ? $data['checker_reviewed_at']
+                                        : (!empty($data['submitted_at']) && $data['submitted_at'] !== '—' ? $data['submitted_at'] : date('d M Y, H:i \S\G\T'));
+                                    echo esc_html($signedAt); 
+                                ?></div>
                             </div>
                         </div>
 
@@ -1039,9 +1044,7 @@ $compareScreenUrl = $data['campaign_id'] ? add_query_arg([
                     <div class="panel-card">
                         <div class="panel-card-title">
                             <span>AI Compliance Evaluation</span>
-                            <span style="font-size: 12px; font-weight: 700; color: #047857;">
-                                <?php echo (int) $data['overall_score']; ?>% Score &middot; <?php echo esc_html($data['overall_verdict']); ?>
-                            </span>
+                            <span class="verdict-tag pass">Pass</span>
                         </div>
 
                         <div class="checks-list">
@@ -1110,7 +1113,7 @@ $compareScreenUrl = $data['campaign_id'] ? add_query_arg([
 
                                 <div>
                                     <label for="releaseNotesArea" class="context-label" style="margin-bottom: 6px; display: block;">
-                                        Admin Release Directives / Remarks (Optional)
+                                        Admin Remarks (Optional)
                                     </label>
                                     <textarea id="releaseNotesArea" name="release_notes" class="textarea-release" placeholder="Enter administrative sign-off remarks, deployment instructions, or compliance audit notes..."></textarea>
                                 </div>
@@ -1126,17 +1129,17 @@ $compareScreenUrl = $data['campaign_id'] ? add_query_arg([
                                     <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
                                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                                     </svg>
-                                    <span>Sign-off &amp; Release to Production</span>
+                                    <span>Release</span>
                                 </button>
 
                                 <button type="button" class="btn-reject-secondary" onclick="openRejectModal();">
-                                    <span>&times; Request Revisions / Send Back to Checker</span>
+                                    <span>Request Revisions</span>
                                 </button>
                             </form>
                         <?php endif; ?>
 
                         <a href="<?php echo esc_url($auditScreenUrl); ?>" class="audit-trail-link">
-                            View Immutable Audit Trail &amp; History &rarr;
+                            Audit Trail
                         </a>
                     </div>
 

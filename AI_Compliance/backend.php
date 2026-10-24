@@ -3474,10 +3474,12 @@ function handle_checker_decision($version_id, $decision, $review_note = '') {
             $review_note = 'Changes requested: AI compliance check indicates branding or disclosure rules need revision before approval.';
         }
 
+        $reviewed_now = function_exists('current_time') ? current_time('mysql') : date('Y-m-d H:i:s');
         if (function_exists('pcs_server_meta')) {
             pcs_server_meta($version_id, '_status', $decision);
             pcs_server_meta($version_id, '_review_note', sanitize_text_field($review_note));
             pcs_server_meta($version_id, '_reviewed_by', $checker_id);
+            pcs_server_meta($version_id, '_reviewed_at', $reviewed_now);
             if ($asset_id) {
                 pcs_server_meta($asset_id, '_current_version_id', $version_id);
             }
@@ -3485,6 +3487,7 @@ function handle_checker_decision($version_id, $decision, $review_note = '') {
             update_post_meta($version_id, '_status', $decision);
             update_post_meta($version_id, '_review_note', sanitize_text_field($review_note));
             update_post_meta($version_id, '_reviewed_by', $checker_id);
+            update_post_meta($version_id, '_reviewed_at', $reviewed_now);
             if ($asset_id) {
                 update_post_meta($asset_id, '_current_version_id', $version_id);
             }
@@ -4861,6 +4864,26 @@ function get_admin_final_review_data($target_version_id = 0, $target_asset_id = 
             $checker_initials = strtoupper(substr($parts[0], 0, 1) . substr(end($parts), 0, 1));
         } elseif (!empty($parts)) {
             $checker_initials = strtoupper(substr($parts[0], 0, 2));
+        }
+    }
+    if (!$reviewed_at) {
+        $approved_log = get_posts([
+            'post_type'      => 'compliance_audit',
+            'post_status'    => ['publish', 'any'],
+            'posts_per_page' => 1,
+            'orderby'        => 'ID',
+            'order'          => 'DESC',
+            'meta_query'     => [
+                ['key' => '_version_id', 'value' => (string) $vid],
+                ['key' => '_action', 'value' => 'approved']
+            ]
+        ]);
+        if (!empty($approved_log)) {
+            $reviewed_at = $approved_log[0]->post_date;
+        } elseif (!empty($ver_post->post_modified) && $ver_post->post_modified !== '0000-00-00 00:00:00' && $ver_post->post_modified !== $ver_post->post_date) {
+            $reviewed_at = $ver_post->post_modified;
+        } elseif (!empty($ver_post->post_date)) {
+            $reviewed_at = $ver_post->post_date;
         }
     }
     $checker_reviewed_at = $reviewed_at ? date('d M Y, H:i \S\G\T', strtotime($reviewed_at)) : '—';
@@ -6681,6 +6704,26 @@ function get_release_detail_screen_data($target_version_id = 0, $target_asset_id
             $checker_initials = strtoupper(substr($parts[0], 0, 1) . substr(end($parts), 0, 1));
         } elseif (!empty($parts)) {
             $checker_initials = strtoupper(substr($parts[0], 0, 2));
+        }
+    }
+    if (!$reviewed_at) {
+        $approved_log = get_posts([
+            'post_type'      => 'compliance_audit',
+            'post_status'    => ['publish', 'any'],
+            'posts_per_page' => 1,
+            'orderby'        => 'ID',
+            'order'          => 'DESC',
+            'meta_query'     => [
+                ['key' => '_version_id', 'value' => (string) $vid],
+                ['key' => '_action', 'value' => 'approved']
+            ]
+        ]);
+        if (!empty($approved_log)) {
+            $reviewed_at = $approved_log[0]->post_date;
+        } elseif (!empty($ver_post->post_modified) && $ver_post->post_modified !== '0000-00-00 00:00:00' && $ver_post->post_modified !== $ver_post->post_date) {
+            $reviewed_at = $ver_post->post_modified;
+        } elseif (!empty($ver_post->post_date)) {
+            $reviewed_at = $ver_post->post_date;
         }
     }
     $checker_reviewed_at = $reviewed_at ? date('d M Y, H:i \S\G\T', strtotime($reviewed_at)) : '—';
