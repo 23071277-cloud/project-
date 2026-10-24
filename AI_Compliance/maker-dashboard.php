@@ -1531,7 +1531,6 @@ unset($camp);
                 <p class="attention-notice"><?= count($comingUpList) > 0 ? count($comingUpList) . ' items need your attention.' : 'All items are up to date.' ?></p>
             </div>
             <div class="hero-action-buttons">
-                <a href="<?= esc_url(pcs_url('detail-asset-maker.php')) ?>" class="btn-secondary" style="display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">View All Assets</a>
                 <a href="<?= esc_url(pcs_url('smart-maker-upload.php')) ?>" class="btn-primary" style="display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">Upload Asset</a>
             </div>
         </section>
