@@ -95,6 +95,7 @@ $activities      = $detailData['activities'] ?? [];
 
 $checkerDashUrl = function_exists('pcs_url') ? pcs_url('checker-dashboard.php') : 'checker-dashboard.php';
 $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-page.php';
+$aiScoringResultUrl = function_exists('pcs_url') ? pcs_url('ai-scoring-result.php') : (function_exists('home_url') ? home_url('/ai-scoring-result.php') : 'ai-scoring-result.php');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -836,10 +837,10 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
             flex-direction: row !important;
             max-width: none !important;
             align-items: center;
+            justify-content: flex-end;
             gap: 12px;
             position: relative;
-            flex: 1;
-            flex-grow: 1;
+            margin-left: auto;
             flex-wrap: wrap;
         }
 
@@ -937,7 +938,7 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
         .detail-asset-checker .section-ASSETS {
             display: flex;
             flex-direction: column;
-            align-items: flex-start;
+            align-items: stretch;
             position: relative;
             align-self: stretch;
             width: 100%;
@@ -1083,12 +1084,18 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
         /* TABLE GRID - 6 COLUMNS: ASSET (flexible), VERSION, AI ASSESSMENT, STATUS, SUBMITTED, ACTION */
         .detail-asset-checker .table-header {
             display: grid;
-            grid-template-columns: minmax(260px, 3.2fr) 95px 145px 135px 145px 165px;
+            grid-template-columns: minmax(180px, 2.2fr) 85px 145px 135px 145px 175px;
             align-items: center;
             padding: 12px 24px;
             background-color: #f3f2ff;
             border-bottom: 1px solid #E2E8F0;
             gap: 12px;
+            width: 100%;
+            align-self: stretch;
+            box-sizing: border-box;
+            position: sticky;
+            top: 0;
+            z-index: 5;
         }
 
         .detail-asset-checker .text-17 {
@@ -1111,16 +1118,41 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
         /* ROW TYPES */
         .detail-asset-checker .asset-table-row {
             display: grid;
-            grid-template-columns: minmax(260px, 3.2fr) 95px 145px 135px 145px 165px;
+            grid-template-columns: minmax(180px, 2.2fr) 85px 145px 135px 145px 175px;
             align-items: center;
             padding: 14px 24px;
             border-bottom: 1px solid #F1F5F9;
             transition: background-color 0.15s;
             cursor: pointer;
             gap: 12px;
+            width: 100%;
+            align-self: stretch;
+            box-sizing: border-box;
         }
         .detail-asset-checker .asset-table-row:hover {
             background-color: #F8FAFC;
+        }
+
+        #assetsTableBody {
+            width: 100%;
+            align-self: stretch;
+            box-sizing: border-box;
+            max-height: 460px;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        #assetsTableBody::-webkit-scrollbar {
+            width: 6px;
+        }
+        #assetsTableBody::-webkit-scrollbar-track {
+            background: #F8FAFC;
+        }
+        #assetsTableBody::-webkit-scrollbar-thumb {
+            background: #CBD5E1;
+            border-radius: 4px;
+        }
+        #assetsTableBody::-webkit-scrollbar-thumb:hover {
+            background: #94A3B8;
         }
 
         .detail-asset-checker .asset-table-row.row-selected {
@@ -1356,11 +1388,12 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
             align-items: center;
             justify-content: center;
             gap: 8px;
+            width: 100%;
         }
 
         .btn-table-edit {
-            width: 30px;
-            height: 30px;
+            width: 32px;
+            height: 32px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -1380,15 +1413,28 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
             transform: translateY(-1px);
         }
 
-        .btn-table-review {
-            padding: 6px 14px;
-            background-color: #1f2674;
-            color: #ffffff;
+        .table-action-cell .btn-table-review,
+        .table-action-cell .btn-table-view {
+            width: 76px;
+            height: 32px;
+            box-sizing: border-box;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
             font-size: 13px;
             font-weight: 700;
             border-radius: 6px;
+            text-align: center;
+            text-decoration: none;
+            flex-shrink: 0;
             box-shadow: 0px 1px 2px rgba(0,0,0,0.08);
             transition: all 0.15s;
+        }
+
+        .btn-table-review {
+            background-color: #1f2674;
+            color: #ffffff;
         }
         .btn-table-review:hover {
             background-color: #2D348E;
@@ -1396,27 +1442,34 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
         }
 
         .btn-table-view {
-            padding: 6px 14px;
             background-color: #ebedff;
             color: #161b2e;
-            font-size: 13px;
             font-weight: 600;
-            border-radius: 6px;
-            transition: all 0.15s;
         }
         .btn-table-view:hover {
             background-color: #DDE0FF;
         }
 
         .btn-table-diff {
+            width: 42px;
+            height: 32px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
             font-size: 13px;
             font-weight: 600;
             color: #4f57a7;
-            padding: 6px 8px;
+            flex-shrink: 0;
+            background: none;
+            border: none;
+            cursor: pointer;
             transition: color 0.15s;
         }
         .btn-table-diff:hover {
             color: #1F2674;
+            text-decoration: underline;
+        }
             text-decoration: underline;
         }
 
@@ -2020,9 +2073,9 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
                             <div class="text-4">Deadline: <?= htmlspecialchars($deadline) ?></div>
                         </div>
                         <div class="text-3">•</div>
-                        <div class="background-2">
+                        <div class="background-2" title="Campaign Priority">
                             <div class="background-3"></div>
-                            <div class="text-5"><?= htmlspecialchars($priority) ?></div>
+                            <div class="text-5"><?= htmlspecialchars($priority) ?> Priority</div>
                         </div>
                     </div>
                 </div>
@@ -2055,7 +2108,7 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
                     }
                     ?>
                     <button class="button-2" onclick="openReviewModal(<?= htmlspecialchars(json_encode($nextReviewAsset)) ?>)">
-                        <div class="container-7"><div class="text-7">Open Next Review</div></div>
+                        <div class="container-7"><div class="text-7">Review AI Result</div></div>
                         <div class="container-7">
                             <svg class="icon-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                                 <path d="M5 12h14M12 5l7 7-7 7"/>
@@ -2074,7 +2127,7 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
                         <div class="text-10">assets reviewed (<?= $percent ?>%)</div>
                     </div>
                 </div>
-                <div class="container-9" style="display: flex; flex-direction: row; gap: 12px; align-items: center; width: auto; flex-wrap: wrap;">
+                <div class="container-9" style="display: flex; flex-direction: row; gap: 12px; align-items: center; justify-content: flex-end; margin-left: auto; width: auto; flex-wrap: wrap;">
                     <div class="container-6" style="padding: 6px 14px; background: rgba(59, 130, 246, 0.08); border-radius: 6px; border: 1px solid rgba(59, 130, 246, 0.2); display: flex; align-items: center; gap: 8px;">
                         <span style="width: 8px; height: 8px; border-radius: 50%; background: #3B82F6; display: inline-block;"></span>
                         <div class="text-12" style="font-weight: 600; color: #1D4ED8; font-size: 13px;"><?= $inReviewCount ?> In Review</div>
@@ -2213,10 +2266,14 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
                                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                                         </svg>
                                     </button>
+                                    <?php 
+                                    $sep = (strpos($aiScoringResultUrl, '?') !== false) ? '&' : '?';
+                                    $rowReviewUrl = esc_url($aiScoringResultUrl . $sep . 'version_id=' . (int)($ast['current_version_id'] ?? 0) . '&asset_id=' . (int)$ast['id'] . '&campaign_id=' . (int)$campId);
+                                    ?>
                                     <?php if ($ast['status'] === 'in_review'): ?>
-                                        <a href="ai-scoring-result.php?version_id=<?= (int)($ast['current_version_id'] ?? 0) ?>&asset_id=<?= (int)$ast['id'] ?>&campaign_id=<?= (int)$campId ?>" class="btn-table-review" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">Review</a>
+                                        <a href="<?= $rowReviewUrl ?>" class="btn-table-review">Review</a>
                                     <?php else: ?>
-                                        <a href="ai-scoring-result.php?version_id=<?= (int)($ast['current_version_id'] ?? 0) ?>&asset_id=<?= (int)$ast['id'] ?>&campaign_id=<?= (int)$campId ?>" class="btn-table-view" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">View</a>
+                                        <a href="<?= $rowReviewUrl ?>" class="btn-table-view">View</a>
                                     <?php endif; ?>
                                     <button type="button" class="btn-table-diff" onclick="event.stopPropagation(); openDiffModal(<?= htmlspecialchars(json_encode($ast)) ?>)">Diff</button>
                                 </div>
@@ -2350,7 +2407,7 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
 
                         <div style="width: 100%;">
                             <button class="button-10" onclick="openReviewModal(<?= htmlspecialchars(json_encode($selectedAsset)) ?>)">
-                                <span>Open Review</span>
+                                <span>Review AI Result</span>
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                                     <path d="M5 12h14M12 5l7 7-7 7"/>
                                 </svg>
@@ -2651,12 +2708,14 @@ function filterAssetsText(query) {
     });
 }
 
+const aiScoringBaseUrl = '<?= esc_url($aiScoringResultUrl) ?>';
 function openReviewModal(asset) {
     if (!asset) return;
     const vId = asset.current_version_id || asset.version_id || 0;
     const aId = asset.id || asset.asset_id || 0;
     const cId = asset.campaign_id || <?= (int)$campId ?>;
-    window.location.href = 'ai-scoring-result.php?version_id=' + vId + '&asset_id=' + aId + (cId ? '&campaign_id=' + cId : '');
+    const sep = aiScoringBaseUrl.includes('?') ? '&' : '?';
+    window.location.href = aiScoringBaseUrl + sep + 'version_id=' + vId + '&asset_id=' + aId + (cId ? '&campaign_id=' + cId : '');
 }
 
 function closeReviewModal() {

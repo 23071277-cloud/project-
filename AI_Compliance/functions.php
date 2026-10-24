@@ -102,9 +102,22 @@ function ai_compliance_init_session() {
     }
 }
 
-// 4. Template Filter: Tự động điều hướng các trang 404 hoặc access-denied sang template chuẩn access-denied.php
+// 4. Template Filter: Tự động điều hướng và router thông minh cho các trang hệ thống
 add_filter('template_include', 'ai_compliance_template_router');
 function ai_compliance_template_router($template) {
+    $req_uri = strtolower($_SERVER['REQUEST_URI'] ?? '');
+
+    // Nếu request chứa ai-scoring-result (kể cả lồng dưới checker-dashboard), phục vụ trực tiếp ai-scoring-result.php
+    if (strpos($req_uri, 'ai-scoring-result') !== false) {
+        $scoring_file = get_template_directory() . '/ai-scoring-result.php';
+        if (!file_exists($scoring_file)) {
+            $scoring_file = __DIR__ . '/ai-scoring-result.php';
+        }
+        if (file_exists($scoring_file)) {
+            return $scoring_file;
+        }
+    }
+
     $denied_file = get_template_directory() . '/access-denied.php';
     if (!file_exists($denied_file)) {
         $denied_file = __DIR__ . '/access-denied.php';
@@ -114,7 +127,6 @@ function ai_compliance_template_router($template) {
         return $denied_file;
     }
 
-    $req_uri = strtolower($_SERVER['REQUEST_URI'] ?? '');
     if ((strpos($req_uri, 'access-denied') !== false || strpos($req_uri, '403') !== false || strpos($req_uri, 'unauthorized') !== false) && file_exists($denied_file)) {
         return $denied_file;
     }

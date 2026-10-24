@@ -20,6 +20,14 @@ if (file_exists(__DIR__ . '/backend.php')) {
     require_once get_template_directory() . '/inc/backend.php';
 }
 
+// 1.0 TỰ ĐỘNG CHUYỂN SANG AI SCORING RESULT NẾU REQUEST CHỨA AI-SCORING-RESULT
+if (strpos($_SERVER['REQUEST_URI'] ?? '', 'ai-scoring-result') !== false) {
+    if (file_exists(__DIR__ . '/ai-scoring-result.php')) {
+        include __DIR__ . '/ai-scoring-result.php';
+        exit;
+    }
+}
+
 // 1.1 TỰ ĐỘNG CHUYỂN SANG DETAIL ASSET VIEW NẾU CÓ PARAM CAMPAIGN_ID HOẶC VIEW=DETAIL
 if (isset($_GET['campaign_id']) || (isset($_GET['view']) && $_GET['view'] === 'detail')) {
     if (file_exists(__DIR__ . '/detail-asset-checker.php')) {
@@ -1740,7 +1748,7 @@ foreach ($campaigns as $c) {
                                     <div class="pending-footer">
                                         <span class="pending-time"><?= htmlspecialchars($p['submitted']) ?></span>
                                         <button class="pending-action-btn" onclick="openReviewModal(<?= htmlspecialchars(json_encode($p)) ?>)">
-                                            <span>Open Review</span>
+                                            <span>Review AI Result</span>
                                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                                         </button>
                                     </div>
@@ -1888,7 +1896,7 @@ foreach ($campaigns as $c) {
                                                                         </td>
                                                                         <td style="text-align: center;">
                                                                             <button class="btn-table-open-review" onclick="openReviewModalFromAsset(<?= htmlspecialchars(json_encode($asset)) ?>, <?= htmlspecialchars(json_encode($camp['name'])) ?>)">
-                                                                                Open Review
+                                                                                Review AI Result
                                                                             </button>
                                                                         </td>
                                                                     </tr>
@@ -2005,7 +2013,7 @@ foreach ($campaigns as $c) {
                                         </td>
                                         <td style="text-align: center;">
                                             <button class="btn-open-review-primary" style="margin: 0 auto;" onclick="openReviewModal(<?= htmlspecialchars(json_encode($item)) ?>)">
-                                                <span>Open Review</span>
+                                                <span>Review AI Result</span>
                                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                                             </button>
                                         </td>
@@ -2163,13 +2171,15 @@ foreach ($campaigns as $c) {
 
         // 5. Direct Review Navigation to AI Scoring Result
         const reviewModal = document.getElementById('reviewModal');
+        const aiScoringBaseUrl = '<?= esc_url(function_exists('pcs_url') ? pcs_url('ai-scoring-result.php') : home_url('/ai-scoring-result.php')) ?>';
 
         function openReviewModal(item) {
             if (!item) return;
             const vId = item.version_id || item.current_version_id || 0;
             const aId = item.asset_id || item.id || 0;
             const cId = item.campaign_id || 0;
-            window.location.href = 'ai-scoring-result.php?version_id=' + vId + '&asset_id=' + aId + (cId ? '&campaign_id=' + cId : '');
+            const sep = aiScoringBaseUrl.includes('?') ? '&' : '?';
+            window.location.href = aiScoringBaseUrl + sep + 'version_id=' + vId + '&asset_id=' + aId + (cId ? '&campaign_id=' + cId : '');
         }
 
         function openReviewModalFromAsset(asset, campaignName) {
@@ -2177,7 +2187,8 @@ foreach ($campaigns as $c) {
             const vId = asset.current_version_id || asset.version_id || 0;
             const aId = asset.id || asset.asset_id || 0;
             const cId = asset.campaign_id || 0;
-            window.location.href = 'ai-scoring-result.php?version_id=' + vId + '&asset_id=' + aId + (cId ? '&campaign_id=' + cId : '');
+            const sep = aiScoringBaseUrl.includes('?') ? '&' : '?';
+            window.location.href = aiScoringBaseUrl + sep + 'version_id=' + vId + '&asset_id=' + aId + (cId ? '&campaign_id=' + cId : '');
         }
 
         function closeReviewModal() {
