@@ -3000,7 +3000,7 @@ function get_coming_up_tasks() {
                 $tasks[] = [
                     'date'        => $camp['deadline'],
                     'badge_type'  => 'primary',
-                    'badge'       => 'Awaiting Review',
+                    'badge'       => 'In Review',
                     'title'       => $asset['name'] . ' ' . explode(' · ', $asset['version'])[0],
                     'campaign'    => $camp['name'],
                     'campaign_id' => $camp['id'] ?? 0,
@@ -3031,10 +3031,11 @@ function get_realtime_weekly_schedule($week_offset = 0) {
     $days = [];
     $day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-    // Lấy deadlines thực tế từ campaigns
+    // Lấy deadlines và task thực tế từ campaigns & assets
     $campaigns = function_exists('get_all_campaigns') ? get_all_campaigns() : [];
     $campaign_dates = [];
     foreach ($campaigns as $c) {
+        $cName = $c['name'] ?? 'Campaign';
         if (!empty($c['deadline']) && $c['deadline'] !== 'No deadline') {
             $ts = strtotime($c['deadline']);
             if ($ts) {
@@ -3042,7 +3043,46 @@ function get_realtime_weekly_schedule($week_offset = 0) {
                 if (!isset($campaign_dates[$dKey])) {
                     $campaign_dates[$dKey] = [];
                 }
-                $campaign_dates[$dKey][] = $c;
+                $campaign_dates[$dKey][] = [
+                    'type'     => 'due',
+                    'title'    => 'Deadline: ' . $cName,
+                    'campaign' => $cName
+                ];
+            }
+        }
+
+        if (!empty($c['assets'])) {
+            foreach ($c['assets'] as $a) {
+                $aName = $a['name'] ?? 'Asset';
+                $ast = str_replace([' ', '-'], '_', strtolower($a['status'] ?? ''));
+                $aType = 'due';
+                if ($ast === 'approved' || $ast === 'released') {
+                    $aType = 'approved';
+                } elseif ($ast === 'rejected' || strpos($ast, 'revision') !== false) {
+                    $aType = 'revision';
+                } elseif ($ast === 'in_review' || $ast === 'scoring') {
+                    $aType = 'ready';
+                }
+
+                $aDate = !empty($a['submitted']) ? strtotime($a['submitted']) : null;
+                if (!$aDate && !empty($a['updated'])) {
+                    $aDate = strtotime($a['updated']);
+                }
+                if (!$aDate && !empty($c['deadline']) && $c['deadline'] !== 'No deadline') {
+                    $aDate = strtotime($c['deadline']);
+                }
+
+                if ($aDate) {
+                    $adKey = date('Y-m-d', $aDate);
+                    if (!isset($campaign_dates[$adKey])) {
+                        $campaign_dates[$adKey] = [];
+                    }
+                    $campaign_dates[$adKey][] = [
+                        'type'     => $aType,
+                        'title'    => $aName,
+                        'campaign' => $cName
+                    ];
+                }
             }
         }
     }
@@ -3054,20 +3094,15 @@ function get_realtime_weekly_schedule($week_offset = 0) {
         
         $tasks = [];
         if (isset($campaign_dates[$date_str])) {
-            foreach ($campaign_dates[$date_str] as $c) {
-                $st = strtolower($c['status'] ?? '');
-                $type = 'due';
-                if ($st === 'approved' || $st === 'released') {
-                    $type = 'approved';
-                } elseif ($st === 'rejected' || strpos($st, 'revision') !== false) {
-                    $type = 'revision';
-                } elseif ($st === 'in_review' || $st === 'scoring') {
-                    $type = 'ready';
+            foreach ($campaign_dates[$date_str] as $item) {
+                $type = $item['type'];
+                if ($is_today && $type === 'due') {
+                    $type = 'today';
                 }
                 $tasks[] = [
                     'type'     => $type,
-                    'title'    => 'Deadline: ' . $c['name'],
-                    'campaign' => $c['name']
+                    'title'    => $item['title'],
+                    'campaign' => $item['campaign']
                 ];
             }
         }

@@ -85,6 +85,96 @@ $scheduleData = function_exists('get_realtime_weekly_schedule') ? get_realtime_w
 $scheduleDays = $scheduleData['days'] ?? $scheduleData;
 $weekLabel = $scheduleData['week_label'] ?? (!empty($scheduleDays[0]) ? $scheduleDays[0]['date'] . '–' . $scheduleDays[6]['date'] . ' ' . date('M Y') : 'This Week');
 
+if (!function_exists('pcs_render_weekly_schedule_block')) {
+function pcs_render_weekly_schedule_block($weekOffset, $scheduleDays, $weekLabel) {
+    ob_start();
+    ?>
+    <section class="schedule-section" id="schedule-section">
+        <div class="schedule-header">
+            <h2 class="schedule-title">Schedule</h2>
+            <div class="week-nav" style="display: inline-flex; align-items: center; gap: 8px;">
+                <button type="button" onclick="navigateScheduleWeek(0, event)" class="btn-week-nav <?= ($weekOffset === 0) ? 'active' : '' ?>" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; cursor: pointer; <?= ($weekOffset === 0) ? 'background: #373E8C; color: #FFFFFF; border-color: #373E8C;' : 'background: #FFFFFF; color: #4F56A6;' ?>">Current Week</button>
+                <button type="button" onclick="navigateScheduleWeek(<?= $weekOffset - 1 ?>, event)" class="btn-week-nav" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;">Previous Week</button>
+                <div class="week-indicator-pill-wrap" style="position: relative; display: inline-block;">
+                    <div class="week-indicator-pill" onclick="toggleCalendarMonthPopover(event)" style="min-width: 145px; text-align: center; justify-content: center; cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 6px;" title="Click to pick a specific date">
+                        <span><?= esc_html($weekLabel) ?></span>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.7;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    </div>
+                    <div id="calendarMonthPopover" class="calendar-month-popover" style="display: none; position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); z-index: 1000; width: 280px; background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; box-shadow: 0 10px 30px rgba(0,0,0,0.15); padding: 14px; box-sizing: border-box;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                            <button type="button" onclick="changeMonthInPicker(-1, event)" style="background: none; border: 1px solid #E2E8F0; border-radius: 6px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #334155;">&lsaquo;</button>
+                            <span id="popoverMonthYear" style="font-size: 13.5px; font-weight: 700; color: #0F172A;"></span>
+                            <button type="button" onclick="changeMonthInPicker(1, event)" style="background: none; border: 1px solid #E2E8F0; border-radius: 6px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #334155;">&rsaquo;</button>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 6px;">
+                            <div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
+                        </div>
+                        <div id="popoverDaysGrid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center;"></div>
+                        <div id="popoverSelectedDateFooter" style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #F1F5F9; font-size: 11.5px; color: #64748B; text-align: center; font-weight: 500;"></div>
+                    </div>
+                </div>
+                <button type="button" onclick="navigateScheduleWeek(<?= $weekOffset + 1 ?>, event)" class="btn-week-nav" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;">Next Week</button>
+            </div>
+        </div>
+
+        <div class="calendar-grid">
+            <?php foreach ($scheduleDays as $day): ?>
+                <div class="day-column <?= (!empty($day['today'])) ? 'today' : '' ?>">
+                    <div class="day-column-header">
+                        <div class="day-name">
+                            <span><?= esc_html($day['day']) ?></span>
+                            <?php if (!empty($day['today'])): ?>
+                                <span class="today-pill">TODAY</span>
+                            <?php endif; ?>
+                        </div>
+                        <div class="day-number"><?= esc_html($day['date']) ?></div>
+                    </div>
+
+                    <div class="day-column-body">
+                        <?php if (!empty($day['tasks'])): ?>
+                            <?php foreach ($day['tasks'] as $t): ?>
+                                <div class="task-sticky <?= esc_attr($t['type']) ?>">
+                                    <div class="sticky-title"><?= esc_html($t['title']) ?></div>
+                                    <div class="sticky-sub"><?= esc_html($t['campaign']) ?></div>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php elseif (!empty($day['task'])): ?>
+                            <div class="task-sticky <?= esc_attr($day['task']['type']) ?>">
+                                <div class="sticky-title"><?= esc_html($day['task']['title']) ?></div>
+                                <div class="sticky-sub"><?= esc_html($day['task']['campaign']) ?></div>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+
+        <!-- Legend Bar -->
+        <div class="calendar-legend">
+            <div class="legend-item"><span class="legend-dot today"></span> Today</div>
+            <div class="legend-item"><span class="legend-dot revision"></span> Revision</div>
+            <div class="legend-item"><span class="legend-dot ready"></span> Ready</div>
+            <div class="legend-item"><span class="legend-dot due"></span> Due</div>
+            <div class="legend-item"><span class="legend-dot approved"></span> Approved</div>
+        </div>
+    </section>
+    <?php
+    return ob_get_clean();
+}
+}
+
+if (isset($_GET['action']) && $_GET['action'] === 'pcs_get_schedule_week') {
+    $html = pcs_render_weekly_schedule_block($weekOffset, $scheduleDays, $weekLabel);
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success'     => true,
+        'html'        => $html,
+        'week_offset' => $weekOffset,
+        'week_label'  => $weekLabel
+    ]);
+    exit;
+}
+
 $kpis = function_exists('get_maker_kpis') ? get_maker_kpis((int)($currentUser['id'] ?? 0)) : (function_exists('get_checker_kpis') ? get_checker_kpis() : [
     'draft'     => 0,
     'scoring'   => 0,
@@ -1188,22 +1278,50 @@ unset($camp);
 
         /* Sticky Notes on Calendar */
         .task-sticky {
-            padding: 12px;
+            padding: 10px 12px;
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
             margin-bottom: 8px;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .task-sticky:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
         }
 
-        .task-sticky.danger {
-            background: #FFF0F2;
-            border: 1px solid #FFD6DC;
-            color: #9B1C2E;
+        .task-sticky.revision, .task-sticky.danger {
+            background: #FEF2F2;
+            border: 1px solid #FECACA;
+            border-left: 3px solid #BA1A1A;
+            color: #991B1B;
         }
 
-        .task-sticky.primary {
+        .task-sticky.ready, .task-sticky.primary {
             background: #F4F3FF;
             border: 1px solid #DFDCFE;
+            border-left: 3px solid #4F56A6;
             color: #373E8C;
+        }
+
+        .task-sticky.due, .task-sticky.warning {
+            background: #FFFBEB;
+            border: 1px solid #FDE68A;
+            border-left: 3px solid #F59E0B;
+            color: #92400E;
+        }
+
+        .task-sticky.approved, .task-sticky.success {
+            background: #ECFDF5;
+            border: 1px solid #A7F3D0;
+            border-left: 3px solid #10B981;
+            color: #065F46;
+        }
+
+        .task-sticky.today {
+            background: #EFF6FF;
+            border: 1px solid #BFDBFE;
+            border-left: 3px solid #373E8C;
+            color: #1E40AF;
         }
 
         .sticky-title {
@@ -1456,9 +1574,8 @@ unset($camp);
             <aside class="coming-up-card">
                 <div class="coming-up-header" style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid #F1F5F9; margin-bottom: 14px;">
                     <div style="display: flex; flex-direction: column; gap: 2px;">
-                        <h2 style="display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 800; color: #161B2E; margin: 0;">
-                            <span style="width: 8px; height: 8px; background-color: #373E8C; border-radius: 9999px; display: inline-block;"></span>
-                            <span>Coming Up</span>
+                        <h2 style="font-size: 16px; font-weight: 800; color: #161B2E; margin: 0;">
+                            Coming Up
                         </h2>
                         <p style="font-size: 12px; color: #94A3B8; font-weight: 500; margin: 0;">Upcoming asset deadlines & tasks</p>
                     </div>
@@ -1473,6 +1590,7 @@ unset($camp);
                                 $itemAssetId = !empty($item['asset_id']) ? (int)$item['asset_id'] : 0;
                                 $itemDetailUrl = pcs_url('detail-asset-maker.php') . ($itemCampId ? '?campaign_id=' . $itemCampId . ($itemAssetId ? '&asset_id=' . $itemAssetId : '') : '');
                                 $badgeClass = $item['badge_type'] ?? 'primary';
+                                $badgeLabel = ($item['badge'] === 'Awaiting Review') ? 'In Review' : $item['badge'];
                             ?>
                             <div class="coming-item-card">
                                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
@@ -1481,14 +1599,14 @@ unset($camp);
                                         <span style="font-size: 13.5px; font-weight: 700; color: #0F172A; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= esc_html($item['title']) ?></span>
                                     </div>
                                     <span class="status-pill-small <?= esc_attr($badgeClass) ?>" style="flex-shrink: 0; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; text-transform: uppercase;">
-                                        <?= esc_html($item['badge']) ?>
+                                        <?= esc_html($badgeLabel) ?>
                                     </span>
                                 </div>
                                 <div style="font-size: 12px; color: #64748B; font-weight: 500; display: flex; align-items: center; gap: 6px;">
                                     <span><?= esc_html($item['campaign']) ?></span>
                                 </div>
                                 <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 6px; border-top: 1px dashed rgba(55, 62, 140, 0.15); margin-top: 2px;">
-                                    <span class="date-badge <?= esc_attr($badgeClass) ?>" style="font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">
+                                    <span style="font-size: 12px; font-weight: 500; color: #64748B;">
                                         <?= esc_html($item['date']) ?>
                                     </span>
                                     <a href="<?= esc_url($itemDetailUrl) ?>" style="font-size: 12px; font-weight: 700; color: #373E8C; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
@@ -1693,61 +1811,7 @@ unset($camp);
         </div>
 
         <!-- ================= 4. WEEKLY SCHEDULE BOARD ================= -->
-        <section class="schedule-section" id="schedule-section">
-            <div class="schedule-header">
-                <h2 class="schedule-title">Schedule</h2>
-                <div class="week-nav" style="display: inline-flex; align-items: center; gap: 8px;">
-                    <a href="?week_offset=0#schedule-section" class="btn-week-nav" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; <?= ($weekOffset === 0) ? 'background: #373E8C; color: #FFFFFF; border-color: #373E8C;' : 'background: #FFFFFF; color: #4F56A6;' ?>">Current Week</a>
-                    <a href="?week_offset=<?= $weekOffset - 1 ?>#schedule-section" class="btn-week-nav" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">Previous Week</a>
-                    <div class="week-indicator-pill" style="min-width: 140px; text-align: center; justify-content: center;">
-                        <span class="dot"></span>
-                        <span><?= esc_html($weekLabel) ?></span>
-                    </div>
-                    <a href="?week_offset=<?= $weekOffset + 1 ?>#schedule-section" class="btn-week-nav" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">Next Week</a>
-                </div>
-            </div>
-
-            <div class="calendar-grid">
-                <?php foreach ($scheduleDays as $day): ?>
-                    <div class="day-column <?= (!empty($day['today'])) ? 'today' : '' ?>">
-                        <div class="day-column-header">
-                            <div class="day-name">
-                                <span><?= esc_html($day['day']) ?></span>
-                                <?php if (!empty($day['today'])): ?>
-                                    <span class="today-pill">TODAY</span>
-                                <?php endif; ?>
-                            </div>
-                            <div class="day-number"><?= esc_html($day['date']) ?></div>
-                        </div>
-
-                        <div class="day-column-body">
-                            <?php if (!empty($day['tasks'])): ?>
-                                <?php foreach ($day['tasks'] as $t): ?>
-                                    <div class="task-sticky <?= esc_attr($t['type']) ?>">
-                                        <div class="sticky-title"><?= esc_html($t['title']) ?></div>
-                                        <div class="sticky-sub"><?= esc_html($t['campaign']) ?></div>
-                                    </div>
-                                <?php endforeach; ?>
-                            <?php elseif (!empty($day['task'])): ?>
-                                <div class="task-sticky <?= esc_attr($day['task']['type']) ?>">
-                                    <div class="sticky-title"><?= esc_html($day['task']['title']) ?></div>
-                                    <div class="sticky-sub"><?= esc_html($day['task']['campaign']) ?></div>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-
-            <!-- Legend Bar -->
-            <div class="calendar-legend">
-                <div class="legend-item"><span class="legend-dot today"></span> Today</div>
-                <div class="legend-item"><span class="legend-dot revision"></span> Revision</div>
-                <div class="legend-item"><span class="legend-dot ready"></span> Ready</div>
-                <div class="legend-item"><span class="legend-dot due"></span> Due</div>
-                <div class="legend-item"><span class="legend-dot approved"></span> Approved</div>
-            </div>
-        </section>
+        <?= pcs_render_weekly_schedule_block($weekOffset, $scheduleDays, $weekLabel) ?>
 
     </main>
 
@@ -1983,6 +2047,169 @@ unset($camp);
             const modal = document.getElementById('editAssetModal');
             if (modal) modal.style.display = 'none';
         }
+
+        // Smooth schedule navigation via AJAX (no reload, zero flash)
+        function navigateScheduleWeek(offset, e) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            var schedSec = document.getElementById('schedule-section');
+            if (!schedSec) return;
+
+            var calGrid = schedSec.querySelector('.calendar-grid');
+            if (calGrid) calGrid.style.opacity = '0.35';
+
+            var url = window.location.pathname + '?action=pcs_get_schedule_week&week_offset=' + encodeURIComponent(offset) + '&t=' + Date.now();
+            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (data && data.success && data.html) {
+                        var temp = document.createElement('div');
+                        temp.innerHTML = data.html;
+                        var newSec = temp.querySelector('#schedule-section') || temp.firstElementChild;
+                        if (newSec) {
+                            schedSec.innerHTML = newSec.innerHTML;
+                        }
+                        try {
+                            var newUrl = window.location.pathname + (offset !== 0 ? '?week_offset=' + offset : '') + '#schedule-section';
+                            window.history.replaceState({ week_offset: offset }, '', newUrl);
+                        } catch(err) {}
+                    }
+                })
+                .catch(function() {
+                    window.location.href = '?week_offset=' + offset + '#schedule-section';
+                });
+        }
+
+        // Calendar Month Picker Module
+        var pickerCurrentYear = <?= (int)date('Y') ?>;
+        var pickerCurrentMonth = <?= (int)date('n') ?> - 1; // 0-indexed
+        var pickerSelectedDate = new Date();
+
+        function toggleCalendarMonthPopover(e) {
+            if (e) {
+                e.stopPropagation();
+                e.preventDefault();
+            }
+            var pop = document.getElementById('calendarMonthPopover');
+            if (!pop) return;
+            var isShown = pop.style.display === 'block';
+            if (isShown) {
+                pop.style.display = 'none';
+            } else {
+                pop.style.display = 'block';
+                renderCalendarMonthGrid(pickerCurrentYear, pickerCurrentMonth);
+            }
+        }
+
+        function closeCalendarMonthPopover() {
+            var pop = document.getElementById('calendarMonthPopover');
+            if (pop) pop.style.display = 'none';
+        }
+
+        function changeMonthInPicker(delta, e) {
+            if (e) {
+                e.stopPropagation();
+                e.preventDefault();
+            }
+            pickerCurrentMonth += delta;
+            if (pickerCurrentMonth < 0) {
+                pickerCurrentMonth = 11;
+                pickerCurrentYear--;
+            } else if (pickerCurrentMonth > 11) {
+                pickerCurrentMonth = 0;
+                pickerCurrentYear++;
+            }
+            renderCalendarMonthGrid(pickerCurrentYear, pickerCurrentMonth);
+        }
+
+        function renderCalendarMonthGrid(year, month) {
+            var monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            var headerEl = document.getElementById('popoverMonthYear');
+            if (headerEl) headerEl.textContent = monthNames[month] + ' ' + year;
+
+            var gridEl = document.getElementById('popoverDaysGrid');
+            if (!gridEl) return;
+            gridEl.innerHTML = '';
+
+            var firstDayIndex = new Date(year, month, 1).getDay(); // 0 is Sunday
+            var daysInMonth = new Date(year, month + 1, 0).getDate();
+            var prevMonthDays = new Date(year, month, 0).getDate();
+
+            // Previous month trailing days
+            for (var p = firstDayIndex - 1; p >= 0; p--) {
+                var prevDayNum = prevMonthDays - p;
+                var pCell = document.createElement('div');
+                pCell.style.cssText = 'padding: 6px 0; font-size: 11.5px; color: #CBD5E1; border-radius: 6px; user-select: none;';
+                pCell.textContent = prevDayNum;
+                gridEl.appendChild(pCell);
+            }
+
+            // Current month days
+            var today = new Date();
+            for (var d = 1; d <= daysInMonth; d++) {
+                (function(dayNum) {
+                    var cell = document.createElement('button');
+                    cell.type = 'button';
+                    var isToday = (today.getFullYear() === year && today.getMonth() === month && today.getDate() === dayNum);
+                    var isSelected = (pickerSelectedDate.getFullYear() === year && pickerSelectedDate.getMonth() === month && pickerSelectedDate.getDate() === dayNum);
+
+                    var bg = isSelected ? '#373E8C' : (isToday ? '#EEF2FF' : 'transparent');
+                    var color = isSelected ? '#FFFFFF' : (isToday ? '#373E8C' : '#1E293B');
+                    var fw = (isSelected || isToday) ? '700' : '500';
+
+                    cell.style.cssText = 'padding: 6px 0; font-size: 12px; font-weight: ' + fw + '; color: ' + color + '; background: ' + bg + '; border: none; border-radius: 6px; cursor: pointer; width: 100%; transition: background 0.15s; font-family: inherit;';
+                    cell.textContent = dayNum;
+
+                    cell.onmouseover = function() {
+                        if (!isSelected) cell.style.background = '#F1F5F9';
+                    };
+                    cell.onmouseout = function() {
+                        if (!isSelected) cell.style.background = bg;
+                    };
+
+                    cell.onclick = function(ev) {
+                        if (ev) ev.stopPropagation();
+                        selectCalendarDate(year, month, dayNum);
+                    };
+
+                    gridEl.appendChild(cell);
+                })(d);
+            }
+
+            var footerEl = document.getElementById('popoverSelectedDateFooter');
+            if (footerEl) {
+                var opt = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                footerEl.textContent = pickerSelectedDate.toLocaleDateString('en-US', opt);
+            }
+        }
+
+        function selectCalendarDate(year, month, day) {
+            pickerSelectedDate = new Date(year, month, day);
+            var target = new Date(year, month, day);
+            var today = new Date();
+
+            var targetDow = target.getDay() || 7; // 1 (Mon) - 7 (Sun)
+            var targetMon = new Date(target);
+            targetMon.setDate(target.getDate() - (targetDow - 1));
+            targetMon.setHours(0,0,0,0);
+
+            var todayDow = today.getDay() || 7;
+            var currentMon = new Date(today);
+            currentMon.setDate(today.getDate() - (todayDow - 1));
+            currentMon.setHours(0,0,0,0);
+
+            var diffWeeks = Math.round((targetMon - currentMon) / (7 * 24 * 60 * 60 * 1000));
+            closeCalendarMonthPopover();
+            navigateScheduleWeek(diffWeeks);
+        }
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.week-indicator-pill-wrap')) {
+                closeCalendarMonthPopover();
+            }
+        });
     </script>
 
     <!-- Modal: Edit Asset Identifiers (Maker CRUD) -->

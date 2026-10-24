@@ -46,7 +46,6 @@ if (!empty($_GET['notif_read']) && function_exists('pcs_mark_notification_read')
 
 $unavNotifications = ($unavUserId > 0 && function_exists('pcs_get_user_notifications')) ? pcs_get_user_notifications($unavUserId, 50) : [];
 $unavUnreadCount = ($unavUserId > 0 && function_exists('pcs_get_unread_notifications_count')) ? pcs_get_unread_notifications_count($unavUserId) : 0;
-$unavMakerCampaigns = ($unavRole === 'MAKER' && function_exists('get_all_campaigns')) ? get_all_campaigns('all') : [];
 
 // Sort strictly newest first (DESC)
 if (!empty($unavNotifications)) {
@@ -139,6 +138,28 @@ if (empty($unavRole) || $unavRole === 'GUEST' || $unavRole === 'USER') {
         $unavRole = 'MAKER';
     } else {
         $unavRole = 'GUEST';
+    }
+}
+
+// Maker Campaigns for Navbar Dropdown
+$unavMakerCampaigns = [];
+if ($unavRole === 'MAKER') {
+    if (function_exists('get_all_campaigns')) {
+        $unavMakerCampaigns = get_all_campaigns('all');
+    }
+    if (empty($unavMakerCampaigns) && pcs_is_wp() && function_exists('get_posts')) {
+        $c_posts = get_posts([
+            'post_type'      => ['campaign', 'brand_campaign'],
+            'post_status'    => ['publish', 'draft', 'pending'],
+            'posts_per_page' => -1
+        ]);
+        foreach ($c_posts as $cp) {
+            $unavMakerCampaigns[] = [
+                'id'     => $cp->ID,
+                'name'   => $cp->post_title,
+                'assets' => []
+            ];
+        }
     }
 }
 

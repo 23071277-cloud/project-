@@ -148,13 +148,16 @@ $isDbEmpty = empty($detailData) || empty($campaignId);
 $draftCount = 0;
 $inReviewDisplayCount = 0;
 $needsRevisionCount = 0;
+$approvedCount = 0;
 $releasedDisplayCount = 0;
 
 foreach ($assets as $ast) {
-    $st = strtolower($ast['status'] ?? 'draft');
+    $st = str_replace([' ', '-'], '_', strtolower($ast['status'] ?? 'draft'));
     if ($st === 'released') {
         $releasedDisplayCount++;
-    } elseif ($st === 'in_review') {
+    } elseif ($st === 'approved' || $st === 'awaiting_release' || $st === 'awaiting') {
+        $approvedCount++;
+    } elseif ($st === 'in_review' || $st === 'scoring') {
         $inReviewDisplayCount++;
     } elseif ($st === 'rejected') {
         $needsRevisionCount++;
@@ -163,8 +166,9 @@ foreach ($assets as $ast) {
     }
 }
 
+$reviewedDisplayCount = $releasedDisplayCount + $approvedCount;
 $needsActionTotal = $needsRevisionCount + $draftCount;
-$progressPercent = ($totalAssets > 0) ? round(($releasedDisplayCount / $totalAssets) * 100) : 0;
+$progressPercent = ($totalAssets > 0) ? round(($reviewedDisplayCount / $totalAssets) * 100) : 0;
 
 // Version numbering for Next upload CTA
 $currentVersionNum = $selectedAsset['version_num'] ?? 1;
@@ -245,6 +249,352 @@ $nextVersionNum = $currentVersionNum + 1;
             display: flex;
             flex-direction: column;
             gap: 32px;
+        }
+
+        /* ================= 4. SECTION CAMPAIGN ================= */
+        .section-CAMPAIGN {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            position: relative;
+            align-self: stretch;
+            width: 100%;
+            flex: 0 0 auto;
+        }
+
+        .section-CAMPAIGN .container-3 {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+            position: relative;
+            flex: 0 0 auto;
+        }
+
+        .section-CAMPAIGN .container-4 {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            position: relative;
+            align-self: stretch;
+            width: 100%;
+            flex: 0 0 auto;
+        }
+
+        .section-CAMPAIGN .icon {
+            position: relative;
+            width: 14px;
+            height: 14px;
+            color: #4f57a7;
+        }
+
+        .section-CAMPAIGN .text-wrapper-5 {
+            position: relative;
+            display: flex;
+            align-items: center;
+            font-weight: 700;
+            color: #4f57a7;
+            font-size: 13px;
+            letter-spacing: 0.7px;
+            line-height: 20px;
+            white-space: nowrap;
+        }
+
+        .section-CAMPAIGN .paragraph {
+            display: flex;
+            align-items: baseline;
+            gap: 16px;
+            position: relative;
+            align-self: stretch;
+            width: 100%;
+            flex: 0 0 auto;
+        }
+
+        .section-CAMPAIGN .text-wrapper-6 {
+            position: relative;
+            display: flex;
+            align-items: center;
+            font-weight: 800;
+            color: #161b2e;
+            font-size: 28px;
+            letter-spacing: -0.7px;
+            line-height: 36px;
+            white-space: nowrap;
+        }
+
+        .section-CAMPAIGN .container-5 {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+            align-self: stretch;
+            width: 100%;
+            flex: 0 0 auto;
+        }
+
+        .section-CAMPAIGN .container-6 {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            position: relative;
+            flex: 0 0 auto;
+        }
+
+        .section-CAMPAIGN .img {
+            position: relative;
+            width: 12px;
+            height: 12px;
+            color: #161B2E;
+        }
+
+        .section-CAMPAIGN .text-2 {
+            position: relative;
+            display: flex;
+            align-items: center;
+            font-weight: 500;
+            color: #161b2e;
+            font-size: 14px;
+            letter-spacing: 0;
+            line-height: 20px;
+            white-space: nowrap;
+        }
+
+        .section-CAMPAIGN .text-3 {
+            position: relative;
+            width: fit-content;
+            font-weight: 400;
+            color: #c7c5d3;
+            font-size: 14px;
+            letter-spacing: 0;
+            line-height: 20px;
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+        }
+
+        .section-CAMPAIGN .icon-2 {
+            position: relative;
+            width: 13px;
+            height: 13px;
+            color: #464651;
+        }
+
+        .section-CAMPAIGN .text-4 {
+            position: relative;
+            width: fit-content;
+            font-weight: 400;
+            color: #464651;
+            font-size: 14px;
+            letter-spacing: 0;
+            line-height: 20px;
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+        }
+
+        .section-CAMPAIGN .background-2 {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 2px 10px;
+            position: relative;
+            flex: 0 0 auto;
+            background-color: #fffbeb;
+            border-radius: 9999px;
+            border: 1px solid #FDE68A;
+        }
+
+        .section-CAMPAIGN .background-3 {
+            position: relative;
+            width: 6px;
+            height: 6px;
+            background-color: #f59e0b;
+            border-radius: 9999px;
+        }
+
+        .section-CAMPAIGN .text-5 {
+            position: relative;
+            width: fit-content;
+            font-weight: 600;
+            color: #92400e;
+            font-size: 13px;
+            letter-spacing: 0;
+            line-height: 20px;
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+        }
+
+        .section-CAMPAIGN .div-4 {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            position: relative;
+            flex: 0 0 auto;
+        }
+
+        .section-CAMPAIGN .button {
+            display: inline-flex;
+            height: 40px;
+            align-items: center;
+            gap: 8px;
+            padding: 0px 16px;
+            position: relative;
+            flex: 0 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            border: 1px solid #E2E8F0;
+            box-shadow: 0px 1px 2px #0000000d;
+            transition: all 0.15s;
+            cursor: pointer;
+        }
+        .section-CAMPAIGN .button:hover {
+            background-color: #F8FAFC;
+            border-color: #CBD5E1;
+        }
+
+        .section-CAMPAIGN .container-7 {
+            display: inline-flex;
+            align-items: center;
+            position: relative;
+            flex: 0 0 auto;
+        }
+
+        .section-CAMPAIGN .icon-3 {
+            position: relative;
+            width: 16px;
+            height: 16px;
+            color: #1f2674;
+        }
+
+        .section-CAMPAIGN .text-6 {
+            position: relative;
+            font-weight: 600;
+            color: #1f2674;
+            font-size: 14px;
+            text-align: center;
+            letter-spacing: 0;
+            line-height: 20px;
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+        }
+
+        .section-CAMPAIGN .button-2 {
+            display: inline-flex;
+            height: 40px;
+            align-items: center;
+            gap: 8px;
+            padding: 0px 20px;
+            position: relative;
+            flex: 0 0 auto;
+            background-color: #373E8C;
+            border-radius: 8px;
+            box-shadow: 0px 1px 2px #0000000d;
+            transition: all 0.15s;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .section-CAMPAIGN .button-2:hover {
+            background-color: #2D348E;
+            transform: translateY(-1px);
+        }
+
+        .section-CAMPAIGN .text-7 {
+            position: relative;
+            font-weight: 600;
+            color: #ffffff;
+            font-size: 14px;
+            text-align: center;
+            letter-spacing: 0;
+            line-height: 20px;
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+        }
+
+        .section-CAMPAIGN .icon-4 {
+            position: relative;
+            width: 14px;
+            height: 14px;
+            color: #ffffff;
+        }
+
+        /* ================= 5. SECTION COMPACT (REVIEW PROGRESS) ================= */
+        .section-COMPACT {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 48px;
+            padding: 24px 32px;
+            position: relative;
+            align-self: stretch;
+            width: 100%;
+            flex: 0 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            border: 1px solid #EBEDFF;
+            box-shadow: 0px 1px 2px #0000000d;
+            box-sizing: border-box;
+        }
+
+        .section-COMPACT .container-8 {
+            display: inline-flex;
+            flex-direction: column;
+            min-width: 240px;
+            align-items: flex-start;
+            gap: 4px;
+            position: relative;
+            flex: 0 0 auto;
+        }
+
+        .section-COMPACT .text-8 {
+            position: relative;
+            width: fit-content;
+            font-weight: 700;
+            color: #767682;
+            font-size: 13px;
+            letter-spacing: 0.7px;
+            line-height: 20px;
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+        }
+
+        .section-COMPACT .paragraph-2 {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            position: relative;
+            align-self: stretch;
+            width: 100%;
+            flex: 0 0 auto;
+        }
+
+        .section-COMPACT .text-9 {
+            position: relative;
+            width: fit-content;
+            font-weight: 800;
+            color: #161b2e;
+            font-size: 24px;
+            letter-spacing: -0.22px;
+            line-height: 28px;
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+        }
+
+        .section-COMPACT .text-10 {
+            position: relative;
+            width: fit-content;
+            font-weight: 600;
+            color: #4f57a7;
+            font-size: 13.5px;
+            letter-spacing: 0.13px;
+            line-height: 18px;
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
         }
 
         /* 02. CAMPAIGN IDENTITY HEADER */
@@ -565,7 +915,7 @@ $nextVersionNum = $currentVersionNum + 1;
 
         .table-header-grid {
             display: grid;
-            grid-template-columns: minmax(180px, 2.4fr) 120px 140px 130px 175px;
+            grid-template-columns: minmax(200px, 1fr) 140px 140px 200px;
             gap: 12px;
             padding: 12px 24px;
             background-color: #f3f2ff;
@@ -585,7 +935,7 @@ $nextVersionNum = $currentVersionNum + 1;
 
         .asset-row-card {
             display: grid;
-            grid-template-columns: minmax(180px, 2.4fr) 120px 140px 130px 175px;
+            grid-template-columns: minmax(200px, 1fr) 140px 140px 200px;
             gap: 12px;
             padding: 14px 24px;
             background: white;
@@ -696,10 +1046,84 @@ $nextVersionNum = $currentVersionNum + 1;
         }
 
         .action-cell {
-            display: flex;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .btn-action-pencil {
+            width: 32px;
+            height: 32px;
+            min-width: 32px;
+            padding: 0;
+            border-radius: 8px;
+            border: 1px solid #CBD5E1;
+            background: #FFFFFF;
+            color: #475569;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-sizing: border-box;
+            transition: all 0.2s ease;
+        }
+        .btn-action-pencil:hover {
+            background: #F1F5F9;
+            border-color: #94A3B8;
+            color: #0F172A;
+        }
+
+        .btn-action-single {
+            height: 32px;
+            box-sizing: border-box;
+            padding: 0 14px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            text-decoration: none;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        /* 1. Rejected: dark blue #373E8C */
+        .btn-action-single.rejected {
+            background: #373E8C;
+            color: #FFFFFF;
+            border: 1px solid #373E8C;
+        }
+        .btn-action-single.rejected:hover {
+            background: #2A306D;
+            border-color: #2A306D;
+        }
+
+        /* 2. Released: green */
+        .btn-action-single.released {
+            background: #ECFDF5;
+            color: #047857;
+            border: 1px solid #A7F3D0;
+        }
+        .btn-action-single.released:hover {
+            background: #D1FAE5;
+            border-color: #6EE7B7;
+        }
+
+        /* 3. Neutral: Approved / Review / Scoring / Draft */
+        .btn-action-single.neutral {
+            background: #FFFFFF;
+            color: #334155;
+            border: 1px solid #CBD5E1;
+        }
+        .btn-action-single.neutral:hover {
+            background: #F8FAFC;
+            border-color: #94A3B8;
+            color: #0F172A;
         }
 
         .btn-row-upload {
@@ -1320,68 +1744,94 @@ endif;
 
         <?php else: ?>
 
-            <!-- 02. CAMPAIGN IDENTITY HEADER -->
-            <section class="campaign-identity-header">
-                <div class="campaign-header-row">
-                    <div>
-                        <div class="campaign-tag-line">
-                            <a href="<?= esc_url(pcs_url('maker-dashboard.php')) ?>" style="color: #4F57A7; text-decoration: underline;">
-                                CAMPAIGN
-                            </a>
-                            <span>·</span>
-                            <span>#<?= (int)$campaignId ?></span>
-                        </div>
-                        <div class="campaign-title-group" style="margin-top: 4px;">
-                            <h1 class="campaign-main-title"><?= esc_html($campaignName) ?></h1>
-                            <span class="campaign-subformat">(Creative Assets Workspace)</span>
-                        </div>
-                        <div class="campaign-meta-subline">
-                            <span><?= esc_html($ownerName) ?></span>
-                            <span>·</span>
-                            <span>Deadline: <?= esc_html($deadline) ?></span>
-                            <span>·</span>
-                            <div class="priority-badge <?= ($priority === 'High' || $priority === 'High Priority') ? 'priority-high' : 'priority-normal' ?>">
-                                <div class="priority-dot <?= ($priority === 'High' || $priority === 'High Priority') ? 'priority-dot-high' : 'priority-dot-normal' ?>"></div>
-                                <span><?= esc_html($priority) ?></span>
-                            </div>
-                        </div>
+            <!-- ================= SECTION: CAMPAIGN INFO BAR ================= -->
+            <div class="section-CAMPAIGN">
+                <div class="container-3">
+                    <div class="container-4">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                        </svg>
+                        <div class="text-wrapper-5">CAMPAIGN</div>
                     </div>
-                    <div class="campaign-actions-group">
-                        <button type="button" class="btn-guidelines" onclick="openGuidelinesModal()">
-                            <span>Guidelines</span>
-                        </button>
-                        <a href="<?= esc_url(pcs_url('smart-maker-upload.php') . '?campaign_id=' . (int)$campaignId . '&mode=new_asset') ?>" class="btn-upload-primary" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">
-                            <span>Upload Asset</span>
-                        </a>
+                    <div class="paragraph">
+                        <div class="text-wrapper-6"><?= htmlspecialchars($campaignName) ?></div>
+                    </div>
+                    <div class="container-5">
+                        <div class="container-6">
+                            <svg class="img" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                <circle cx="12" cy="7" r="4"/>
+                            </svg>
+                            <div class="text-2"><?= htmlspecialchars($ownerName) ?> (Owner)</div>
+                        </div>
+                        <div class="container-6" style="margin-left: 6px;">
+                            <svg class="icon-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                                <line x1="16" y1="2" x2="16" y2="6"/>
+                                <line x1="8" y1="2" x2="8" y2="6"/>
+                                <line x1="3" y1="10" x2="21" y2="10"/>
+                            </svg>
+                            <div class="text-4">Deadline: <?= htmlspecialchars($deadline) ?></div>
+                        </div>
+                        <div class="background-2" title="Campaign Priority" style="margin-left: 6px;">
+                            <div class="background-3" style="<?= (strtolower($priority) === 'high') ? 'background-color: #EF4444;' : '' ?>"></div>
+                            <div class="text-5" style="<?= (strtolower($priority) === 'high') ? 'color: #B91C1C;' : '' ?>"><?= htmlspecialchars($priority) ?> Priority</div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Stats summary row -->
-                <div class="campaign-stats-summary">
-                    <span class="stat-item-strong"><?= (int)$totalAssets ?> Assets</span>
-                    <span>·</span>
-                    <span class="stat-item-green"><?= (int)$releasedDisplayCount ?> Released</span>
-                    <span>·</span>
-                    <span class="stat-item-purple"><?= (int)$inReviewDisplayCount ?> In Review</span>
-                    <span>·</span>
-                    <span class="stat-item-red"><?= (int)$needsActionTotal ?> Needs Action</span>
-                </div>
-            </section>
+                <div class="div-4">
+                    <button type="button" class="button" onclick="openGuidelinesModal()">
+                        <div class="container-7">
+                            <svg class="icon-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                                <polyline points="10 9 9 9 8 9"/>
+                            </svg>
+                        </div>
+                        <div class="container-7"><div class="text-6">View Guidelines</div></div>
+                    </button>
 
-            <!-- 03. COMPACT PROGRESS -->
-            <section class="progress-section">
-                <div class="progress-header-row">
-                    <h2 class="progress-title">Progress</h2>
-                    <div class="progress-counter">
-                        <span style="color: #4E56A6;"><?= (int)$releasedDisplayCount ?> / <?= (int)$totalAssets ?></span>
-                        <span style="color: #18224B;"> released </span>
-                        <span style="color: #767682;">(<?= (int)$progressPercent ?>%)</span>
+                    <a href="<?= esc_url(pcs_url('smart-maker-upload.php') . '?campaign_id=' . (int)$campaignId . '&mode=new_asset') ?>" class="button-2" style="text-decoration: none;">
+                        <div class="container-7">
+                            <svg class="icon-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </div>
+                        <div class="container-7"><div class="text-7">Upload Asset</div></div>
+                    </a>
+                </div>
+            </div>
+
+            <!-- ================= SECTION: COMPACT REVIEW PROGRESS ================= -->
+            <div class="section-COMPACT" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+                <div class="container-8">
+                    <div class="div-3"><div class="text-8">REVIEW OVERVIEW</div></div>
+                    <div class="paragraph-2">
+                        <div class="text-9"><?= (int)$reviewedDisplayCount ?> / <?= (int)$totalAssets ?></div>
+                        <div class="text-10">assets reviewed (<?= (int)$progressPercent ?>%)</div>
                     </div>
                 </div>
-                <div class="progress-track">
-                    <div class="progress-fill" style="width: <?= (int)$progressPercent ?>%;"></div>
+                <div class="container-9" style="display: flex; flex-direction: row; gap: 12px; align-items: center; justify-content: flex-end; margin-left: auto; width: auto; flex-wrap: wrap;">
+                    <div class="container-6" style="padding: 6px 14px; background: rgba(59, 130, 246, 0.08); border-radius: 6px; border: 1px solid rgba(59, 130, 246, 0.2); display: flex; align-items: center; gap: 8px;">
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #3B82F6; display: inline-block;"></span>
+                        <div class="text-12" style="font-weight: 600; color: #1D4ED8; font-size: 13px;"><?= (int)$inReviewDisplayCount ?> In Review</div>
+                    </div>
+                    <div class="container-6" style="padding: 6px 14px; background: rgba(239, 68, 68, 0.08); border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.2); display: flex; align-items: center; gap: 8px;">
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #EF4444; display: inline-block;"></span>
+                        <div class="text-11" style="font-weight: 600; color: #B91C1C; font-size: 13px;"><?= (int)$needsRevisionCount ?> Rejected</div>
+                    </div>
+                    <div class="container-6" style="padding: 6px 14px; background: rgba(16, 185, 129, 0.08); border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.2); display: flex; align-items: center; gap: 8px;">
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #10B981; display: inline-block;"></span>
+                        <div class="text-13" style="font-weight: 600; color: #047857; font-size: 13px;"><?= (int)$approvedCount ?> Approved</div>
+                    </div>
+                    <div class="container-6" style="padding: 6px 14px; background: rgba(99, 102, 241, 0.08); border-radius: 6px; border: 1px solid rgba(99, 102, 241, 0.2); display: flex; align-items: center; gap: 8px;">
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #6366F1; display: inline-block;"></span>
+                        <div class="text-13" style="font-weight: 600; color: #4338CA; font-size: 13px;"><?= (int)$releasedDisplayCount ?> Released</div>
+                    </div>
                 </div>
-            </section>
+            </div>
 
             <!-- 04. ASSETS SECTION (EARLY PLACEMENT) -->
             <section class="assets-section">
@@ -1409,8 +1859,7 @@ endif;
                 <div class="table-header-grid">
                     <div>ASSET</div>
                     <div style="text-align: center;">STATUS</div>
-                    <div style="text-align: center;">NEXT</div>
-                    <div style="text-align: center;">UPDATED</div>
+                    <div style="text-align: center;">SUBMITTED</div>
                     <div style="text-align: center;">ACTION</div>
                 </div>
 
@@ -1510,37 +1959,33 @@ endif;
                                     <span><?= esc_html($statusLabel) ?></span>
                                 </div>
 
-                                <div class="next-step-cell">
-                                    <?= esc_html($nextRecommendation) ?>
-                                </div>
-
                                 <div class="updated-date-cell">
                                     <?= esc_html($ast['submitted_date']) ?>
                                 </div>
 
                                 <div class="action-cell" onclick="event.stopPropagation();">
-                                    <button type="button" class="btn-row-secondary" onclick="event.stopPropagation(); openEditAssetModal(<?= (int)$ast['id'] ?>, '<?= esc_js($ast['name']) ?>', '<?= esc_js($ast['format'] ?? 'Digital Banner') ?>', '<?= esc_js($campaignName) ?>')" title="Edit Asset Identifiers" style="font-weight: 600;">
-                                        Edit
+                                    <button type="button" class="btn-action-pencil" onclick="event.stopPropagation(); openEditAssetModal(<?= (int)$ast['id'] ?>, '<?= esc_js($ast['name']) ?>', '<?= esc_js($ast['format'] ?? 'Digital Banner') ?>', '<?= esc_js($campaignName) ?>')" title="Edit Asset Identifiers">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                        </svg>
                                     </button>
                                     <?php if ($isRejected): ?>
-                                        <a href="<?= esc_url(pcs_url('smart-maker-upload.php') . '?campaign_id=' . (int)$campaignId . '&asset_id=' . (int)$ast['id'] . '&mode=new_version') ?>" class="btn-row-upload" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; text-align: center;">
-                                            Upload New<br>Version
+                                        <a href="<?= esc_url(pcs_url('smart-maker-upload.php') . '?campaign_id=' . (int)$campaignId . '&asset_id=' . (int)$ast['id'] . '&mode=new_version') ?>" class="btn-action-single rejected" title="Upload New Version">
+                                            Upload New Ver
                                         </a>
-                                        <button type="button" class="btn-row-feedback" onclick="selectAsset(<?= (int)$ast['id'] ?>)">
-                                            Feedback
-                                        </button>
-                                    <?php elseif ($isReview): ?>
-                                        <button type="button" class="btn-row-secondary" onclick="selectAsset(<?= (int)$ast['id'] ?>)">
+                                    <?php elseif ($isReleased): ?>
+                                        <a href="<?= esc_url($relDetailUrl) ?>" class="btn-action-single released" title="View Release">
+                                            View
+                                        </a>
+                                    <?php elseif ($isApproved): ?>
+                                        <button type="button" class="btn-action-single neutral" onclick="selectAsset(<?= (int)$ast['id'] ?>)" title="View Asset">
                                             View
                                         </button>
-                                    <?php elseif ($isReleased): ?>
-                                        <a href="<?= esc_url($relDetailUrl) ?>" class="btn-row-released">
-                                            View Release
-                                        </a>
-                                    <?php else: ?>
-                                        <a href="<?= esc_url(pcs_url('smart-maker-upload.php') . '?campaign_id=' . (int)$campaignId . '&asset_id=' . (int)$ast['id'] . '&mode=new_version') ?>" class="btn-row-secondary" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">
-                                            Upload
-                                        </a>
+                                    <?php else: // review, scoring, draft ?>
+                                        <button type="button" class="btn-action-single neutral" onclick="selectAsset(<?= (int)$ast['id'] ?>)" title="View Asset">
+                                            View
+                                        </button>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -1614,7 +2059,7 @@ endif;
                                 </div>
                             <?php endif; ?>
                             <div class="canvas-blur-overlay">
-                                <span><?= esc_html($selectedAsset['name']) ?> · <?= esc_html($selectedAsset['format']) ?></span>
+                                <span><?= esc_html($selectedAsset['name']) ?> (<?= esc_html($selectedAsset['format']) ?>)</span>
                                 <?php if (!empty($selectedAsset['file_url'])): ?>
                                     <a href="<?= esc_url($selectedAsset['file_url']) ?>" target="_blank" rel="noopener noreferrer" style="color: #FFFFFF; font-size: 11.5px; font-weight: 700; text-decoration: underline; margin-left: 10px;">Open Full ↗</a>
                                 <?php endif; ?>
@@ -1622,9 +2067,9 @@ endif;
                         </div>
                         <div class="preview-meta-footer" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
                             <div>
-                                <span class="preview-title-strong"><?= esc_html($selectedAsset['name']) ?> · <?= esc_html($selectedAsset['version_label']) ?></span>
+                                <span class="preview-title-strong"><?= esc_html($selectedAsset['name']) ?> (<?= esc_html($selectedAsset['version_label']) ?>)</span>
                                 <span style="color: <?= ($selStatus === 'rejected') ? '#BA1A1A' : '#767682' ?>; display: block; font-size: 12px; margin-top: 2px;">
-                                    <?= esc_html($selectedAsset['status_label']) ?> · <?= esc_html($selectedAsset['submitted_date']) ?>
+                                    <?= esc_html($selectedAsset['status_label']) ?> &mdash; <?= esc_html($selectedAsset['submitted_date']) ?>
                                 </span>
                             </div>
                             <button type="button" class="btn-row-secondary" style="font-size: 11.5px; padding: 4px 10px; border-radius: 6px; font-weight: 600;" onclick="openEditAssetModal(<?= (int)$selectedAsset['id'] ?>, '<?= esc_js($selectedAsset['name']) ?>', '<?= esc_js($selectedAsset['format'] ?? 'Digital Banner') ?>', '<?= esc_js($campaignName) ?>')">
@@ -1798,7 +2243,7 @@ endif;
                             <a href="<?= !empty($g['url']) ? esc_url($g['url']) : 'javascript:void(0)' ?>" target="_blank" style="color: #4F57A7; text-decoration: underline;">
                                 <?= esc_html($g['name'] ?? 'Brand Guideline') ?>
                             </a>
-                            <?php if ($idx < count($guidelines) - 1): ?><span>·</span><?php endif; ?>
+                            <?php if ($idx < count($guidelines) - 1): ?><span style="color: #94A3B8; margin: 0 2px;">,</span><?php endif; ?>
                         <?php endforeach; ?>
                     <?php else: ?>
                         <span style="color: #94A3B8; font-size: 12px; font-style: italic;">No guideline documents attached yet.</span>
@@ -1842,7 +2287,7 @@ endif;
                                     </span>
                                 </div>
                                 <span style="color: #767682;">
-                                    <?= esc_html($act['date'] ?? '') ?> · <?= esc_html($act['actor'] ?? 'System') ?>
+                                    <?= esc_html($act['date'] ?? '') ?> &mdash; <?= esc_html($act['actor'] ?? 'System') ?>
                                 </span>
                             </div>
                         <?php endforeach; ?>
@@ -1874,7 +2319,7 @@ endif;
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #F8FAFC; border-radius: 6px; border: 1px solid #E2E8F0;">
                             <div>
                                 <strong style="font-size: 13px; color: #1E293B;"><?= esc_html($g['name'] ?? 'Brand Guideline') ?></strong>
-                                <span style="font-size: 11px; color: #64748B; display: block;"><?= esc_html($g['tag'] ?? 'Primary Reference') ?> · <?= strtoupper(esc_html($g['ext'] ?? 'pdf')) ?> <?= !empty($g['size']) ? '· ' . esc_html($g['size']) : '' ?></span>
+                                <span style="font-size: 11px; color: #64748B; display: block;"><?= esc_html($g['tag'] ?? 'Primary Reference') ?> &mdash; <?= strtoupper(esc_html($g['ext'] ?? 'pdf')) ?> <?= !empty($g['size']) ? ' &mdash; ' . esc_html($g['size']) : '' ?></span>
                             </div>
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <?php if (!empty($g['url'])): ?>

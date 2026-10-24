@@ -86,6 +86,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action']) && 
                 'campaign_id' => $campIdPost,
                 'asset_id'    => $assetIdPost ?: (is_numeric($targetAsset) ? (int)$targetAsset : 0)
             ]);
+
+            // AJAX instant response
+            $isAjax = (isset($_POST['ajax_upload']) || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest'));
+            if ($isAjax) {
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success'     => true,
+                    'scoring_url' => $scoringUrl,
+                    'version_id'  => $uploadedVersionId
+                ]);
+                exit;
+            }
+
             if (!headers_sent()) {
                 header('Location: ' . $scoringUrl);
                 exit;
@@ -93,6 +106,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action']) && 
             $feedbackAlert = 'Successfully uploaded asset file and initialized automated AI Compliance check pipeline! <a href="' . esc_url($scoringUrl) . '" style="color:#1F2674; font-weight:700; text-decoration:underline; margin-left:8px;">View Live AI Scoring →</a>';
             $feedbackSuccess = true;
         } else {
+            $isAjax = (isset($_POST['ajax_upload']) || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest'));
+            if ($isAjax) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'error' => 'Upload failed']);
+                exit;
+            }
             $feedbackAlert = 'Upload completed.';
             $feedbackSuccess = true;
         }
@@ -1456,13 +1475,13 @@ endif;
         document.getElementById('stripAssetName').textContent = name;
     }
 
-    // Client-side Validation on Submit
+    // Client-side Validation & Instant 0ms AI Scanning Transition on Submit
     const form = document.getElementById('smartUploadForm');
     if (form) {
         form.addEventListener('submit', function(e) {
+            e.preventDefault();
             const fileInput = document.getElementById('realFileInput');
             if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-                e.preventDefault();
                 alert('Please select or drop an asset file (PNG, JPG, PDF) to run the AI compliance check.');
                 document.getElementById('dropZoneArea').scrollIntoView({ behavior: 'smooth' });
                 return false;
@@ -1473,8 +1492,90 @@ endif;
                 btn.disabled = true;
                 btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="animation: spin 1s infinite linear; display: inline-block;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> <span>Uploading & Initializing AI...</span>';
             }
+
+            // Immediately display full-screen AI scanning overlay (0ms perceived latency!)
+            const overlay = document.getElementById('instantAiProcessOverlay');
+            const progressBar = document.getElementById('instantAiBar');
+            const stepText = document.getElementById('instantAiStepText');
+            const percentText = document.getElementById('instantAiPercent');
+
+            if (overlay) overlay.style.display = 'flex';
+
+            let curP = 15;
+            const progressTimer = setInterval(function() {
+                if (curP < 88) {
+                    curP += Math.floor(Math.random() * 8) + 4;
+                    if (curP > 88) curP = 88;
+                    if (progressBar) progressBar.style.width = curP + '%';
+                    if (percentText) percentText.textContent = curP + '%';
+                    if (curP > 45 && stepText) {
+                        stepText.textContent = 'Extracting asset artifacts and evaluating against MAS guidelines...';
+                    }
+                }
+            }, 250);
+
+            const formData = new FormData(form);
+            formData.append('ajax_upload', '1');
+
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(function(res) {
+                return res.json();
+            })
+            .then(function(data) {
+                clearInterval(progressTimer);
+                if (progressBar) progressBar.style.width = '100%';
+                if (percentText) percentText.textContent = '100%';
+                if (stepText) stepText.textContent = 'Scanning complete! Redirecting to live assessment...';
+
+                if (data && data.scoring_url) {
+                    window.location.href = data.scoring_url;
+                } else {
+                    form.submit();
+                }
+            })
+            .catch(function(err) {
+                clearInterval(progressTimer);
+                form.submit();
+            });
         });
     }
+</script>
+
+<!-- Instant Fullscreen AI Scanning Progress Overlay -->
+<div id="instantAiProcessOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 999999; flex-direction: column; align-items: center; justify-content: center; color: #FFFFFF; font-family: 'Plus Jakarta Sans', system-ui, sans-serif;">
+    <div style="background: #FFFFFF; border-radius: 20px; padding: 40px; width: 90%; max-width: 480px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4); text-align: center; color: #0F172A; box-sizing: border-box; border: 1px solid #E2E8F0;">
+        <div style="width: 68px; height: 68px; border-radius: 50%; background: #EEF2FF; margin: 0 auto 20px auto; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(55, 62, 140, 0.15);">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#373E8C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="animation: pulse 1.5s infinite;">
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+            </svg>
+        </div>
+        <h3 style="font-size: 20px; font-weight: 800; color: #0F172A; margin: 0 0 8px 0;">Scanning & Initializing AI Check</h3>
+        <p style="font-size: 13.5px; color: #64748B; margin: 0 0 24px 0; line-height: 1.5;" id="instantAiStepText">
+            Transferring creative asset and launching automated compliance pipeline...
+        </p>
+
+        <!-- Dynamic Progress Bar -->
+        <div style="width: 100%; height: 8px; background: #F1F5F9; border-radius: 9999px; overflow: hidden; margin-bottom: 12px; position: relative;">
+            <div id="instantAiBar" style="width: 15%; height: 100%; background: linear-gradient(90deg, #373E8C, #6366F1); border-radius: 9999px; transition: width 0.25s ease;"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 11.5px; color: #94A3B8; font-weight: 700;">
+            <span id="instantAiPercent">15%</span>
+            <span>AI Pre-Flight Pipeline</span>
+        </div>
+    </div>
+</div>
+<style>
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.1); opacity: 0.75; }
+    }
+</style>
 </script>
 
 </body>
