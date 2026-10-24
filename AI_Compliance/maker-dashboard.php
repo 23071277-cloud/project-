@@ -588,7 +588,7 @@ unset($camp);
             background: #FFFFFF;
             border: 1px solid #EBEDFF;
             border-radius: 16px;
-            box-shadow: 0px 4px 20px -4px rgba(79, 86, 166, 0.08);
+            box-shadow: none;
             margin-bottom: 32px;
             padding: 6px;
             overflow-x: auto;
@@ -689,7 +689,7 @@ unset($camp);
             border: 1px solid #EBEDFF;
             border-radius: 16px;
             padding: 20px;
-            box-shadow: 0px 2px 10px -2px rgba(55, 62, 140, 0.04), 0px 8px 30px -4px rgba(55, 62, 140, 0.07);
+            box-shadow: none;
             display: flex;
             flex-direction: column;
             height: 540px;
@@ -731,14 +731,15 @@ unset($camp);
             flex-direction: column;
             gap: 8px;
             position: relative;
-            background: #F6F5FF;
+            background: #FAF9FF;
             border: 1px solid #E0E0FF;
-            border-left: 4px solid #373E8C;
-            transition: transform 0.15s, box-shadow 0.15s;
+            box-shadow: none !important;
+            transition: background 0.15s, border-color 0.15s;
         }
         .coming-item-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(55, 62, 140, 0.08);
+            background: #F3F1FF;
+            border-color: #CBD5E1;
+            box-shadow: none !important;
         }
 
         .coming-item-top {
@@ -811,7 +812,7 @@ unset($camp);
             border: 1px solid #EBEDFF;
             border-radius: 18px;
             padding: 28px;
-            box-shadow: 0 2px 8px rgba(31, 42, 90, 0.04);
+            box-shadow: none;
             display: flex;
             flex-direction: column;
             height: 540px;
@@ -1146,7 +1147,7 @@ unset($camp);
             border-radius: 18px;
             padding: 32px;
             margin-bottom: 60px;
-            box-shadow: 0 2px 8px rgba(31, 42, 90, 0.04);
+            box-shadow: none;
         }
 
         .schedule-header {
@@ -1277,51 +1278,47 @@ unset($camp);
         }
 
         /* Sticky Notes on Calendar */
+        /* Sticky Notes on Calendar: Flat clean frame with thin uniform colored border (No border-left chunky wedge, No box-shadow) */
         .task-sticky {
             padding: 10px 12px;
             border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            box-shadow: none !important;
             margin-bottom: 8px;
-            transition: transform 0.15s, box-shadow 0.15s;
+            transition: background 0.15s, border-color 0.15s;
         }
         .task-sticky:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+            transform: none;
+            box-shadow: none !important;
         }
 
         .task-sticky.revision, .task-sticky.danger {
             background: #FEF2F2;
-            border: 1px solid #FECACA;
-            border-left: 3px solid #BA1A1A;
+            border: 1px solid #FCA5A5;
             color: #991B1B;
         }
 
         .task-sticky.ready, .task-sticky.primary {
-            background: #F4F3FF;
-            border: 1px solid #DFDCFE;
-            border-left: 3px solid #4F56A6;
+            background: #F5F3FF;
+            border: 1px solid #C4B5FD;
             color: #373E8C;
         }
 
         .task-sticky.due, .task-sticky.warning {
             background: #FFFBEB;
-            border: 1px solid #FDE68A;
-            border-left: 3px solid #F59E0B;
+            border: 1px solid #FCD34D;
             color: #92400E;
         }
 
         .task-sticky.approved, .task-sticky.success {
             background: #ECFDF5;
-            border: 1px solid #A7F3D0;
-            border-left: 3px solid #10B981;
+            border: 1px solid #86EFAC;
             color: #065F46;
         }
 
         .task-sticky.today {
             background: #EFF6FF;
-            border: 1px solid #BFDBFE;
-            border-left: 3px solid #373E8C;
-            color: #1E40AF;
+            border: 1px solid #93C5FD;
+            color: #1E3A8A;
         }
 
         .sticky-title {
@@ -1363,7 +1360,7 @@ unset($camp);
         .legend-dot.today { background-color: #373E8C; }
         .legend-dot.revision { background-color: #BA1A1A; }
         .legend-dot.ready { background-color: #4F56A6; }
-        .legend-dot.due { background-color: #FFDEA5; border: 1px solid rgba(123, 88, 0, 0.3); }
+        .legend-dot.due { background-color: #F6C87E; }
         .legend-dot.approved { background-color: #10B981; }
 
         /* ================= 5. POPUP MODAL: UPLOAD ASSET ================= */

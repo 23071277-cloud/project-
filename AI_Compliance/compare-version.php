@@ -387,10 +387,9 @@ $returnLabel  = $data['return_label'] ?? 'Return to Workspace';
             align-items: center;
             padding: 12px 20px;
             background: #FDEFF1;
-            border-left: 4px solid #B83A4B;
-            border-top-right-radius: 12px;
-            border-bottom-right-radius: 12px;
-            box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.05);
+            border: 1px solid #FECACA;
+            border-radius: 12px;
+            box-shadow: none;
             flex-wrap: wrap;
             gap: 12px;
         }
@@ -438,11 +437,11 @@ $returnLabel  = $data['return_label'] ?? 'Return to Workspace';
             gap: 12px;
             padding: 10px 18px;
             background: #F8FAFC;
-            border-left: 4px solid #CBD5E1;
-            border-top-right-radius: 10px;
-            border-bottom-right-radius: 10px;
+            border: 1px solid #E2E8F0;
+            border-radius: 10px;
             font-size: 13px;
             color: #64748B;
+            box-shadow: none;
         }
 
         /* ================= 5. SECTION 3: SIDE-BY-SIDE ARTWORK COMPARISON ================= */

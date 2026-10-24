@@ -645,7 +645,7 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             background: #FFFFFF;
             border: 1px solid #EBEDFF;
             border-radius: 16px;
-            box-shadow: 0px 4px 20px -4px rgba(79, 86, 166, 0.08);
+            box-shadow: none;
             margin-bottom: 32px;
             padding: 6px;
         }
@@ -777,7 +777,7 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             gap: 16px;
             height: 540px;
             max-height: 540px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+            box-shadow: none;
             overflow: hidden;
         }
 
@@ -940,7 +940,7 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             gap: 16px;
             height: 540px;
             max-height: 540px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+            box-shadow: none;
             overflow: hidden;
             transition: all 0.3s ease;
         }

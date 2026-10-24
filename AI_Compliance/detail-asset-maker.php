@@ -956,7 +956,7 @@ $nextVersionNum = $currentVersionNum + 1;
         }
         .asset-row-rejected {
             background: #FFF1F2;
-            border-left: 4px solid #BA1A1A;
+            outline: 1px solid #FECACA;
         }
         .asset-row-rejected:hover {
             background: #FFE4E6;

@@ -523,7 +523,7 @@ foreach ($campaigns as $c) {
             background: #FFFFFF;
             border: 1px solid #EBEDFF;
             border-radius: 16px;
-            box-shadow: 0px 4px 20px -4px rgba(79, 86, 166, 0.08);
+            box-shadow: none;
             margin-bottom: 32px;
             padding: 6px;
             overflow-x: auto;
@@ -623,7 +623,7 @@ foreach ($campaigns as $c) {
             background: #FFFFFF;
             border: 1px solid #EBEDFF;
             border-radius: 16px;
-            box-shadow: 0px 2px 10px -2px rgba(55, 62, 140, 0.04), 0px 8px 30px -4px rgba(55, 62, 140, 0.07);
+            box-shadow: none;
             padding: 20px;
             display: flex;
             flex-direction: column;
@@ -704,14 +704,15 @@ foreach ($campaigns as $c) {
             flex-direction: column;
             gap: 6px;
             position: relative;
-            background: #F6F5FF;
+            background: #FAF9FF;
             border: 1px solid #E0E0FF;
-            border-left: 4px solid #373E8C;
-            transition: transform 0.15s, box-shadow 0.15s;
+            box-shadow: none !important;
+            transition: background 0.15s, border-color 0.15s;
         }
         .pending-item-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(55, 62, 140, 0.06);
+            background: #F3F1FF;
+            border-color: #CBD5E1;
+            box-shadow: none !important;
         }
 
         .pending-card-top {
@@ -820,7 +821,7 @@ foreach ($campaigns as $c) {
             background: #FFFFFF;
             border: 1px solid #EBEDFF;
             border-radius: 16px;
-            box-shadow: 0px 2px 10px -2px rgba(55, 62, 140, 0.04), 0px 8px 30px -4px rgba(55, 62, 140, 0.07);
+            box-shadow: none;
             padding: 24px;
             display: flex;
             flex-direction: column;
@@ -1166,9 +1167,9 @@ foreach ($campaigns as $c) {
         /* ================= 3. SECTION 4: FULL-WIDTH REVIEW QUEUE ================= */
         .queue-section {
             background: #FFFFFF;
-            border: 2px solid #E0E0FF;
+            border: 1px solid #E0E0FF;
             border-radius: 16px;
-            box-shadow: 0px 2px 10px -2px rgba(55, 62, 140, 0.04), 0px 8px 30px -4px rgba(55, 62, 140, 0.08);
+            box-shadow: none;
             padding: 24px;
             display: flex;
             flex-direction: column;

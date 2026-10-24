@@ -1157,12 +1157,12 @@ $aiScoringResultUrl = function_exists('pcs_url') ? pcs_url('ai-scoring-result.ph
 
         .detail-asset-checker .asset-table-row.row-selected {
             background: linear-gradient(90deg, rgba(224, 224, 255, 0.35) 0%, rgba(224, 224, 255, 0.05) 100%), #FFFFFF;
-            border-left: 4px solid #1F2674;
+            outline: 1px solid #4F56A6;
         }
 
         .detail-asset-checker .asset-table-row.row-rejected {
             background-color: #FFF8F8;
-            border-left: 4px solid #BE123C;
+            outline: 1px solid #FECACA;
         }
 
         .detail-asset-checker .container-18 {
