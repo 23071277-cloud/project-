@@ -92,6 +92,8 @@ $approvedCount = (int) ($kpis['approved'] ?? 0);
 $releasedCount = (int) ($kpis['released'] ?? 0);
 $totalCamps    = count($campaigns);
 $totalQueue    = count($queue);
+$queueInReviewCount = count(array_filter($queue, fn($q) => ($q['status'] ?? '') === 'in_review'));
+$queueReviewedCount = count(array_filter($queue, fn($q) => in_array($q['status'] ?? '', ['approved', 'released'], true)));
 
 // Group counts for Campaigns Table filter tabs
 $campDraftCount    = 0;
@@ -1245,7 +1247,7 @@ foreach ($campaigns as $c) {
         }
 
         .queue-section .table-responsive {
-            max-height: 255px;
+            max-height: 330px;
             overflow-y: auto;
             overflow-x: auto;
             border-radius: 8px;
@@ -1938,9 +1940,8 @@ foreach ($campaigns as $c) {
 
                     <div class="queue-filters">
                         <button class="queue-filter-btn active" onclick="filterQueue('all', this)">All (<?= $totalQueue ?>)</button>
-                        <button class="queue-filter-btn" onclick="filterQueue('in_review', this)">In Review (<?= $inReviewCount ?>)</button>
-                        <button class="queue-filter-btn" onclick="filterQueue('scoring', this)">Scoring (<?= $scoringCount ?>)</button>
-                        <button class="queue-filter-btn" onclick="filterQueue('oldest', this)">Oldest First</button>
+                        <button class="queue-filter-btn" onclick="filterQueue('in_review', this)">Need Review (<?= $queueInReviewCount ?>)</button>
+                        <button class="queue-filter-btn" onclick="filterQueue('reviewed', this)">Reviewed (<?= $queueReviewedCount ?>)</button>
                     </div>
                 </div>
 
@@ -2161,7 +2162,13 @@ foreach ($campaigns as $c) {
             const rows = document.querySelectorAll('.queue-row');
             rows.forEach(row => {
                 const rowStatus = row.getAttribute('data-status');
-                if (status === 'all' || status === 'oldest' || rowStatus === status) {
+                if (status === 'all') {
+                    row.style.display = '';
+                } else if (status === 'in_review' || status === 'need_review') {
+                    row.style.display = (rowStatus === 'in_review') ? '' : 'none';
+                } else if (status === 'reviewed') {
+                    row.style.display = (rowStatus === 'approved' || rowStatus === 'released') ? '' : 'none';
+                } else if (rowStatus === status) {
                     row.style.display = '';
                 } else {
                     row.style.display = 'none';

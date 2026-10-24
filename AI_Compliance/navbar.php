@@ -163,6 +163,28 @@ if ($unavRole === 'MAKER') {
     }
 }
 
+// Checker Campaigns for Navbar Dropdown
+$unavCheckerCampaigns = [];
+if ($unavRole === 'CHECKER') {
+    if (function_exists('get_all_campaigns')) {
+        $unavCheckerCampaigns = get_all_campaigns('all');
+    }
+    if (empty($unavCheckerCampaigns) && pcs_is_wp() && function_exists('get_posts')) {
+        $c_posts = get_posts([
+            'post_type'      => ['campaign', 'brand_campaign'],
+            'post_status'    => ['publish', 'draft', 'pending'],
+            'posts_per_page' => -1
+        ]);
+        foreach ($c_posts as $cp) {
+            $unavCheckerCampaigns[] = [
+                'id'     => $cp->ID,
+                'name'   => $cp->post_title,
+                'assets' => []
+            ];
+        }
+    }
+}
+
 // Check if Guest / not logged in
 $unavIsGuest = (empty($currentUser['id']) || $unavRole === 'GUEST' || empty($unavUserId));
 
@@ -975,7 +997,29 @@ if ($unavIsHome) {
             <?php elseif ($unavRole === 'CHECKER'): ?>
                 <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('checker-dashboard.php') : 'checker-dashboard.php') ?>" class="unav-nav-item <?= ($unavCurScript === 'checker-dashboard.php' && strpos($_SERVER['REQUEST_URI'] ?? '', '#') === false) ? 'active' : '' ?>">Dashboard</a>
                 <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('checker-dashboard.php') : 'checker-dashboard.php') . '#queue-section') ?>" class="unav-nav-item">Review Queue</a>
-                <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('checker-review.php') : 'checker-review.php') ?>" class="unav-nav-item <?= in_array($unavCurScript, ['checker-review.php', 'detail-asset-checker.php', 'compare-version.php', 'ai-scoring-result.php'], true) ? 'active' : '' ?>">My Review</a>
+                <div class="unav-nav-dropdown-wrap" style="position: relative; display: inline-block;">
+                    <a href="javascript:void(0)" class="unav-nav-item <?= in_array($unavCurScript, ['checker-review.php', 'detail-asset-checker.php', 'compare-version.php', 'ai-scoring-result.php'], true) ? 'active' : '' ?>" onclick="toggleCheckerMyReviewDropdown(event)" style="display: inline-flex; align-items: center; gap: 4px;">
+                        <span>My Review</span>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+                    </a>
+                    <div id="unavCheckerReviewDropdown" class="unav-dropdown-menu" style="display: none; position: absolute; top: calc(100% + 8px); left: 0; min-width: 270px; max-width: 340px; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.12); padding: 8px 0; z-index: 100000;">
+                        <div style="padding: 8px 14px 6px 14px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748B; border-bottom: 1px solid #F1F5F9;">
+                            Select Campaign to Review
+                        </div>
+                        <div style="max-height: 280px; overflow-y: auto;">
+                            <?php if (!empty($unavCheckerCampaigns)): ?>
+                                <?php foreach ($unavCheckerCampaigns as $cItem): ?>
+                                    <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('detail-asset-checker.php') : 'detail-asset-checker.php') . '?campaign_id=' . (int)$cItem['id']) ?>" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; font-size: 13px; font-weight: 600; color: #1E293B; text-decoration: none; border-bottom: 1px solid #F8FAFC; transition: background 0.15s;" onmouseover="this.style.background='#F1F5F9'" onmouseout="this.style.background='transparent'">
+                                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 190px;"><?= esc_html($cItem['name']) ?></span>
+                                        <span style="font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: #E0E7FF; color: #373E8C;"><?= count($cItem['assets'] ?? []) ?> assets</span>
+                                    </a>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <div style="padding: 14px; font-size: 12px; color: #94A3B8; text-align: center;">No campaigns found</div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
                 <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('audit-log.php') : 'audit-log.php') ?>" class="unav-nav-item <?= ($unavCurScript === 'audit-log.php') ? 'active' : '' ?>">Audit History</a>
             <?php elseif ($unavRole === 'MAKER'): ?>
                 <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php') ?>" class="unav-nav-item <?= ($unavCurScript === 'maker-dashboard.php' && strpos($_SERVER['REQUEST_URI'] ?? '', '#') === false) ? 'active' : '' ?>">Dashboard</a>
@@ -1524,10 +1568,24 @@ function toggleMakerMyAssetsDropdown(e) {
     }
 }
 
+function toggleCheckerMyReviewDropdown(e) {
+    if (e) {
+        e.stopPropagation();
+        e.preventDefault();
+    }
+    var dd = document.getElementById('unavCheckerReviewDropdown');
+    if (dd) {
+        var isShown = dd.style.display === 'block';
+        dd.style.display = isShown ? 'none' : 'block';
+    }
+}
+
 window.addEventListener('click', function(e) {
     if (!e.target.closest('.unav-nav-dropdown-wrap')) {
         const makerAssetsDd = document.getElementById('unavMakerAssetsDropdown');
         if (makerAssetsDd) makerAssetsDd.style.display = 'none';
+        const checkerReviewDd = document.getElementById('unavCheckerReviewDropdown');
+        if (checkerReviewDd) checkerReviewDd.style.display = 'none';
     }
     if (!e.target.closest('.unav-profile-wrap')) {
         const menu = document.getElementById('unifiedProfileDropdown');

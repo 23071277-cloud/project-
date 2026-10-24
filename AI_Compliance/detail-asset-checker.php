@@ -2374,12 +2374,22 @@ $aiScoringResultUrl = function_exists('pcs_url') ? pcs_url('ai-scoring-result.ph
                                             <?php endif; ?>
                                             <div class="text-19" style="font-size: 13.5px;"><?= htmlspecialchars($chk['criterion']) ?></div>
                                         </div>
-                                        <span class="ai-pill <?= $chkClass ?>">
-                                            <span class="dot"></span>
-                                            <span><?= htmlspecialchars($chk['verdict']) ?></span>
-                                        </span>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <?php if (isset($chk['score']) && $chk['score'] !== null): ?>
+                                                <span style="font-size: 12px; font-weight: 700; color: #475569; font-family: 'JetBrains Mono', monospace;"><?= (int)$chk['score'] ?>/100</span>
+                                            <?php endif; ?>
+                                            <span class="ai-pill <?= $chkClass ?>">
+                                                <span class="dot"></span>
+                                                <span><?= htmlspecialchars($chk['verdict']) ?></span>
+                                            </span>
+                                        </div>
                                     </div>
                                 <?php endforeach; ?>
+                                <div style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed #E2E8F0; display: flex; justify-content: flex-end;">
+                                    <a href="<?= esc_url($aiScoringResultUrl . ((strpos($aiScoringResultUrl, '?') !== false) ? '&' : '?') . 'version_id=' . (int)($selectedAsset['current_version_id'] ?? 0) . '&asset_id=' . (int)$selectedAsset['id'] . '&campaign_id=' . (int)$campId) ?>" style="font-size: 12px; font-weight: 700; color: #4F56A6; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+                                        <span>View Full AI Report →</span>
+                                    </a>
+                                </div>
                             <?php else: ?>
                                 <div style="padding: 18px; text-align: center; color: #64748B; font-size: 13px; background: #F8FAFC; border-radius: 8px;">
                                     AI pre-flight check has not been run yet (Pending evaluation).

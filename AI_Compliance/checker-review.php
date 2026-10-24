@@ -1629,7 +1629,7 @@ $compareScreenUrl = (function_exists('pcs_url') ? pcs_url('compare-version.php')
                 e.preventDefault();
                 return false;
             }
-            return confirm('Confirm rejecting this version and sending feedback to Maker?');
+            return true;
         }
     </script>
 </body>

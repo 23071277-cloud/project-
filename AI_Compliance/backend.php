@@ -3148,8 +3148,13 @@ function get_checker_review_queue($filter = 'all') {
         'post_type'      => 'asset_version',
         'post_status'    => 'publish',
         'posts_per_page' => -1,
-        'meta_key'       => '_status',
-        'meta_value'     => 'in_review',
+        'meta_query'     => [
+            [
+                'key'     => '_status',
+                'value'   => ['in_review', 'approved', 'released'],
+                'compare' => 'IN'
+            ]
+        ],
         'orderby'        => 'ID',
         'order'          => 'DESC'
     ]);
@@ -3275,14 +3280,16 @@ function get_checker_review_queue($filter = 'all') {
             'min_score'       => $min_score,
             'submitted'       => $submitted_display,
             'deadline'        => $deadline_display,
-            'status'          => 'in_review',
+            'status'          => get_post_meta($vid, '_status', true) ?: 'in_review',
             'file_url'        => $file_url,
             'checks'          => $detailed_checks
         ];
     }
 
-    if ($filter === 'in_review') {
+    if ($filter === 'need_review' || $filter === 'in_review') {
         return array_values(array_filter($queue, fn($q) => $q['status'] === 'in_review'));
+    } elseif ($filter === 'reviewed') {
+        return array_values(array_filter($queue, fn($q) => in_array($q['status'], ['approved', 'released'], true)));
     } elseif ($filter === 'scoring') {
         return array_values(array_filter($queue, fn($q) => $q['status'] === 'scoring'));
     } elseif ($filter === 'approved') {
@@ -3763,7 +3770,7 @@ function get_campaign_detail_asset_data($campaign_id = 0, $selected_asset_id = 0
             }
         }
 
-        // TRUY VẤN KẾT QUẢ AI CHECK TỪ CPT check_result THỰC TẾ TRONG DATABASE
+        // TRUY VẤN KẾT QUẢ AI CHECK TỪ CPT check_result THỰC TẾ TRONG DATABASE HOẶC SCORING ENGINE
         $ai_checks = [];
         $ai_verdict = 'Pending AI';
         if ($current_ver_id) {
@@ -3794,6 +3801,31 @@ function get_campaign_detail_asset_data($campaign_id = 0, $selected_asset_id = 0
                 if ($has_fail) $ai_verdict = 'Fail';
                 elseif ($has_needs_look) $ai_verdict = 'Needs Look';
                 else $ai_verdict = 'Pass';
+            } elseif (function_exists('get_ai_scoring_result_data')) {
+                // Dynamic pre-flight checks from AI scoring engine
+                $ai_data = get_ai_scoring_result_data($current_ver_id, $aid, $campaign_id);
+                if (!empty($ai_data['checks'])) {
+                    $has_fail = false;
+                    $has_needs_look = false;
+                    foreach ($ai_data['checks'] as $cKey => $cVal) {
+                        $cScore = (int)($cVal['score'] ?? 0);
+                        $cVerd = $cVal['badge'] ?? (($cScore >= 71) ? 'Pass' : (($cScore >= 31) ? 'Needs Look' : 'Fail'));
+                        $v_up = strtoupper($cVerd);
+                        if (strpos($v_up, 'FAIL') !== false) $has_fail = true;
+                        if (strpos($v_up, 'LOOK') !== false || strpos($v_up, 'REVIEW') !== false) $has_needs_look = true;
+                        $ai_checks[] = [
+                            'criterion' => $cVal['name'] ?? 'Compliance Criterion',
+                            'score'     => $cScore,
+                            'verdict'   => $cVerd,
+                            'quote'     => $cVal['source_quote'] ?? '',
+                            'finding'   => $cVal['finding'] ?? '',
+                            'reason'    => $cVal['reason'] ?? ''
+                        ];
+                    }
+                    if ($has_fail) $ai_verdict = 'Fail';
+                    elseif ($has_needs_look) $ai_verdict = 'Needs Look';
+                    else $ai_verdict = 'Pass';
+                }
             }
         }
 
@@ -6247,6 +6279,40 @@ function get_compare_versions_screen_data($target_asset_id = 0, $target_v_prev_i
         }
     }
 
+    if (empty($prev_checks_map) && $v_prev && function_exists('get_ai_scoring_result_data')) {
+        $p_ai = get_ai_scoring_result_data($v_prev['id'], $asset_id, $campaign_id);
+        if (!empty($p_ai['checks'])) {
+            foreach ($p_ai['checks'] as $ck => $cv) {
+                $sc = (int)($cv['score'] ?? 0);
+                $verd = $cv['badge'] ?? ($sc >= 71 ? 'PASS' : ($sc >= 31 ? 'NEEDS LOOK' : 'FAIL'));
+                $prev_checks_map[$ck] = [
+                    'name'        => $cv['name'] ?? 'Compliance Criterion',
+                    'rule'        => $cv['source_title'] ?? 'Compliance Standard',
+                    'score'       => $sc,
+                    'verdict'     => strtoupper($verd),
+                    'observation' => $cv['analysis'] ?? $cv['reason'] ?? ''
+                ];
+            }
+        }
+    }
+
+    if (empty($cur_checks_map) && $v_cur && function_exists('get_ai_scoring_result_data')) {
+        $c_ai = get_ai_scoring_result_data($v_cur['id'], $asset_id, $campaign_id);
+        if (!empty($c_ai['checks'])) {
+            foreach ($c_ai['checks'] as $ck => $cv) {
+                $sc = (int)($cv['score'] ?? 0);
+                $verd = $cv['badge'] ?? ($sc >= 71 ? 'PASS' : ($sc >= 31 ? 'NEEDS LOOK' : 'FAIL'));
+                $cur_checks_map[$ck] = [
+                    'name'        => $cv['name'] ?? 'Compliance Criterion',
+                    'rule'        => $cv['source_title'] ?? 'Compliance Standard',
+                    'score'       => $sc,
+                    'verdict'     => strtoupper($verd),
+                    'observation' => $cv['analysis'] ?? $cv['reason'] ?? ''
+                ];
+            }
+        }
+    }
+
     $all_keys = array_unique(array_merge(array_keys($prev_checks_map), array_keys($cur_checks_map)));
     foreach ($all_keys as $k) {
         $p_item = $prev_checks_map[$k] ?? null;
@@ -7680,13 +7746,13 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
         : ($finding_guideline . ' ' . $analysis_guideline);
 
     // =========================================================================
-    // CRITERION 3: MAS ADVERTISING RULES (Marker ③)
+    // CRITERION 3: MAS ADVERTISING RULES
     // =========================================================================
-    $is_missing_disclaimer = (bool) preg_match('/(no_disclaimer|missing_disclaimer|fail|invest|return|yield)/i', $file_name) && !$is_revised_v;
+    $is_missing_disclaimer = (bool) preg_match('/(no_disclaimer|missing_disclaimer|fail_disclaimer)/i', $file_name) && !$is_revised_v;
     if ($is_missing_disclaimer) {
         $score_mas = $existing_checks['mas_rule']['score'] ?? 28;
     } else {
-        $score_mas = $existing_checks['mas_rule']['score'] ?? ($is_revised_v ? 94 : 90);
+        $score_mas = $existing_checks['mas_rule']['score'] ?? ($is_revised_v ? 94 : 94);
     }
 
     $quote_mas = !empty($existing_checks['mas_rule']['quote'])
@@ -7697,22 +7763,22 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
         $finding_mas = 'Thiếu dòng cảnh báo rủi ro tài chính bắt buộc theo Luật Quảng cáo Tài chính Singapore (MAS).';
         $location_mas = !empty($existing_checks['mas_rule']['marker_location'])
             ? $existing_checks['mas_rule']['marker_location']
-            : 'Dải chân trang (Footer Statutory Area · Marker ③) của nội dung ấn phẩm.';
+            : 'Dải chân trang (Footer Statutory Area) của nội dung ấn phẩm.';
         $analysis_mas = 'Vi phạm nghiêm trọng Rule MAS-01 & Singapore MAS Notice §4.1b: Ấn phẩm có chứa thông điệp ưu đãi/lợi ích đầu tư nhưng hoàn toàn không có đoạn cảnh báo: \'Past performance is not indicative of future performance. Investments are subject to market risks.\' hoặc kích thước chữ không đạt mức tối thiểu 8pt.';
         $m3_top = !empty($existing_checks['mas_rule']['marker_top']) ? $existing_checks['mas_rule']['marker_top'] : '91%';
         $m3_left = !empty($existing_checks['mas_rule']['marker_left']) ? $existing_checks['mas_rule']['marker_left'] : '8%';
         $m3_badge_text = ($score_mas <= 30) ? 'Fail' : 'Needs Human Look';
-        $m3_label = '③ MAS Disclaimer · ' . $m3_badge_text;
+        $m3_label = 'MAS Disclaimer · ' . $m3_badge_text;
     } else {
         $finding_mas = 'Nội dung quảng cáo có đầy đủ điều khoản cảnh báo rủi ro theo đúng quy định của Cơ quan Quản lý Tiền tệ Singapore (MAS §4.1b).';
         $location_mas = !empty($existing_checks['mas_rule']['marker_location'])
             ? $existing_checks['mas_rule']['marker_location']
-            : 'Dải chân trang (Footer Statutory Bar · Marker ③) của nội dung ấn phẩm.';
+            : 'Dải chân trang (Footer Statutory Bar) của nội dung ấn phẩm.';
         $analysis_mas = 'Tuân thủ đầy đủ Rule MAS-01 & ' . esc_html($doc_name_3) . ': Tuyên bố rủi ro theo luật định được trình bày rõ ràng ở chân trang, cỡ chữ 8.5pt đạt ngưỡng quy định, tỷ lệ tương phản đạt chuẩn đảm bảo người đọc tiếp cận đầy đủ thông tin cảnh báo.';
         $m3_top = !empty($existing_checks['mas_rule']['marker_top']) ? $existing_checks['mas_rule']['marker_top'] : '91%';
         $m3_left = !empty($existing_checks['mas_rule']['marker_left']) ? $existing_checks['mas_rule']['marker_left'] : '8%';
         $m3_badge_text = 'Pass';
-        $m3_label = '③ MAS Disclaimer · Pass';
+        $m3_label = 'MAS Disclaimer · Pass';
     }
     if (!empty($existing_checks['mas_rule']['finding'])) {
         $finding_mas = $existing_checks['mas_rule']['finding'];
@@ -7776,7 +7842,7 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
             'location'       => $location_foreign,
             'analysis'       => $analysis_foreign,
             'reason'         => $reason_foreign,
-            'evidence_tag'   => 'Evidence: Logo Area · Marker ①',
+            'evidence_tag'   => 'Evidence: Logo Area',
             'marker_id'      => 'marker-1',
             'marker_num'     => '1',
             'source_title'   => $doc_name_1,
@@ -7801,7 +7867,7 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
             'location'       => $location_guideline,
             'analysis'       => $analysis_guideline,
             'reason'         => $reason_guideline,
-            'evidence_tag'   => 'Evidence: Visual Hero & Brand Identity · Marker ②',
+            'evidence_tag'   => 'Evidence: Visual Hero & Brand Identity',
             'marker_id'      => 'marker-2',
             'marker_num'     => '2',
             'source_title'   => $doc_name_2,
@@ -7826,7 +7892,7 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
             'location'       => $location_mas,
             'analysis'       => $analysis_mas,
             'reason'         => $reason_mas,
-            'evidence_tag'   => 'Evidence: Footer Statutory Disclaimer · Marker ③',
+            'evidence_tag'   => 'Evidence: Footer Statutory Disclaimer',
             'marker_id'      => 'marker-3',
             'marker_num'     => '3',
             'source_title'   => $doc_name_3,
@@ -7837,46 +7903,11 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
         ]
     ];
 
-    $evidence_markers = [
-        [
-            'id'       => 'marker-1',
-            'num'      => '1',
-            'label'    => $m1_label,
-            'top'      => $m1_top,
-            'left'     => $m1_left,
-            'color'    => ($score_foreign >= 71) ? '#10B981' : (($score_foreign >= 31) ? '#D97706' : '#E11D48'),
-            'status'   => $meta_foreign['status'],
-            'dot'      => $meta_foreign['dot_color'],
-            'outline'  => ($score_foreign <= 30) ? '#FECDD3' : '',
-            'band_id'  => 'band-foreign-logo'
-        ],
-        [
-            'id'       => 'marker-2',
-            'num'      => '2',
-            'label'    => $m2_label,
-            'top'      => $m2_top,
-            'left'     => $m2_left,
-            'color'    => ($score_guideline >= 71) ? '#10B981' : (($score_guideline >= 31) ? '#D97706' : '#E11D48'),
-            'status'   => $meta_guideline['status'],
-            'dot'      => $meta_guideline['dot_color'],
-            'outline'  => ($score_guideline <= 30) ? '#FECDD3' : '',
-            'band_id'  => 'band-guideline'
-        ],
-        [
-            'id'       => 'marker-3',
-            'num'      => '3',
-            'label'    => $m3_label,
-            'top'      => $m3_top,
-            'left'     => $m3_left,
-            'color'    => ($score_mas >= 71) ? '#10B981' : (($score_mas >= 31) ? '#D97706' : '#E11D48'),
-            'status'   => $meta_mas['status'],
-            'dot'      => $meta_mas['dot_color'],
-            'outline'  => ($score_mas <= 30) ? '#FECDD3' : '',
-            'band_id'  => 'band-mas-rule'
-        ]
-    ];
+    $evidence_markers = [];
 
-    $return_url = (function_exists('pcs_url') ? pcs_url('detail-asset-maker.php') : 'detail-asset-maker.php') . ($cid ? '?campaign_id=' . $cid : '');
+    $campaign_detail_checker_url = (function_exists('pcs_url') ? pcs_url('detail-asset-checker.php') : 'detail-asset-checker.php') . ($cid ? '?campaign_id=' . $cid : '');
+    $campaign_detail_maker_url = (function_exists('pcs_url') ? pcs_url('detail-asset-maker.php') : 'detail-asset-maker.php') . ($cid ? '?campaign_id=' . $cid : '');
+    $return_url = ($user_role === 'MAKER') ? $campaign_detail_maker_url : $campaign_detail_checker_url;
     $upload_new_v_url = (function_exists('pcs_url') ? pcs_url('smart-maker-upload.php') : 'smart-maker-upload.php') . '?' . http_build_query([
         'campaign_id' => $cid,
         'asset_id'    => $aid,

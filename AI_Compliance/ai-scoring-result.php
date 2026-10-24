@@ -1405,7 +1405,7 @@ if (!function_exists('pcs_render_score_status_icon')) {
                     </svg>
                     <span><?= esc_html($submissionMessage) ?></span>
                 </div>
-                <a href="<?= esc_url($returnUrl) ?>" style="font-weight: 700; color: #047857; text-decoration: underline;">
+                <a href="<?= esc_url(function_exists('pcs_url') ? (pcs_url('detail-asset-checker.php') . '?campaign_id=' . (int)$campaignId) : ('detail-asset-checker.php?campaign_id=' . (int)$campaignId)) ?>" style="font-weight: 700; color: #047857; text-decoration: underline;">
                     Return to Campaign Details →
                 </a>
             </div>
@@ -1487,29 +1487,8 @@ if (!function_exists('pcs_render_score_status_icon')) {
                                 <?php if ($isPdf): ?>
                                     <iframe src="<?= esc_url($fileUrl) ?>#toolbar=0&navpanes=0&view=Fit" class="artwork-actual-image artwork-pdf-frame" id="mainArtworkPdf"></iframe>
                                 <?php else: ?>
-                                    <img src="<?= esc_url($fileUrl) ?>" alt="<?= esc_attr($assetName) ?>" class="artwork-actual-image" id="mainArtworkImg" onload="initDynamicArtworkEvidenceLens(this)" onerror="this.style.display='none'; document.getElementById('graphicFallback').style.display='flex';">
+                                    <img src="<?= esc_url($fileUrl) ?>" alt="<?= esc_attr($assetName) ?>" class="artwork-actual-image" id="mainArtworkImg" onerror="this.style.display='none'; document.getElementById('graphicFallback').style.display='flex';">
                                 <?php endif; ?>
-
-                                <!-- Evidence Lens Bounding Boxes -->
-                                <div class="evidence-lens-box" id="lensBox-marker-1" style="display: none;"></div>
-                                <div class="evidence-lens-box" id="lensBox-marker-2" style="display: none;"></div>
-                                <div class="evidence-lens-box" id="lensBox-marker-3" style="display: none;"></div>
-
-                                <!-- Interactive Markers overlaid strictly on artwork coordinates -->
-                                <?php foreach ($evidenceMarkers as $m): ?>
-                                    <div class="lens-marker-wrapper draggable-marker" id="<?= esc_attr($m['id']) ?>" data-marker-num="<?= esc_attr($m['num']) ?>" data-band-id="<?= esc_attr($m['band_id']) ?>" style="top: <?= esc_attr($m['top']) ?>; left: <?= esc_attr($m['left']) ?>;" onclick="scrollToBand('<?= esc_js($m['band_id']) ?>')">
-                                        <div class="marker-circle-badge" style="background: <?= esc_attr($m['color']) ?>;">
-                                            <?= esc_html($m['num']) ?>
-                                        </div>
-                                        <div class="marker-glass-label" style="<?= !empty($m['outline']) ? 'outline: 1px solid ' . esc_attr($m['outline']) . ';' : '' ?>">
-                                            <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                                                <rect width="8" height="8" rx="4" fill="<?= esc_attr($m['dot']) ?>"/>
-                                            </svg>
-                                            <span><?= esc_html($m['label']) ?></span>
-                                            <span class="lens-drag-hint" title="Drag marker to reposition pin">::</span>
-                                        </div>
-                                    </div>
-                                <?php endforeach; ?>
                             </div>
 
                             <div id="graphicFallback" class="artwork-graphic-fallback" style="display: none;">
@@ -1649,7 +1628,15 @@ if (!function_exists('pcs_render_score_status_icon')) {
                     <div class="card-divider-line"></div>
 
                     <!-- Check 3: MAS Advertising Rules -->
-                    <?php $chk3 = $checks['mas_rule'] ?? []; ?>
+                    <?php 
+                        $chk3 = $checks['mas_rule'] ?? []; 
+                        $s3 = (int)($chk3['score'] ?? 94);
+                        $c3_text = ($s3 >= 71) ? '#10B981' : (($s3 >= 31) ? '#D97706' : '#BE123C');
+                        $c3_bg   = ($s3 >= 71) ? '#ECFDF5' : (($s3 >= 31) ? '#FFF6E5' : '#FFF1F2');
+                        $c3_dot  = ($s3 >= 71) ? '#10B981' : (($s3 >= 31) ? '#D97706' : '#E11D48');
+                        $c3_bdr  = ($s3 >= 71) ? 'rgba(16, 185, 129, 0.20)' : (($s3 >= 31) ? 'rgba(217, 119, 6, 0.20)' : '#FECDD3');
+                        $c3_badge = ($s3 >= 71) ? 'Pass' : (($s3 >= 31) ? 'Needs Human Look' : 'Fail');
+                    ?>
                     <div class="snapshot-check-box" onclick="scrollToBand('band-mas-rule')">
                         <div class="snapshot-item-top">
                             <div>
@@ -1658,14 +1645,14 @@ if (!function_exists('pcs_render_score_status_icon')) {
                             </div>
                             <div class="snapshot-score-badge-group">
                                 <div>
-                                    <span class="score-number-text" style="color: <?= esc_attr($chk3['text_color'] ?? '#BE123C') ?>;"><?= (int)($chk3['score'] ?? 25) ?></span>
+                                    <span class="score-number-text" style="color: <?= $c3_text ?>;"><?= $s3 ?></span>
                                     <span class="score-total-denom">/100</span>
                                 </div>
-                                <div class="status-pill-badge" style="background: <?= esc_attr($chk3['bg_color'] ?? '#FFF1F2') ?>; color: <?= esc_attr($chk3['text_color'] ?? '#BE123C') ?>; outline: 1px solid <?= esc_attr($chk3['border'] ?? '#FECDD3') ?>;">
+                                <div class="status-pill-badge" style="background: <?= $c3_bg ?>; color: <?= $c3_text ?>; outline: 1px solid <?= $c3_bdr ?>;">
                                     <svg width="6" height="6" viewBox="0 0 6 6" fill="none">
-                                        <rect width="6" height="6" rx="3" fill="<?= esc_attr($chk3['dot_color'] ?? '#E11D48') ?>"/>
+                                        <rect width="6" height="6" rx="3" fill="<?= $c3_dot ?>"/>
                                     </svg>
-                                    <span><?= esc_html($chk3['badge'] ?? 'Fail') ?></span>
+                                    <span><?= esc_html($chk3['badge'] ?? $c3_badge) ?></span>
                                 </div>
                             </div>
                         </div>
@@ -1676,10 +1663,10 @@ if (!function_exists('pcs_render_score_status_icon')) {
                                 <div class="zone-segment-fail"></div>
                                 <div class="zone-segment-needs-human"></div>
                                 <div class="zone-segment-pass"></div>
-                                <div class="score-pin-needle" style="left: <?= min(98, max(2, (int)($chk3['score'] ?? 25))) ?>%; background: <?= esc_attr($chk3['dot_color'] ?? '#E11D48') ?>;"></div>
+                                <div class="score-pin-needle" style="left: <?= min(98, max(2, $s3)) ?>%; background: <?= $c3_dot ?>;"></div>
                             </div>
                             <div class="zone-labels-row">
-                                <span>0 <span style="color: rgba(225, 29, 72, 0.7);">(Fail)</span></span>
+                                <span>0</span>
                                 <span>30</span>
                                 <span style="color: rgba(217, 119, 6, 0.85); font-weight: 600;">Needs Human Look</span>
                                 <span>70</span>
@@ -1780,23 +1767,6 @@ if (!function_exists('pcs_render_score_status_icon')) {
                             <span class="compliance-breakdown-val"><?= esc_html($chk1['analysis'] ?? $chk1['reason'] ?? 'Đạt tiêu chuẩn thương hiệu.') ?></span>
                         </div>
                     </div>
-
-                    <?php 
-                        $score1 = (int)($chk1['score'] ?? 92);
-                        $boxStyle1 = ($score1 >= 71) ? 'background: #ECFDF5; outline: 1px solid rgba(16, 185, 129, 0.25);' : (($score1 >= 31) ? 'background: #FFFBEB; outline: 1px solid rgba(217, 119, 6, 0.25);' : 'background: rgba(255, 241, 242, 0.65); outline: 1px solid #FECDD3;');
-                    ?>
-                    <div class="band-evidence-box" style="<?= $boxStyle1 ?> margin-top: 6px;">
-                        <div class="evidence-tag-left" style="display: flex; align-items: center; gap: 8px;">
-                            <?= pcs_render_score_status_icon($score1) ?>
-                            <span><?= esc_html($chk1['evidence_tag'] ?? 'Evidence: Logo area · Marker ①') ?></span>
-                        </div>
-                        <div class="btn-view-in-artwork" onclick="highlightMarker('marker-1')">
-                            <span>View in artwork</span>
-                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                                <path d="M7.10208 5.25H0V4.08333H7.10208L3.83542 0.816667L4.66667 0L9.33333 4.66667L4.66667 9.33333L3.83542 8.51667L7.10208 5.25Z" fill="#1F2674"/>
-                            </svg>
-                        </div>
-                    </div>
                 </div>
 
                 <div class="band-source-col">
@@ -1869,29 +1839,12 @@ if (!function_exists('pcs_render_score_status_icon')) {
                             <span class="compliance-breakdown-label">Vị trí đối soát:</span>
                             <span class="compliance-breakdown-val" style="display: inline-flex; align-items: center; gap: 6px;">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: #4F57A7; flex-shrink: 0;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                                <?= esc_html($chk2['location'] ?? 'Khu vực Visual Hero & Tiêu đề chính (Marker ②)') ?>
+                                <?= esc_html($chk2['location'] ?? 'Khu vực Visual Hero & Tiêu đề chính') ?>
                             </span>
                         </div>
                         <div class="compliance-breakdown-item">
                             <span class="compliance-breakdown-label">Đánh giá tuân thủ:</span>
                             <span class="compliance-breakdown-val"><?= esc_html($chk2['analysis'] ?? $chk2['reason'] ?? 'Đối soát cùng tài liệu chiến dịch.') ?></span>
-                        </div>
-                    </div>
-
-                    <?php 
-                        $score2 = (int)($chk2['score'] ?? 64);
-                        $boxStyle2 = ($score2 >= 71) ? 'background: #ECFDF5; outline: 1px solid rgba(16, 185, 129, 0.25);' : (($score2 >= 31) ? 'background: #FFFBEB; outline: 1px solid rgba(217, 119, 6, 0.25);' : 'background: rgba(255, 241, 242, 0.65); outline: 1px solid #FECDD3;');
-                    ?>
-                    <div class="band-evidence-box" style="<?= $boxStyle2 ?> margin-top: 6px;">
-                        <div class="evidence-tag-left" style="display: flex; align-items: center; gap: 8px;">
-                            <?= pcs_render_score_status_icon($score2) ?>
-                            <span><?= esc_html($chk2['evidence_tag'] ?? 'Evidence: Visual Hero & Brand Identity · Marker ②') ?></span>
-                        </div>
-                        <div class="btn-view-in-artwork" onclick="highlightMarker('marker-2')">
-                            <span>View in artwork</span>
-                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                                <path d="M7.10208 5.25H0V4.08333H7.10208L3.83542 0.816667L4.66667 0L9.33333 4.66667L4.66667 9.33333L3.83542 8.51667L7.10208 5.25Z" fill="#1F2674"/>
-                            </svg>
                         </div>
                     </div>
                 </div>
@@ -1923,19 +1876,28 @@ if (!function_exists('pcs_render_score_status_icon')) {
                 </div>
             </div>
 
-            <!-- BAND 03: MAS Advertising Rules (Fail) -->
-            <div class="editorial-band-card editorial-band-white" id="band-mas-rule">
+            <!-- BAND 03: MAS Advertising Rules -->
+            <?php 
+                $s3 = (int)($chk3['score'] ?? 94);
+                $c3_text = ($s3 >= 71) ? '#10B981' : (($s3 >= 31) ? '#D97706' : '#BE123C');
+                $c3_bg   = ($s3 >= 71) ? '#ECFDF5' : (($s3 >= 31) ? '#FFF6E5' : '#FFF1F2');
+                $c3_dot  = ($s3 >= 71) ? '#10B981' : (($s3 >= 31) ? '#D97706' : '#E11D48');
+                $c3_bdr  = ($s3 >= 71) ? 'rgba(16, 185, 129, 0.20)' : (($s3 >= 31) ? 'rgba(217, 119, 6, 0.20)' : '#FECDD3');
+                $c3_badge = ($s3 >= 71) ? 'Pass' : (($s3 >= 31) ? 'Needs Human Look' : 'Fail');
+                $band3_class = ($s3 >= 71) ? 'editorial-band-mint' : (($s3 >= 31) ? 'editorial-band-lavender' : 'editorial-band-white');
+            ?>
+            <div class="editorial-band-card <?= $band3_class ?>" id="band-mas-rule">
                 <div class="band-score-col">
                     <span class="band-category-title"><?= esc_html($chk3['name'] ?? 'MAS ADVERTISING RULES') ?></span>
                     <div class="band-score-number-row">
-                        <span class="band-score-number" style="color: #BE123C;"><?= (int)($chk3['score'] ?? 25) ?></span>
+                        <span class="band-score-number" style="color: <?= $c3_text ?>;"><?= $s3 ?></span>
                         <span style="color: #464651; font-size: 12px;">/ 100</span>
                     </div>
-                    <div class="status-pill-badge" style="background: <?= esc_attr($chk3['bg_color'] ?? '#FFF1F2') ?>; color: <?= esc_attr($chk3['text_color'] ?? '#BE123C') ?>; outline: 1px solid <?= esc_attr($chk3['border'] ?? '#FECDD3') ?>; width: fit-content; margin-top: 4px;">
+                    <div class="status-pill-badge" style="background: <?= $c3_bg ?>; color: <?= $c3_text ?>; outline: 1px solid <?= $c3_bdr ?>; width: fit-content; margin-top: 4px;">
                         <svg width="6" height="6" viewBox="0 0 6 6" fill="none">
-                            <rect width="6" height="6" rx="3" fill="<?= esc_attr($chk3['dot_color'] ?? '#E11D48') ?>"/>
+                            <rect width="6" height="6" rx="3" fill="<?= $c3_dot ?>"/>
                         </svg>
-                        <span><?= esc_html($chk3['badge'] ?? 'Fail') ?></span>
+                        <span><?= esc_html($chk3['badge'] ?? $c3_badge) ?></span>
                     </div>
 
                     <div style="padding-top: 10px; width: 100%;">
@@ -1943,7 +1905,7 @@ if (!function_exists('pcs_render_score_status_icon')) {
                             <div class="zone-segment-fail"></div>
                             <div class="zone-segment-needs-human"></div>
                             <div class="zone-segment-pass"></div>
-                            <div class="score-pin-needle" style="left: <?= min(98, max(2, (int)($chk3['score'] ?? 25))) ?>%; background: <?= esc_attr($chk3['dot_color'] ?? '#E11D48') ?>;"></div>
+                            <div class="score-pin-needle" style="left: <?= min(98, max(2, $s3)) ?>%; background: <?= $c3_dot ?>;"></div>
                         </div>
                         <div class="zone-labels-row" style="font-size: 9px; padding-top: 4px;">
                             <span>0</span>
@@ -1966,29 +1928,12 @@ if (!function_exists('pcs_render_score_status_icon')) {
                             <span class="compliance-breakdown-label">Vị trí đối soát:</span>
                             <span class="compliance-breakdown-val" style="display: inline-flex; align-items: center; gap: 6px;">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: #4F57A7; flex-shrink: 0;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                                <?= esc_html($chk3['location'] ?? 'Dải chân trang Footer Statutory Area (Marker ③)') ?>
+                                <?= esc_html($chk3['location'] ?? 'Dải chân trang Footer Statutory Area') ?>
                             </span>
                         </div>
                         <div class="compliance-breakdown-item">
                             <span class="compliance-breakdown-label">Đánh giá tuân thủ:</span>
                             <span class="compliance-breakdown-val"><?= esc_html($chk3['analysis'] ?? $chk3['reason'] ?? 'Đối soát theo Singapore MAS Notice §4.1b.') ?></span>
-                        </div>
-                    </div>
-
-                    <?php 
-                        $score3 = (int)($chk3['score'] ?? 25);
-                        $boxStyle3 = ($score3 >= 71) ? 'background: #ECFDF5; outline: 1px solid rgba(16, 185, 129, 0.25);' : (($score3 >= 31) ? 'background: #FFFBEB; outline: 1px solid rgba(217, 119, 6, 0.25);' : 'background: rgba(255, 241, 242, 0.65); outline: 1px solid #FECDD3;');
-                    ?>
-                    <div class="band-evidence-box" style="<?= $boxStyle3 ?> margin-top: 6px;">
-                        <div class="evidence-tag-left" style="display: flex; align-items: center; gap: 8px;">
-                            <?= pcs_render_score_status_icon($score3) ?>
-                            <span><?= esc_html($chk3['evidence_tag'] ?? 'Evidence: Footer Statutory Disclaimer · Marker ③') ?></span>
-                        </div>
-                        <div class="btn-view-in-artwork" onclick="highlightMarker('marker-3')">
-                            <span>View in artwork</span>
-                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                                <path d="M7.10208 5.25H0V4.08333H7.10208L3.83542 0.816667L4.66667 0L9.33333 4.66667L4.66667 9.33333L3.83542 8.51667L7.10208 5.25Z" fill="#1F2674"/>
-                            </svg>
                         </div>
                     </div>
                 </div>
@@ -2198,7 +2143,7 @@ if (!function_exists('pcs_render_score_status_icon')) {
                         <input type="hidden" name="asset_id" value="<?= (int)$assetId ?>">
                         <input type="hidden" name="campaign_id" value="<?= (int)$campaignId ?>">
                         <input type="hidden" name="review_notes" value="Approved after AI pre-flight inspection">
-                        <button type="submit" style="padding: 10px 20px; border-radius: 8px; background: #00B894; color: #FFF; font-weight: 700; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px;" onclick="return confirm('Confirm approval for this asset version?');">
+                        <button type="submit" style="padding: 10px 20px; border-radius: 8px; background: #00B894; color: #FFF; font-weight: 700; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px;">
                             <span>Approve Version</span>
                         </button>
                     </form>
