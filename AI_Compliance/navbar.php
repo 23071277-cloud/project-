@@ -868,6 +868,16 @@ if ($unavIsHome) {
     animation: unavFadeIn 0.15s ease-out !important;
 }
 
+.unified-top-navbar .unav-nav-dropdown-wrap .unav-dropdown-menu {
+    left: 0 !important;
+    right: auto !important;
+    min-width: 380px !important;
+    max-width: 520px !important;
+    width: max-content !important;
+    padding: 8px 0 !important;
+    border-radius: 12px !important;
+}
+
 @keyframes unavFadeIn {
     from { opacity: 0; transform: translateY(-6px); }
     to { opacity: 1; transform: translateY(0); }
@@ -1002,20 +1012,20 @@ if ($unavIsHome) {
                         <span>My Review</span>
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
                     </a>
-                    <div id="unavCheckerReviewDropdown" class="unav-dropdown-menu" style="display: none; position: absolute; top: calc(100% + 8px); left: 0; min-width: 270px; max-width: 340px; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.12); padding: 8px 0; z-index: 100000;">
-                        <div style="padding: 8px 14px 6px 14px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748B; border-bottom: 1px solid #F1F5F9;">
+                    <div id="unavCheckerReviewDropdown" class="unav-dropdown-menu" style="display: none; position: absolute; top: calc(100% + 8px); left: 0; min-width: 380px; max-width: 520px; width: max-content; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.12); padding: 8px 0; z-index: 100000;">
+                        <div style="padding: 10px 18px 8px 18px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748B; border-bottom: 1px solid #F1F5F9;">
                             Select Campaign to Review
                         </div>
-                        <div style="max-height: 280px; overflow-y: auto;">
+                        <div style="max-height: 320px; overflow-y: auto;">
                             <?php if (!empty($unavCheckerCampaigns)): ?>
                                 <?php foreach ($unavCheckerCampaigns as $cItem): ?>
-                                    <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('detail-asset-checker.php') : 'detail-asset-checker.php') . '?campaign_id=' . (int)$cItem['id']) ?>" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; font-size: 13px; font-weight: 600; color: #1E293B; text-decoration: none; border-bottom: 1px solid #F8FAFC; transition: background 0.15s;" onmouseover="this.style.background='#F1F5F9'" onmouseout="this.style.background='transparent'">
-                                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 190px;"><?= esc_html($cItem['name']) ?></span>
-                                        <span style="font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: #E0E7FF; color: #373E8C;"><?= count($cItem['assets'] ?? []) ?> assets</span>
+                                    <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('detail-asset-checker.php') : 'detail-asset-checker.php') . '?campaign_id=' . (int)$cItem['id']) ?>" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 11px 18px; font-size: 13.5px; font-weight: 600; color: #1E293B; text-decoration: none; border-bottom: 1px solid #F8FAFC; transition: background 0.15s, color 0.15s;" onmouseover="this.style.background='#F1F5F9'; this.style.color='#373E8C';" onmouseout="this.style.background='transparent'; this.style.color='#1E293B';">
+                                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= esc_html($cItem['name']) ?></span>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" style="flex-shrink: 0;"><path d="m9 18 6-6-6-6"/></svg>
                                     </a>
                                 <?php endforeach; ?>
                             <?php else: ?>
-                                <div style="padding: 14px; font-size: 12px; color: #94A3B8; text-align: center;">No campaigns found</div>
+                                <div style="padding: 16px; font-size: 12px; color: #94A3B8; text-align: center;">No campaigns found</div>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -1029,20 +1039,20 @@ if ($unavIsHome) {
                         <span>My Assets</span>
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
                     </a>
-                    <div id="unavMakerAssetsDropdown" class="unav-dropdown-menu" style="display: none; position: absolute; top: calc(100% + 8px); left: 0; min-width: 270px; max-width: 340px; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.12); padding: 8px 0; z-index: 100000;">
-                        <div style="padding: 8px 14px 6px 14px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748B; border-bottom: 1px solid #F1F5F9;">
+                    <div id="unavMakerAssetsDropdown" class="unav-dropdown-menu" style="display: none; position: absolute; top: calc(100% + 8px); left: 0; min-width: 380px; max-width: 520px; width: max-content; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.12); padding: 8px 0; z-index: 100000;">
+                        <div style="padding: 10px 18px 8px 18px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748B; border-bottom: 1px solid #F1F5F9;">
                             Select Campaign to View Assets
                         </div>
-                        <div style="max-height: 280px; overflow-y: auto;">
+                        <div style="max-height: 320px; overflow-y: auto;">
                             <?php if (!empty($unavMakerCampaigns)): ?>
                                 <?php foreach ($unavMakerCampaigns as $cItem): ?>
-                                    <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('detail-asset-maker.php') : 'detail-asset-maker.php') . '?campaign_id=' . (int)$cItem['id']) ?>" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; font-size: 13px; font-weight: 600; color: #1E293B; text-decoration: none; border-bottom: 1px solid #F8FAFC; transition: background 0.15s;" onmouseover="this.style.background='#F1F5F9'" onmouseout="this.style.background='transparent'">
-                                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 190px;"><?= esc_html($cItem['name']) ?></span>
-                                        <span style="font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: #E0E7FF; color: #373E8C;"><?= count($cItem['assets'] ?? []) ?> assets</span>
+                                    <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('detail-asset-maker.php') : 'detail-asset-maker.php') . '?campaign_id=' . (int)$cItem['id']) ?>" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 11px 18px; font-size: 13.5px; font-weight: 600; color: #1E293B; text-decoration: none; border-bottom: 1px solid #F8FAFC; transition: background 0.15s, color 0.15s;" onmouseover="this.style.background='#F1F5F9'; this.style.color='#373E8C';" onmouseout="this.style.background='transparent'; this.style.color='#1E293B';">
+                                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= esc_html($cItem['name']) ?></span>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" style="flex-shrink: 0;"><path d="m9 18 6-6-6-6"/></svg>
                                     </a>
                                 <?php endforeach; ?>
                             <?php else: ?>
-                                <div style="padding: 14px; font-size: 12px; color: #94A3B8; text-align: center;">No campaigns found</div>
+                                <div style="padding: 16px; font-size: 12px; color: #94A3B8; text-align: center;">No campaigns found</div>
                             <?php endif; ?>
                         </div>
                     </div>
