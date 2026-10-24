@@ -1274,6 +1274,26 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             color: #64748B;
         }
 
+        .btn-table-action {
+            background: #FFFFFF;
+            border: 1px solid #CBD5E1;
+            color: #334155;
+            font-size: 11.5px;
+            font-weight: 600;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .btn-table-action:hover {
+            background: #F8FAFC;
+            border-color: #94A3B8;
+            color: #0F172A;
+        }
+
         .btn-open-review-primary {
             background: linear-gradient(135deg, #373E8C 0%, #4F56A6 100%);
             color: #FFFFFF;
@@ -1281,15 +1301,17 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             font-weight: 700;
             padding: 7px 14px;
             border-radius: 8px;
+            border: none;
+            cursor: pointer;
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 6px;
-            box-shadow: 0 2px 6px rgba(55, 62, 140, 0.2);
+            box-shadow: none;
             transition: all 0.15s;
         }
         .btn-open-review-primary:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(55, 62, 140, 0.3);
+            opacity: 0.95;
         }
 
         .btn-view-release {
@@ -1300,8 +1322,10 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             font-weight: 700;
             padding: 6px 14px;
             border-radius: 8px;
+            cursor: pointer;
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 6px;
             transition: all 0.15s;
         }
@@ -2175,7 +2199,7 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                                                             <?= function_exists('pcs_format_status_badge') ? pcs_format_status_badge($asset['status']) : '<span class="status-badge ' . htmlspecialchars($asset['status']) . '">' . ucfirst(htmlspecialchars($asset['status'])) . '</span>' ?>
                                                                         </td>
                                                                         <td style="text-align: center; white-space: nowrap;">
-                                                                            <div style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap;">
+                                                                            <div style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap;">
                                                                                 <?php if (!empty($asset['id'])): 
                                                                                     $aCompUrl = (function_exists('pcs_url') ? pcs_url('compare-version.php') : 'compare-version.php') . '?' . http_build_query([
                                                                                         'asset_id'    => (int)$asset['id'],
@@ -2184,14 +2208,16 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                                                                         'from'        => 'admin'
                                                                                     ]);
                                                                                 ?>
-                                                                                    <a href="<?= esc_url($aCompUrl) ?>" class="btn-table-action" style="text-decoration: none; display: inline-flex; align-items: center; gap: 4px; padding: 5px 9px; font-size: 11.5px; border-radius: 6px; white-space: nowrap;">
+                                                                                    <a href="<?= esc_url($aCompUrl) ?>" class="btn-table-action" style="width: 88px; height: 32px; box-sizing: border-box; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 11.5px; border-radius: 6px; white-space: nowrap; flex-shrink: 0;">
                                                                                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
                                                                                         <span>Compare</span>
                                                                                     </a>
+                                                                                <?php else: ?>
+                                                                                    <span style="width: 88px; height: 32px; display: inline-block; flex-shrink: 0;"></span>
                                                                                 <?php endif; ?>
 
                                                                                 <?php if ($asset['status'] === 'approved'): ?>
-                                                                                    <button type="button" class="btn-open-review-primary js-trigger-modal" style="padding: 5px 10px; font-size: 11.5px; border-radius: 6px; white-space: nowrap;"
+                                                                                    <button type="button" class="btn-open-review-primary js-trigger-modal" style="width: 104px; height: 32px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 11.5px; border-radius: 6px; white-space: nowrap; flex-shrink: 0;"
                                                                                             data-version-id="<?= $asset['current_version_id'] ?>"
                                                                                             data-asset-name="<?= htmlspecialchars($asset['name']) ?>"
                                                                                             data-campaign-name="<?= htmlspecialchars($camp['name']) ?>"
@@ -2204,14 +2230,14 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                                                                         <span>Review &rarr;</span>
                                                                                     </button>
                                                                                 <?php elseif ($asset['status'] === 'released'): ?>
-                                                                                    <button type="button" class="btn-view-release js-trigger-release-modal" style="padding: 5px 10px; font-size: 11.5px; border-radius: 6px; white-space: nowrap;"
+                                                                                    <button type="button" class="btn-view-release js-trigger-release-modal" style="width: 104px; height: 32px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 11.5px; border-radius: 6px; white-space: nowrap; flex-shrink: 0;"
                                                                                             data-asset-name="<?= htmlspecialchars($asset['name']) ?>"
                                                                                             data-campaign-name="<?= htmlspecialchars($camp['name']) ?>"
                                                                                             data-version-label="<?= htmlspecialchars($asset['version_raw']) ?>">
-                                                                                        View Release
+                                                                                        <span>View Release</span>
                                                                                     </button>
                                                                                 <?php else: ?>
-                                                                                    <span style="font-size: 12px; color: #94A3B8;">Pending Review</span>
+                                                                                    <span style="width: 104px; height: 32px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; font-size: 11.5px; color: #94A3B8; flex-shrink: 0;">Pending Review</span>
                                                                                 <?php endif; ?>
                                                                             </div>
                                                                         </td>
@@ -2278,7 +2304,7 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                     <th style="text-align: center;">Approved At</th>
                                     <th style="text-align: center;">Deadline</th>
                                     <th style="text-align: center;">Status</th>
-                                    <th style="text-align: center;">Action</th>
+                                    <th style="text-align: center; width: 220px;">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -2310,7 +2336,7 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                             <?= function_exists('pcs_format_status_badge') ? pcs_format_status_badge($item['status']) : '<span class="status-badge ' . htmlspecialchars($item['status']) . '">' . ucfirst(htmlspecialchars($item['status'])) . '</span>' ?>
                                         </td>
                                         <td style="text-align: center; white-space: nowrap;">
-                                            <div style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap;">
+                                            <div style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap;">
                                                 <?php if (!empty($item['asset_id'])): 
                                                     $qCompUrl = (function_exists('pcs_url') ? pcs_url('compare-version.php') : 'compare-version.php') . '?' . http_build_query([
                                                         'asset_id'    => (int)$item['asset_id'],
@@ -2319,10 +2345,12 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                                         'from'        => 'admin'
                                                     ]);
                                                 ?>
-                                                    <a href="<?= esc_url($qCompUrl) ?>" class="btn-table-action" style="text-decoration: none; display: inline-flex; align-items: center; gap: 4px; padding: 5px 9px; font-size: 11.5px; border-radius: 6px; white-space: nowrap;">
+                                                    <a href="<?= esc_url($qCompUrl) ?>" class="btn-table-action" style="width: 88px; height: 32px; box-sizing: border-box; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 11.5px; border-radius: 6px; white-space: nowrap; flex-shrink: 0;">
                                                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
                                                         <span>Compare</span>
                                                     </a>
+                                                <?php else: ?>
+                                                    <span style="width: 88px; height: 32px; display: inline-block; flex-shrink: 0;"></span>
                                                 <?php endif; ?>
 
                                                 <?php if ($item['status'] === 'approved'): 
@@ -2332,28 +2360,15 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                                         'campaign_id' => (int)($item['campaign_id'] ?? 0)
                                                     ]);
                                                 ?>
-                                                    <a href="<?= esc_url($dashFinalReviewUrl) ?>" class="btn-open-review-primary" title="Open Final Review" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 5px 10px; font-size: 11.5px; border-radius: 6px; white-space: nowrap;">
+                                                    <a href="<?= esc_url($dashFinalReviewUrl) ?>" class="btn-open-review-primary" title="Open Final Review" style="width: 104px; height: 32px; box-sizing: border-box; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 11.5px; border-radius: 6px; white-space: nowrap; flex-shrink: 0;">
                                                         <span>Review &rarr;</span>
                                                     </a>
-                                                    <button type="button" class="btn-table-action js-trigger-modal" title="Quick Sign-off &amp; Release" style="padding: 5px 9px; font-size: 11.5px; border-radius: 6px; white-space: nowrap;"
-                                                            data-version-id="<?= $item['version_id'] ?>"
-                                                            data-asset-name="<?= htmlspecialchars($item['asset_name']) ?>"
-                                                            data-campaign-name="<?= htmlspecialchars($item['campaign_name']) ?>"
-                                                            data-version-label="<?= htmlspecialchars($item['version_label']) ?>"
-                                                            data-maker-name="<?= htmlspecialchars($item['maker_name']) ?>"
-                                                            data-checker-name="<?= htmlspecialchars($item['checker_name']) ?>"
-                                                            data-checker-notes="<?= htmlspecialchars($item['checker_notes']) ?>"
-                                                            data-score="<?= $item['score'] ?>"
-                                                            data-file-url="<?= htmlspecialchars($item['file_url']) ?>"
-                                                            data-final-review-url="<?= esc_url($dashFinalReviewUrl) ?>">
-                                                        <span>Quick</span>
-                                                    </button>
                                                 <?php else: ?>
-                                                    <button type="button" class="btn-view-release js-trigger-release-modal" style="padding: 5px 10px; font-size: 11.5px; border-radius: 6px; white-space: nowrap;"
+                                                    <button type="button" class="btn-view-release js-trigger-release-modal" style="width: 104px; height: 32px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 11.5px; border-radius: 6px; white-space: nowrap; flex-shrink: 0;"
                                                             data-asset-name="<?= htmlspecialchars($item['asset_name']) ?>"
                                                             data-campaign-name="<?= htmlspecialchars($item['campaign_name']) ?>"
                                                             data-version-label="<?= htmlspecialchars($item['version_label']) ?>">
-                                                        View Release
+                                                        <span>View Release</span>
                                                     </button>
                                                 <?php endif; ?>
                                             </div>

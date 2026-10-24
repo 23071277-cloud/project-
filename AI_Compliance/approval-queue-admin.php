@@ -1295,27 +1295,9 @@ sort($uniqueCheckers);
 
                                             <td class="queue-td col-action">
                                                 <div style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
-                                                    <a href="<?php echo esc_url($finalReviewUrl); ?>" class="btn-open-review" title="Open Final Review" style="padding: 6px 12px; font-size: 12px; white-space: nowrap;">
+                                                    <a href="<?php echo esc_url($finalReviewUrl); ?>" class="btn-open-review" title="Open Final Review" style="padding: 6px 14px; font-size: 12px; white-space: nowrap;">
                                                         <span>Review &rarr;</span>
                                                     </a>
-                                                    <button type="button" class="btn-quick-release btn-launch-release" title="Quick Sign-off &amp; Release" style="padding: 6px 12px; font-size: 12px; white-space: nowrap;"
-                                                            data-version-id="<?php echo esc_attr($vId); ?>"
-                                                            data-asset-id="<?php echo esc_attr($aId); ?>"
-                                                            data-campaign-id="<?php echo esc_attr($cId); ?>"
-                                                            data-asset-name="<?php echo esc_attr($item['asset_name'] ?? ''); ?>"
-                                                            data-campaign-name="<?php echo esc_attr($item['campaign_name'] ?? ''); ?>"
-                                                            data-version-label="<?php echo esc_attr($item['version_label'] ?? ''); ?>"
-                                                            data-maker-name="<?php echo esc_attr($item['maker_name'] ?? ''); ?>"
-                                                            data-checker-name="<?php echo esc_attr($item['checker_name'] ?? ''); ?>"
-                                                            data-checker-notes="<?php echo esc_attr($item['checker_notes'] ?? ''); ?>"
-                                                            data-score="<?php echo esc_attr($item['score'] ?? 100); ?>"
-                                                            data-detail-url="<?php echo esc_url($detailUrl); ?>"
-                                                            data-final-review-url="<?php echo esc_url($finalReviewUrl); ?>">
-                                                        <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
-                                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                                        </svg>
-                                                        <span>Quick</span>
-                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -1416,27 +1398,9 @@ sort($uniqueCheckers);
 
                                             <td class="queue-td col-action">
                                                 <div style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
-                                                    <a href="<?php echo esc_url($finalReviewUrl); ?>" class="btn-open-review" title="Open Final Review" style="padding: 6px 12px; font-size: 12px; white-space: nowrap;">
+                                                    <a href="<?php echo esc_url($finalReviewUrl); ?>" class="btn-open-review" title="Open Final Review" style="padding: 6px 14px; font-size: 12px; white-space: nowrap;">
                                                         <span>Review &rarr;</span>
                                                     </a>
-                                                    <button type="button" class="btn-quick-release btn-launch-release" title="Quick Sign-off &amp; Release" style="padding: 6px 12px; font-size: 12px; white-space: nowrap;"
-                                                            data-version-id="<?php echo esc_attr($vId); ?>"
-                                                            data-asset-id="<?php echo esc_attr($aId); ?>"
-                                                            data-campaign-id="<?php echo esc_attr($cId); ?>"
-                                                            data-asset-name="<?php echo esc_attr($item['asset_name'] ?? ''); ?>"
-                                                            data-campaign-name="<?php echo esc_attr($item['campaign_name'] ?? ''); ?>"
-                                                            data-version-label="<?php echo esc_attr($item['version_label'] ?? ''); ?>"
-                                                            data-maker-name="<?php echo esc_attr($item['maker_name'] ?? ''); ?>"
-                                                            data-checker-name="<?php echo esc_attr($item['checker_name'] ?? ''); ?>"
-                                                            data-checker-notes="<?php echo esc_attr($item['checker_notes'] ?? ''); ?>"
-                                                            data-score="<?php echo esc_attr($item['score'] ?? 100); ?>"
-                                                            data-detail-url="<?php echo esc_url($detailUrl); ?>"
-                                                            data-final-review-url="<?php echo esc_url($finalReviewUrl); ?>">
-                                                        <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
-                                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                                        </svg>
-                                                        <span>Quick</span>
-                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
