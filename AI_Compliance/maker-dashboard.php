@@ -62,6 +62,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action']) && 
     if ($ok) {
         $uploadAlert = 'Successfully uploaded ' . htmlspecialchars($fileName) . ' for ' . htmlspecialchars($campName) . '! Status updated to "In Review" awaiting Checker review.';
     }
+} elseif (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_asset_identifiers') {
+    $aid = absint($_POST['asset_id'] ?? 0);
+    if ($aid > 0 && function_exists('handle_update_asset')) {
+        handle_update_asset($aid, $_POST);
+        $uploadAlert = 'Asset identifiers updated successfully!';
+    }
+}
+
+if (isset($_GET['upload_success']) && $_GET['upload_success'] === '1' && empty($uploadAlert)) {
+    $uploadAlert = 'Asset uploaded successfully and submitted for compliance review.';
 }
 
 // 1. DỮ LIỆU ĐỘNG TỪ DATABASE THẬT VÀ PHÂN QUYỀN RBAC (MAKER ONLY)
@@ -69,7 +79,11 @@ $currentUser = function_exists('pcs_enforce_rbac') ? pcs_enforce_rbac(['MAKER'])
 $userRole = strtoupper($currentUser['role'] ?? 'MAKER');
 $comingUpList = get_coming_up_tasks();
 $campaigns = get_all_campaigns();
-$scheduleDays = get_realtime_weekly_schedule();
+
+$weekOffset = isset($_GET['week_offset']) ? (int) $_GET['week_offset'] : 0;
+$scheduleData = function_exists('get_realtime_weekly_schedule') ? get_realtime_weekly_schedule($weekOffset) : [];
+$scheduleDays = $scheduleData['days'] ?? $scheduleData;
+$weekLabel = $scheduleData['week_label'] ?? (!empty($scheduleDays[0]) ? $scheduleDays[0]['date'] . '–' . $scheduleDays[6]['date'] . ' ' . date('M Y') : 'This Week');
 
 $kpis = function_exists('get_maker_kpis') ? get_maker_kpis((int)($currentUser['id'] ?? 0)) : (function_exists('get_checker_kpis') ? get_checker_kpis() : [
     'draft'     => 0,
@@ -1516,11 +1530,11 @@ unset($camp);
                                             <?= function_exists('pcs_format_status_badge') ? pcs_format_status_badge($camp['status']) : '<span class="status-badge-lg neutral">' . htmlspecialchars($camp['status']) . '</span>' ?>
                                         </td>
                                         <td style="text-align: center; white-space: nowrap;">
-                                            <div style="display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
-                                                <button class="btn-table-action" onclick="toggleDetails(<?= $camp['id'] ?>, this)">
+                                            <div style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                                                <button type="button" class="btn-table-action" onclick="toggleDetails(<?= $camp['id'] ?>, this)" style="display: inline-flex; align-items: center; justify-content: center; padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; border-radius: 8px; border: 1px solid #CBD5E1; background: #FFFFFF; color: #334155; transition: all 0.2s; height: 32px; box-sizing: border-box;">
                                                     <?= $camp['expanded'] ? 'Close' : 'Open' ?>
                                                 </button>
-                                                <a href="<?= esc_url(pcs_url('smart-maker-upload.php') . '?campaign_id=' . $camp['id'] . '&mode=new_asset') ?>" class="btn-table-action" style="text-decoration: none; display: inline-flex; align-items: center; background: #EEF2FF; color: #4F56A6; border: 1px solid #C7D2FE;">+ Add Asset</a>
+                                                <a href="<?= esc_url(pcs_url('smart-maker-upload.php') . '?campaign_id=' . $camp['id'] . '&mode=new_asset') ?>" style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 14px; border-radius: 8px; background: #373E8C; color: #FFFFFF; font-size: 12px; font-weight: 600; text-decoration: none; border: none; white-space: nowrap; height: 32px; box-sizing: border-box; transition: background 0.2s;" onmouseover="this.style.background='#2A306D'" onmouseout="this.style.background='#373E8C'">+ Add Asset</a>
                                             </div>
                                         </td>
                                     </tr>
@@ -1579,6 +1593,10 @@ unset($camp);
                                                                             Upload Artwork
                                                                         </a>
                                                                     <?php endif; ?>
+
+                                                                    <button type="button" class="btn-asset-outline" onclick="openEditAssetModal(<?= (int)$asset['id'] ?>, '<?= esc_js($asset['name']) ?>', '<?= esc_js($asset['type'] ?? $asset['format'] ?? 'Digital Banner') ?>', '<?= esc_js($camp['name']) ?>')" style="display: inline-flex; align-items: center; gap: 4px;">
+                                                                        <span>Edit</span>
+                                                                    </button>
 
                                                                     <?php if (!empty($asset['file_url'])): ?>
                                                                         <a href="<?= esc_url($asset['file_url']) ?>" target="_blank" class="btn-asset-outline" style="text-decoration: none; display: inline-flex; align-items: center;">View File</a>
@@ -1639,37 +1657,47 @@ unset($camp);
         </div>
 
         <!-- ================= 4. WEEKLY SCHEDULE BOARD ================= -->
-        <section class="schedule-section">
+        <section class="schedule-section" id="schedule-section">
             <div class="schedule-header">
                 <h2 class="schedule-title">Schedule</h2>
                 <div class="week-nav">
-                    <button class="btn-week-nav" onclick="alert('Previous week')">Previous Week</button>
+                    <a href="?week_offset=<?= $weekOffset - 1 ?>#schedule-section" class="btn-week-nav" style="text-decoration: none; display: inline-flex; align-items: center;">Previous Week</a>
                     <div class="week-indicator-pill">
                         <span class="dot"></span>
-                        <span><?= !empty($scheduleDays) ? $scheduleDays[0]['date'] . '–' . $scheduleDays[6]['date'] . ' ' . date('M Y') : 'This Week' ?></span>
+                        <span><?= esc_html($weekLabel) ?></span>
                     </div>
-                    <button class="btn-week-nav" onclick="alert('Next week')">Next Week</button>
+                    <a href="?week_offset=<?= $weekOffset + 1 ?>#schedule-section" class="btn-week-nav" style="text-decoration: none; display: inline-flex; align-items: center;">Next Week</a>
+                    <?php if ($weekOffset !== 0): ?>
+                        <a href="?week_offset=0#schedule-section" style="font-size: 12px; color: #4F56A6; font-weight: 600; text-decoration: underline; margin-left: 6px;">Current Week</a>
+                    <?php endif; ?>
                 </div>
             </div>
 
             <div class="calendar-grid">
                 <?php foreach ($scheduleDays as $day): ?>
-                    <div class="day-column <?= $day['today'] ? 'today' : '' ?>">
+                    <div class="day-column <?= (!empty($day['today'])) ? 'today' : '' ?>">
                         <div class="day-column-header">
                             <div class="day-name">
-                                <span><?= $day['day'] ?></span>
-                                <?php if ($day['today']): ?>
+                                <span><?= esc_html($day['day']) ?></span>
+                                <?php if (!empty($day['today'])): ?>
                                     <span class="today-pill">TODAY</span>
                                 <?php endif; ?>
                             </div>
-                            <div class="day-number"><?= $day['date'] ?></div>
+                            <div class="day-number"><?= esc_html($day['date']) ?></div>
                         </div>
 
                         <div class="day-column-body">
-                            <?php if (!empty($day['task'])): ?>
-                                <div class="task-sticky <?= $day['task']['type'] ?>">
-                                    <div class="sticky-title"><?= $day['task']['title'] ?></div>
-                                    <div class="sticky-sub"><?= $day['task']['campaign'] ?></div>
+                            <?php if (!empty($day['tasks'])): ?>
+                                <?php foreach ($day['tasks'] as $t): ?>
+                                    <div class="task-sticky <?= esc_attr($t['type']) ?>">
+                                        <div class="sticky-title"><?= esc_html($t['title']) ?></div>
+                                        <div class="sticky-sub"><?= esc_html($t['campaign']) ?></div>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php elseif (!empty($day['task'])): ?>
+                                <div class="task-sticky <?= esc_attr($day['task']['type']) ?>">
+                                    <div class="sticky-title"><?= esc_html($day['task']['title']) ?></div>
+                                    <div class="sticky-sub"><?= esc_html($day['task']['campaign']) ?></div>
                                 </div>
                             <?php endif; ?>
                         </div>
@@ -1888,6 +1916,68 @@ unset($camp);
                 }
             }
         }
+        // Edit Asset Modal Functions
+        function openEditAssetModal(assetId, assetName, assetType, campaignName) {
+            const modal = document.getElementById('editAssetModal');
+            if (!modal) return;
+            document.getElementById('editAssetIdInput').value = assetId;
+            document.getElementById('editAssetNameInput').value = assetName || '';
+            const typeSelect = document.getElementById('editAssetTypeSelect');
+            if (typeSelect) {
+                typeSelect.value = assetType || 'Digital Banner';
+                if (!typeSelect.value) {
+                    typeSelect.value = 'Other';
+                }
+            }
+            const sub = document.getElementById('editAssetSubtitle');
+            if (sub) {
+                sub.textContent = 'Update identifiers for "' + assetName + '" (' + (campaignName || 'Campaign') + '). Changes will be logged to Audit Trail.';
+            }
+            modal.style.display = 'flex';
+        }
+
+        function closeEditAssetModal() {
+            const modal = document.getElementById('editAssetModal');
+            if (modal) modal.style.display = 'none';
+        }
     </script>
+
+    <!-- Modal: Edit Asset Identifiers (Maker CRUD) -->
+    <div class="modal-overlay" id="editAssetModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+        <div class="modal-box" style="background: #FFFFFF; border-radius: 16px; padding: 24px; max-width: 520px; width: 92%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 class="modal-title" style="font-size: 18px; font-weight: 800; color: #161B2E; margin: 0;">Edit Asset Identifiers</h3>
+                <span style="font-size: 24px; cursor: pointer; color: #94A3B8; line-height: 1;" onclick="closeEditAssetModal()">&times;</span>
+            </div>
+            <p style="font-size: 13px; color: #64748B; margin-bottom: 16px;" id="editAssetSubtitle">Update asset name and format. Changes will be audited.</p>
+            <form method="POST" action="">
+                <input type="hidden" name="action" value="update_asset_identifiers">
+                <input type="hidden" name="asset_id" id="editAssetIdInput" value="">
+                <div style="display: flex; flex-direction: column; gap: 14px;">
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Asset Name</label>
+                        <input type="text" name="title" id="editAssetNameInput" required style="width: 100%; height: 42px; padding: 0 12px; border: 1px solid #CBD5E1; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Format / Asset Type</label>
+                        <select name="type" id="editAssetTypeSelect" style="width: 100%; height: 42px; padding: 0 12px; border: 1px solid #CBD5E1; border-radius: 8px; font-size: 14px; background: #fff; box-sizing: border-box;">
+                            <option value="Digital Banner">Digital Banner</option>
+                            <option value="Social Media Post">Social Media Post</option>
+                            <option value="Print Poster">Print Poster</option>
+                            <option value="Billboard">Billboard</option>
+                            <option value="Brochure PDF">Brochure PDF</option>
+                            <option value="Email Newsletter">Email Newsletter</option>
+                            <option value="Video Display">Video Display</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                    <button type="button" class="btn-table-action" style="padding: 8px 16px; border: 1px solid #CBD5E1; border-radius: 8px; background: #fff; cursor: pointer;" onclick="closeEditAssetModal()">Cancel</button>
+                    <button type="submit" class="btn-asset-solid" style="padding: 8px 18px; border-radius: 8px; background: #373E8C; color: #fff; font-weight: 700; border: none; cursor: pointer;">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </body>
 </html>

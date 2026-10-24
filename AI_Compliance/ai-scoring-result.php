@@ -39,10 +39,21 @@ if (!function_exists('home_url')) {
     function home_url($path = '/') { return $path; }
 }
 
-// 2. Current User & RBAC Authentication (Maker, Checker, Admin)
-$currentUser = function_exists('pcs_enforce_rbac') ? pcs_enforce_rbac(['MAKER', 'CHECKER', 'ADMIN']) : (function_exists('get_current_user_profile') ? get_current_user_profile() : null);
-$userRole = strtoupper($currentUser['role'] ?? 'MAKER');
-$isAllowed = ($userRole === 'MAKER' || $userRole === 'AUTHOR' || $userRole === 'CONTRIBUTOR' || $userRole === 'ADMIN' || $userRole === 'CHECKER');
+// 2. Current User & RBAC Authentication (Checker & Admin)
+$currentUser = function_exists('pcs_enforce_rbac') ? pcs_enforce_rbac(['CHECKER', 'ADMIN']) : (function_exists('get_current_user_profile') ? get_current_user_profile() : null);
+$userRole = strtoupper($currentUser['role'] ?? 'CHECKER');
+$isAllowed = ($userRole === 'CHECKER' || $userRole === 'EDITOR' || $userRole === 'ADMIN' || $userRole === 'ADMINISTRATOR');
+
+// Maker không thấy điểm số: nếu Maker vào trang này, tự động chuyển về trang chi tiết campaign
+if ($userRole === 'MAKER' || $userRole === 'AUTHOR' || $userRole === 'CONTRIBUTOR') {
+    $cId = (int)($_GET['campaign_id'] ?? 0);
+    $aId = (int)($_GET['asset_id'] ?? 0);
+    $red = (function_exists('pcs_url') ? pcs_url('detail-asset-maker.php') : 'detail-asset-maker.php') . ($cId ? '?campaign_id=' . $cId . ($aId ? '&asset_id=' . $aId : '') : '');
+    if (!headers_sent()) {
+        header('Location: ' . $red);
+        exit;
+    }
+}
 
 // 3. Handle Sign Out
 if (isset($_GET['action']) && $_GET['action'] === 'logout') {
@@ -59,41 +70,46 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     exit;
 }
 
-// 4. Handle Submission to Checker
+// 4. Handle Checker Decisions & Submission
 $submissionSuccess = false;
 $submissionMessage = '';
 
-if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action']) && $_POST['action'] === 'submit_for_checker') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action'])) {
     $vIdPost = (int) ($_POST['version_id'] ?? 0);
     $aIdPost = (int) ($_POST['asset_id'] ?? 0);
     $cIdPost = (int) ($_POST['campaign_id'] ?? 0);
+    $notes   = sanitize_text_field($_POST['review_notes'] ?? '');
 
-    if ($vIdPost > 0) {
-        if (function_exists('pcs_server_meta')) {
-            pcs_server_meta($vIdPost, '_status', 'in_review');
-            if ($aIdPost > 0) {
-                pcs_server_meta($aIdPost, '_current_version_id', $vIdPost);
-            }
-        } elseif (function_exists('update_post_meta')) {
-            update_post_meta($vIdPost, '_status', 'in_review');
-            if ($aIdPost > 0) {
-                update_post_meta($aIdPost, '_current_version_id', $vIdPost);
-            }
+    if ($_POST['action'] === 'checker_approve') {
+        if ($vIdPost > 0 && function_exists('handle_checker_decision')) {
+            handle_checker_decision($vIdPost, 'approved', $notes ?: 'Approved after AI pre-flight inspection');
+            $submissionSuccess = true;
+            $submissionMessage = 'Asset version approved successfully!';
         }
-
-        // Log audit event
-        if (function_exists('handle_audit_log')) {
-            handle_audit_log('Maker submitted version #' . $vIdPost . ' for Checker review', $vIdPost, $currentUser['id'] ?? 1);
+    } elseif ($_POST['action'] === 'checker_reject') {
+        if ($vIdPost > 0 && function_exists('handle_checker_decision')) {
+            handle_checker_decision($vIdPost, 'rejected', $notes ?: 'Revisions required based on compliance assessment.');
+            $submissionSuccess = true;
+            $submissionMessage = 'Asset version rejected and returned to Maker for corrections.';
         }
-
-        $submissionSuccess = true;
-        $submissionMessage = 'Asset version successfully submitted to Compliance Checker for formal sign-off!';
-        
-        // Optional quick redirect to campaign detail
-        $redirectTarget = (function_exists('pcs_url') ? pcs_url('detail-asset-maker.php') : 'detail-asset-maker.php') . ($cIdPost ? '?campaign_id=' . $cIdPost . '&submitted=1' : '');
-        if (isset($_POST['auto_redirect']) && $_POST['auto_redirect'] === '1' && !headers_sent()) {
-            header('Location: ' . $redirectTarget);
-            exit;
+    } elseif ($_POST['action'] === 'submit_for_checker') {
+        if ($vIdPost > 0) {
+            if (function_exists('pcs_server_meta')) {
+                pcs_server_meta($vIdPost, '_status', 'in_review');
+                if ($aIdPost > 0) {
+                    pcs_server_meta($aIdPost, '_current_version_id', $vIdPost);
+                }
+            } elseif (function_exists('update_post_meta')) {
+                update_post_meta($vIdPost, '_status', 'in_review');
+                if ($aIdPost > 0) {
+                    update_post_meta($aIdPost, '_current_version_id', $vIdPost);
+                }
+            }
+            if (function_exists('handle_audit_log')) {
+                handle_audit_log('Checker confirmed version #' . $vIdPost . ' in review', $vIdPost, $currentUser['id'] ?? 1);
+            }
+            $submissionSuccess = true;
+            $submissionMessage = 'Version status verified and set to In Review.';
         }
     }
 }
@@ -131,6 +147,10 @@ $fileExt      = $version['file_ext'] ?? 'PNG';
 $fileSize     = $version['file_size'] ?? '2.4 MB';
 $fileUrl      = $version['file_url'] ?? '';
 $versionStatus = $version['status'] ?? 'scoring';
+
+$queueUrl = !empty($campaignId)
+    ? ((function_exists('pcs_url') ? pcs_url('detail-asset-checker.php') : 'detail-asset-checker.php') . '?campaign_id=' . (int)$campaignId)
+    : ((function_exists('pcs_url') ? pcs_url('checker-dashboard.php') : 'checker-dashboard.php') . '#queue-section');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1345,6 +1365,21 @@ $versionStatus = $version['status'] ?? 'scoring';
     <!-- MAIN SCORING RESULT VIEW -->
     <main class="scoring-page-container">
 
+        <!-- Top Back Navigation Bar -->
+        <div class="top-back-navigation-bar" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; flex-wrap: wrap; gap: 12px;">
+            <a href="<?= esc_url($queueUrl) ?>" class="btn-top-back-queue" style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #373E8C; text-decoration: none; padding: 8px 14px; background: #EEF2FF; border: 1px solid #C7D2FE; border-radius: 8px; transition: all 0.2s;" onmouseover="this.style.background='#E0E7FF'" onmouseout="this.style.background='#EEF2FF'">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                <span>Back to Review Queue</span>
+            </a>
+            <div style="font-size: 12.5px; color: #64748B; display: inline-flex; align-items: center; gap: 6px;">
+                <span>Compliance Verification</span>
+                <span style="color: #CBD5E1;">·</span>
+                <strong style="color: #1E293B;"><?= esc_html($campaignName) ?></strong>
+                <span style="color: #CBD5E1;">·</span>
+                <span><?= esc_html($assetName) ?></span>
+            </div>
+        </div>
+
         <!-- Submission Feedback Banner if posted -->
         <?php if ($submissionSuccess): ?>
             <div class="toast-feedback-bar">
@@ -2094,32 +2129,45 @@ $versionStatus = $version['status'] ?? 'scoring';
 
         <!-- 07. BOTTOM ACTION DOCK -->
         <footer class="bottom-action-dock">
-            <a href="<?= esc_url($returnUrl) ?>" class="btn-dock-back">
+            <a href="<?= esc_url($queueUrl) ?>" class="btn-dock-back">
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                     <path d="M2.86875 6.75L7.06875 10.95L6 12L0 6L6 0L7.06875 1.05L2.86875 5.25H12V6.75H2.86875Z" fill="currentColor"/>
                 </svg>
-                <span>Back to Campaign</span>
+                <span>Back to Review Queue</span>
             </a>
 
-            <div class="dock-actions-right">
-                <!-- Button 1: Upload New Version -->
-                <a href="<?= esc_url($uploadNewVUrl) ?>" class="btn-upload-new-version">
-                    Upload New Version
-                </a>
+            <div class="dock-actions-right" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <!-- Reject Action -->
+                <button type="button" onclick="openCheckerRejectModal()" style="padding: 10px 18px; border-radius: 8px; background: #FFF1F2; border: 1px solid #FECDD3; color: #BA1A1A; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px;">
+                    <span>Reject Version</span>
+                </button>
 
-                <!-- Button 2: Submit for Checker Form -->
+                <!-- Approve Action -->
                 <form method="POST" style="display: inline;">
-                    <input type="hidden" name="action" value="submit_for_checker">
+                    <input type="hidden" name="action" value="checker_approve">
                     <input type="hidden" name="version_id" value="<?= (int)$versionId ?>">
                     <input type="hidden" name="asset_id" value="<?= (int)$assetId ?>">
                     <input type="hidden" name="campaign_id" value="<?= (int)$campaignId ?>">
-                    <button type="submit" class="btn-submit-checker-primary">
-                        <span>Submit for Checker</span>
-                        <svg width="15" height="12" viewBox="0 0 15 12" fill="none">
-                            <path d="M0 12V0L14.25 6L0 12ZM1.5 9.75L10.3875 6L1.5 2.25V4.875L6 6L1.5 7.125V9.75Z" fill="white"/>
-                        </svg>
+                    <input type="hidden" name="review_notes" value="Approved after AI pre-flight inspection">
+                    <button type="submit" style="padding: 10px 20px; border-radius: 8px; background: #00B894; color: #FFF; font-weight: 700; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px;" onclick="return confirm('Confirm approval for this asset version?');">
+                        <span>Approve Version</span>
                     </button>
                 </form>
+
+                <!-- Proceed to Full Checker Review Workspace -->
+                <?php 
+                $fullReviewUrl = (function_exists('pcs_url') ? pcs_url('checker-review.php') : 'checker-review.php') . '?' . http_build_query([
+                    'version_id'  => $versionId,
+                    'asset_id'    => $assetId,
+                    'campaign_id' => $campaignId
+                ]);
+                ?>
+                <a href="<?= esc_url($fullReviewUrl) ?>" class="btn-submit-checker-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+                    <span>Open Review Workspace</span>
+                    <svg width="15" height="12" viewBox="0 0 15 12" fill="none">
+                        <path d="M0 12V0L14.25 6L0 12ZM1.5 9.75L10.3875 6L1.5 2.25V4.875L6 6L1.5 7.125V9.75Z" fill="white"/>
+                    </svg>
+                </a>
             </div>
         </footer>
 
@@ -2487,14 +2535,51 @@ $versionStatus = $version['status'] ?? 'scoring';
             if (m) m.style.display = 'none';
         }
 
+        function openCheckerRejectModal() {
+            var m = document.getElementById('checkerRejectModal');
+            if (m) m.style.display = 'flex';
+        }
+        function closeCheckerRejectModal() {
+            var m = document.getElementById('checkerRejectModal');
+            if (m) m.style.display = 'none';
+        }
+
         // ESC Key listener
         window.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 closeFullSizeModal();
                 closeFeedbackModal();
                 closeGuidelineModal();
+                closeCheckerRejectModal();
             }
         });
     </script>
+
+    <!-- Modal: Checker Reject with Note -->
+    <div class="modal-overlay" id="checkerRejectModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+        <div class="modal-box" style="background: #FFFFFF; border-radius: 16px; padding: 24px; max-width: 520px; width: 92%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 class="modal-title" style="font-size: 18px; font-weight: 800; color: #BA1A1A; margin: 0;">Reject Version & Request Revisions</h3>
+                <span style="font-size: 24px; cursor: pointer; color: #94A3B8; line-height: 1;" onclick="closeCheckerRejectModal()">&times;</span>
+            </div>
+            <p style="font-size: 13px; color: #64748B; margin-bottom: 16px;">Specify compliance feedback and necessary adjustments for the creative maker.</p>
+            <form method="POST" action="">
+                <input type="hidden" name="action" value="checker_reject">
+                <input type="hidden" name="version_id" value="<?= (int)$versionId ?>">
+                <input type="hidden" name="asset_id" value="<?= (int)$assetId ?>">
+                <input type="hidden" name="campaign_id" value="<?= (int)$campaignId ?>">
+                <div style="display: flex; flex-direction: column; gap: 14px;">
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Compliance Rejection Reason</label>
+                        <textarea name="review_notes" id="checkerRejectNotes" required rows="4" style="width: 100%; padding: 10px 12px; border: 1px solid #CBD5E1; border-radius: 8px; font-size: 14px; box-sizing: border-box;" placeholder="Detail the brand or regulatory violations identified..."></textarea>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                    <button type="button" class="btn-table-action" style="padding: 8px 16px; border: 1px solid #CBD5E1; border-radius: 8px; background: #fff; cursor: pointer;" onclick="closeCheckerRejectModal()">Cancel</button>
+                    <button type="submit" style="padding: 8px 18px; border-radius: 8px; background: #BA1A1A; color: #fff; font-weight: 700; border: none; cursor: pointer;">Confirm Rejection</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </body>
 </html>

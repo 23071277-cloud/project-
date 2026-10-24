@@ -103,7 +103,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action'])) {
                 $feedbackSuccess = true;
             }
         }
+    } elseif ($_POST['action'] === 'update_asset_identifiers') {
+        $aid = absint($_POST['asset_id'] ?? 0);
+        if ($aid > 0 && function_exists('handle_update_asset')) {
+            handle_update_asset($aid, $_POST);
+            $feedbackAlert = 'Asset identifiers updated successfully!';
+            $feedbackSuccess = true;
+        }
     }
+}
+
+if (isset($_GET['upload_success']) && $_GET['upload_success'] === '1' && empty($feedbackAlert)) {
+    $feedbackAlert = 'Artwork uploaded successfully and submitted for compliance review.';
+    $feedbackSuccess = true;
 }
 
 // 5. Query Real Data from WordPress Database
@@ -1493,6 +1505,9 @@ endif;
                                 </div>
 
                                 <div class="action-cell" onclick="event.stopPropagation();">
+                                    <button type="button" class="btn-row-secondary" onclick="event.stopPropagation(); openEditAssetModal(<?= (int)$ast['id'] ?>, '<?= esc_js($ast['name']) ?>', '<?= esc_js($ast['format'] ?? 'Digital Banner') ?>', '<?= esc_js($campaignName) ?>')" title="Edit Asset Identifiers" style="font-weight: 600;">
+                                        Edit
+                                    </button>
                                     <?php if ($isRejected): ?>
                                         <a href="<?= esc_url(pcs_url('smart-maker-upload.php') . '?campaign_id=' . (int)$campaignId . '&asset_id=' . (int)$ast['id'] . '&mode=new_version') ?>" class="btn-row-upload" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; text-align: center;">
                                             Upload New<br>Version
@@ -1591,11 +1606,16 @@ endif;
                                 <?php endif; ?>
                             </div>
                         </div>
-                        <div class="preview-meta-footer">
-                            <span class="preview-title-strong"><?= esc_html($selectedAsset['name']) ?> · <?= esc_html($selectedAsset['version_label']) ?></span>
-                            <span style="color: <?= ($selStatus === 'rejected') ? '#BA1A1A' : '#767682' ?>;">
-                                <?= esc_html($selectedAsset['status_label']) ?> · <?= esc_html($selectedAsset['submitted_date']) ?>
-                            </span>
+                        <div class="preview-meta-footer" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                            <div>
+                                <span class="preview-title-strong"><?= esc_html($selectedAsset['name']) ?> · <?= esc_html($selectedAsset['version_label']) ?></span>
+                                <span style="color: <?= ($selStatus === 'rejected') ? '#BA1A1A' : '#767682' ?>; display: block; font-size: 12px; margin-top: 2px;">
+                                    <?= esc_html($selectedAsset['status_label']) ?> · <?= esc_html($selectedAsset['submitted_date']) ?>
+                                </span>
+                            </div>
+                            <button type="button" class="btn-row-secondary" style="font-size: 11.5px; padding: 4px 10px; border-radius: 6px; font-weight: 600;" onclick="openEditAssetModal(<?= (int)$selectedAsset['id'] ?>, '<?= esc_js($selectedAsset['name']) ?>', '<?= esc_js($selectedAsset['format'] ?? 'Digital Banner') ?>', '<?= esc_js($campaignName) ?>')">
+                                Edit Info
+                            </button>
                         </div>
                     </div>
 
@@ -1923,12 +1943,77 @@ endif;
         document.getElementById('guidelinesModal').style.display = 'none';
     }
 
+    // Edit Asset Modal Handlers (Maker CRUD)
+    function openEditAssetModal(assetId, assetName, assetType, campaignName) {
+        const modal = document.getElementById('editAssetModal');
+        if (!modal) return;
+        document.getElementById('editAssetIdInput').value = assetId;
+        document.getElementById('editAssetNameInput').value = assetName || '';
+        const typeSelect = document.getElementById('editAssetTypeSelect');
+        if (typeSelect) {
+            typeSelect.value = assetType || 'Digital Banner';
+            if (!typeSelect.value) {
+                typeSelect.value = 'Other';
+            }
+        }
+        const sub = document.getElementById('editAssetSubtitle');
+        if (sub) {
+            sub.textContent = 'Update identifiers for "' + assetName + '" (' + (campaignName || 'Campaign') + '). Changes will be logged to Audit Trail.';
+        }
+        modal.style.display = 'flex';
+    }
+
+    function closeEditAssetModal() {
+        const modal = document.getElementById('editAssetModal');
+        if (modal) modal.style.display = 'none';
+    }
+
     // Close Modals on ESC
     window.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             closeGuidelinesModal();
+            closeEditAssetModal();
         }
     });
+</script>
+
+<!-- Modal: Edit Asset Identifiers (Maker CRUD) -->
+<div class="modal-overlay" id="editAssetModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div class="modal-box" style="background: #FFFFFF; border-radius: 16px; padding: 24px; max-width: 520px; width: 92%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 class="modal-title" style="font-size: 18px; font-weight: 800; color: #161B2E; margin: 0;">Edit Asset Identifiers</h3>
+            <span style="font-size: 24px; cursor: pointer; color: #94A3B8; line-height: 1;" onclick="closeEditAssetModal()">&times;</span>
+        </div>
+        <p style="font-size: 13px; color: #64748B; margin-bottom: 16px;" id="editAssetSubtitle">Update asset name and format. Changes will be audited.</p>
+        <form method="POST" action="">
+            <input type="hidden" name="action" value="update_asset_identifiers">
+            <input type="hidden" name="asset_id" id="editAssetIdInput" value="">
+            <div style="display: flex; flex-direction: column; gap: 14px;">
+                <div>
+                    <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Asset Name</label>
+                    <input type="text" name="title" id="editAssetNameInput" required style="width: 100%; height: 42px; padding: 0 12px; border: 1px solid #CBD5E1; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Format / Asset Type</label>
+                    <select name="type" id="editAssetTypeSelect" style="width: 100%; height: 42px; padding: 0 12px; border: 1px solid #CBD5E1; border-radius: 8px; font-size: 14px; background: #fff; box-sizing: border-box;">
+                        <option value="Digital Banner">Digital Banner</option>
+                        <option value="Social Media Post">Social Media Post</option>
+                        <option value="Print Poster">Print Poster</option>
+                        <option value="Billboard">Billboard</option>
+                        <option value="Brochure PDF">Brochure PDF</option>
+                        <option value="Email Newsletter">Email Newsletter</option>
+                        <option value="Video Display">Video Display</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button type="button" class="btn-row-secondary" style="padding: 8px 16px; border: 1px solid #CBD5E1; border-radius: 8px; background: #fff; cursor: pointer;" onclick="closeEditAssetModal()">Cancel</button>
+                <button type="submit" class="btn-next-action-large" style="padding: 8px 18px; border-radius: 8px; background: #373E8C; color: #fff; font-weight: 700; border: none; cursor: pointer; height: auto;">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
 </script>
 
 </body>

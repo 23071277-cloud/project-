@@ -953,13 +953,13 @@ if ($unavIsHome) {
             <?php elseif ($unavRole === 'CHECKER'): ?>
                 <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('checker-dashboard.php') : 'checker-dashboard.php') ?>" class="unav-nav-item <?= ($unavCurScript === 'checker-dashboard.php' && strpos($_SERVER['REQUEST_URI'] ?? '', '#') === false) ? 'active' : '' ?>">Dashboard</a>
                 <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('checker-dashboard.php') : 'checker-dashboard.php') . '#queue-section') ?>" class="unav-nav-item">Review Queue</a>
-                <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('checker-review.php') : 'checker-review.php') ?>" class="unav-nav-item <?= in_array($unavCurScript, ['checker-review.php', 'detail-asset-checker.php', 'compare-version.php'], true) ? 'active' : '' ?>">My Review</a>
+                <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('checker-review.php') : 'checker-review.php') ?>" class="unav-nav-item <?= in_array($unavCurScript, ['checker-review.php', 'detail-asset-checker.php', 'compare-version.php', 'ai-scoring-result.php'], true) ? 'active' : '' ?>">My Review</a>
                 <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('audit-log.php') : 'audit-log.php') ?>" class="unav-nav-item <?= ($unavCurScript === 'audit-log.php') ? 'active' : '' ?>">Audit History</a>
             <?php elseif ($unavRole === 'MAKER'): ?>
                 <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php') ?>" class="unav-nav-item <?= ($unavCurScript === 'maker-dashboard.php' && strpos($_SERVER['REQUEST_URI'] ?? '', '#') === false) ? 'active' : '' ?>">Dashboard</a>
                 <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php') . '#campaigns-section') ?>" class="unav-nav-item">My Campaigns</a>
-                <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('detail-asset-maker.php') : 'detail-asset-maker.php') ?>" class="unav-nav-item <?= in_array($unavCurScript, ['detail-asset-maker.php', 'smart-maker-upload.php'], true) ? 'active' : '' ?>">My Assets</a>
-                <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('ai-scoring-result.php') : 'ai-scoring-result.php') ?>" class="unav-nav-item <?= in_array($unavCurScript, ['ai-scoring-result.php', 'ai-scoring-progress.php'], true) ? 'active' : '' ?>">Review Results</a>
+                <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('detail-asset-maker.php') : 'detail-asset-maker.php') ?>" class="unav-nav-item <?= in_array($unavCurScript, ['detail-asset-maker.php', 'smart-maker-upload.php', 'ai-scoring-progress.php'], true) ? 'active' : '' ?>">My Assets</a>
+                <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php') . '#schedule-section') ?>" class="unav-nav-item">Schedule</a>
             <?php else: ?>
                 <a href="<?= esc_url($unavHomeUrl) ?>" class="unav-nav-item">
                     <span>Product</span>

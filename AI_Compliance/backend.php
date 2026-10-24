@@ -2241,6 +2241,187 @@ function handle_update_campaign_team($campaign_id, $maker_ids = [], $checker_ids
 }
 
 /**
+ * Fallback ghi Audit Log nếu project-core-system.php chưa khởi tạo
+ */
+if (!function_exists('pcs_log')) {
+function pcs_log($action, $asset_id = 0, $version_id = 0, $old_status = '', $new_status = '', $note = '', $extra = []) {
+    if (!pcs_is_wp()) return 0;
+    $title = $action . ' · asset #' . $asset_id . ($version_id ? ' · version #' . $version_id : '');
+    $cur_user_id = function_exists('get_current_user_id') ? get_current_user_id() : 0;
+    $log_id = wp_insert_post([
+        'post_type'   => 'audit_log',
+        'post_status' => 'publish',
+        'post_title'  => $title,
+        'post_author' => $cur_user_id,
+    ]);
+    if ($log_id && !is_wp_error($log_id)) {
+        update_post_meta($log_id, '_action',         $action);
+        update_post_meta($log_id, '_asset_id',       (int) $asset_id);
+        update_post_meta($log_id, '_version_id',     (int) $version_id);
+        update_post_meta($log_id, '_user_id',        $cur_user_id);
+        update_post_meta($log_id, '_old_status',     $old_status);
+        update_post_meta($log_id, '_new_status',     $new_status);
+        update_post_meta($log_id, '_note',           $note);
+        if (isset($extra['campaign_id'])) {
+            update_post_meta($log_id, '_campaign_id', (int) $extra['campaign_id']);
+        }
+        if (isset($extra['prompt_version'])) {
+            update_post_meta($log_id, '_prompt_version', $extra['prompt_version']);
+        }
+        if (isset($extra['model_version'])) {
+            update_post_meta($log_id, '_model_version',  $extra['model_version']);
+        }
+    }
+    return $log_id;
+}
+}
+
+/**
+ * Cập nhật thông tin định danh & phân công của Campaign (Admin CRUD)
+ * Cho phép sửa Tên Campaign, Deadline, Owner, Maker IDs, Checker IDs và tự động ghi Audit Log
+ */
+if (!function_exists('handle_update_campaign')) {
+function handle_update_campaign($campaign_id, $data = []) {
+    if (!pcs_is_wp()) return false;
+    $cid = absint($campaign_id);
+    if (!$cid || get_post_type($cid) !== 'campaign') return false;
+
+    $old_post = get_post($cid);
+    $old_title = $old_post ? $old_post->post_title : ('Campaign #' . $cid);
+
+    $new_title = isset($data['title']) ? sanitize_text_field($data['title']) : '';
+    if (!empty($new_title) && $new_title !== $old_title) {
+        wp_update_post([
+            'ID'         => $cid,
+            'post_title' => $new_title
+        ]);
+    }
+
+    if (isset($data['deadline'])) {
+        $deadline = sanitize_text_field($data['deadline']);
+        if (function_exists('pcs_server_meta')) {
+            pcs_server_meta($cid, '_deadline', $deadline);
+        } else {
+            update_post_meta($cid, '_deadline', $deadline);
+        }
+    }
+
+    $owner_id = isset($data['owner_id']) ? absint($data['owner_id']) : 0;
+    if ($owner_id > 0) {
+        if (function_exists('pcs_server_meta')) {
+            pcs_server_meta($cid, '_owner_id', $owner_id);
+        } else {
+            update_post_meta($cid, '_owner_id', $owner_id);
+        }
+    }
+
+    $m_ids = isset($data['maker_ids']) ? array_filter(array_map('absint', (array) $data['maker_ids'])) : [];
+    $m_str = implode(',', $m_ids);
+    if (function_exists('pcs_server_meta')) {
+        pcs_server_meta($cid, '_maker_ids', $m_str);
+    } else {
+        update_post_meta($cid, '_maker_ids', $m_str);
+    }
+
+    $c_ids = isset($data['checker_ids']) ? array_filter(array_map('absint', (array) $data['checker_ids'])) : [];
+    $c_str = implode(',', $c_ids);
+    if (function_exists('pcs_server_meta')) {
+        pcs_server_meta($cid, '_checker_ids', $c_str);
+    } else {
+        update_post_meta($cid, '_checker_ids', $c_str);
+    }
+
+    // Ghi Audit Log chuẩn xác với đầy đủ thông tin Ai, Làm gì, Vào lúc nào
+    $cur_user = function_exists('get_current_user_profile') ? get_current_user_profile('ADMIN') : [];
+    $user_name = $cur_user['name'] ?? 'Admin';
+    $final_title = !empty($new_title) ? $new_title : $old_title;
+    
+    $changes = [];
+    if (!empty($new_title) && $new_title !== $old_title) {
+        $changes[] = "Title renamed from '{$old_title}' to '{$new_title}'";
+    }
+    if (!empty($data['deadline'])) {
+        $changes[] = "Deadline set to '{$data['deadline']}'";
+    }
+    $changes[] = "Team updated: " . count($m_ids) . " Makers, " . count($c_ids) . " Checkers assigned";
+    $audit_note = "Admin {$user_name} updated Campaign '{$final_title}': " . implode('; ', $changes);
+
+    if (function_exists('pcs_log')) {
+        pcs_log('campaign_updated', 0, 0, '', '', $audit_note, ['campaign_id' => $cid]);
+    }
+
+    if (function_exists('pcs_bump_sync_version')) {
+        pcs_bump_sync_version();
+    }
+
+    return true;
+}
+}
+
+/**
+ * Cập nhật định danh của Asset (Maker CRUD)
+ * Cho phép Maker sửa Tên Asset, Loại/Định dạng (Format/Asset Type) và tự động ghi Audit Log
+ */
+if (!function_exists('handle_update_asset')) {
+function handle_update_asset($asset_id, $data = []) {
+    if (!pcs_is_wp()) return false;
+    $aid = absint($asset_id);
+    if (!$aid || get_post_type($aid) !== 'asset') return false;
+
+    $old_post = get_post($aid);
+    $old_title = $old_post ? $old_post->post_title : ('Asset #' . $aid);
+    $cid = (int) get_post_meta($aid, '_campaign_id', true);
+    $old_type = get_post_meta($aid, '_asset_type', true) ?: (get_post_meta($aid, '_format', true) ?: '');
+
+    $new_title = isset($data['title']) ? sanitize_text_field($data['title']) : '';
+    if (!empty($new_title) && $new_title !== $old_title) {
+        wp_update_post([
+            'ID'         => $aid,
+            'post_title' => $new_title
+        ]);
+    }
+
+    $new_type = isset($data['type']) ? sanitize_text_field($data['type']) : '';
+    if (!empty($new_type)) {
+        if (function_exists('pcs_server_meta')) {
+            pcs_server_meta($aid, '_asset_type', $new_type);
+            pcs_server_meta($aid, '_format', $new_type);
+        } else {
+            update_post_meta($aid, '_asset_type', $new_type);
+            update_post_meta($aid, '_format', $new_type);
+        }
+    }
+
+    // Ghi Audit Log chuẩn xác với đầy đủ thông tin
+    $cur_user = function_exists('get_current_user_profile') ? get_current_user_profile('MAKER') : [];
+    $user_name = $cur_user['name'] ?? 'Maker';
+    $final_title = !empty($new_title) ? $new_title : $old_title;
+
+    $changes = [];
+    if (!empty($new_title) && $new_title !== $old_title) {
+        $changes[] = "Name renamed from '{$old_title}' to '{$new_title}'";
+    }
+    if (!empty($new_type) && $new_type !== $old_type) {
+        $changes[] = "Format/Type changed from '{$old_type}' to '{$new_type}'";
+    }
+    if (empty($changes)) {
+        $changes[] = "Metadata confirmed";
+    }
+    $audit_note = "Maker {$user_name} updated Asset '{$final_title}': " . implode('; ', $changes);
+
+    if (function_exists('pcs_log')) {
+        pcs_log('asset_updated', $aid, 0, '', '', $audit_note, ['campaign_id' => $cid]);
+    }
+
+    if (function_exists('pcs_bump_sync_version')) {
+        pcs_bump_sync_version();
+    }
+
+    return true;
+}
+}
+
+/**
  * Upload hoặc cập nhật file Guideline cho một Campaign cụ thể
  * Hỗ trợ cả file đơn và mảng nhiều file, lưu trữ vào _guideline_files JSON
  */
@@ -2784,22 +2965,31 @@ function get_coming_up_tasks() {
  * Lịch tuần Realtime dựa trên thời gian thực của máy chủ
  */
 if (!function_exists('get_realtime_weekly_schedule')) {
-function get_realtime_weekly_schedule() {
+function get_realtime_weekly_schedule($week_offset = 0) {
     $now = pcs_is_wp() && function_exists('current_time') ? current_time('timestamp') : time();
     $day_of_week = (int) date('N', $now); // 1 (Mon) - 7 (Sun)
     $monday_ts = strtotime('-' . ($day_of_week - 1) . ' days', $now);
 
+    $week_offset = (int) $week_offset;
+    if ($week_offset !== 0) {
+        $monday_ts = strtotime(($week_offset > 0 ? "+{$week_offset} weeks" : "{$week_offset} weeks"), $monday_ts);
+    }
+
     $days = [];
     $day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-    // Lấy deadlines thực tế từ campaigns nếu có
-    $campaigns = get_all_campaigns();
+    // Lấy deadlines thực tế từ campaigns
+    $campaigns = function_exists('get_all_campaigns') ? get_all_campaigns() : [];
     $campaign_dates = [];
     foreach ($campaigns as $c) {
         if (!empty($c['deadline']) && $c['deadline'] !== 'No deadline') {
             $ts = strtotime($c['deadline']);
             if ($ts) {
-                $campaign_dates[date('Y-m-d', $ts)] = $c;
+                $dKey = date('Y-m-d', $ts);
+                if (!isset($campaign_dates[$dKey])) {
+                    $campaign_dates[$dKey] = [];
+                }
+                $campaign_dates[$dKey][] = $c;
             }
         }
     }
@@ -2809,25 +2999,46 @@ function get_realtime_weekly_schedule() {
         $date_str = date('Y-m-d', $day_ts);
         $is_today = ($date_str === date('Y-m-d', $now));
         
-        $task = null;
+        $tasks = [];
         if (isset($campaign_dates[$date_str])) {
-            $c = $campaign_dates[$date_str];
-            $task = [
-                'type'     => ($c['status_type'] ?? 'primary'),
-                'title'    => 'Deadline: ' . $c['name'],
-                'campaign' => $c['name']
-            ];
+            foreach ($campaign_dates[$date_str] as $c) {
+                $st = strtolower($c['status'] ?? '');
+                $type = 'due';
+                if ($st === 'approved' || $st === 'released') {
+                    $type = 'approved';
+                } elseif ($st === 'rejected' || strpos($st, 'revision') !== false) {
+                    $type = 'revision';
+                } elseif ($st === 'in_review' || $st === 'scoring') {
+                    $type = 'ready';
+                }
+                $tasks[] = [
+                    'type'     => $type,
+                    'title'    => 'Deadline: ' . $c['name'],
+                    'campaign' => $c['name']
+                ];
+            }
         }
 
-        $days[] = [
-            'day'   => $day_names[$i],
-            'date'  => date('d', $day_ts),
-            'today' => $is_today,
-            'task'  => $task
+        $days[$i] = [
+            'day'        => $day_names[$i],
+            'date'       => date('d', $day_ts),
+            'full_date'  => $date_str,
+            'today'      => $is_today,
+            'task'       => !empty($tasks) ? $tasks[0] : null,
+            'tasks'      => $tasks
         ];
     }
 
-    return $days;
+    $sunday_ts = strtotime('+6 days', $monday_ts);
+    $week_label = date('d', $monday_ts) . '–' . date('d', $sunday_ts) . ' ' . date('M Y', $sunday_ts);
+
+    $result = $days;
+    $result['days']        = $days;
+    $result['week_offset'] = $week_offset;
+    $result['week_label']  = $week_label;
+    $result['is_current']  = ($week_offset === 0);
+
+    return $result;
 }
 }
 
@@ -5488,6 +5699,12 @@ function get_audit_log_screen_data($asset_id = 0, $version_id = 0, $campaign_id 
             $action_title = 'Criterion Verdict Overridden';
         } elseif ($act_norm === 'create_campaign') {
             $action_title = 'Campaign Created';
+        } elseif ($act_norm === 'campaign_updated') {
+            $action_title = 'Campaign Updated';
+        } elseif ($act_norm === 'asset_updated') {
+            $action_title = 'Asset Identifiers Updated';
+        } elseif ($act_norm === 'update_campaign_team' || $act_norm === 'team_updated') {
+            $action_title = 'Campaign Team Updated';
         } else {
             $action_title = ucwords(str_replace(['_', '-'], ' ', $l_action));
         }

@@ -57,12 +57,24 @@ if ($reqMethod === 'POST' && isset($_POST['action']) && $_POST['action'] === 'cr
             $releaseSuccess = true;
         }
     }
-} elseif ($reqMethod === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_campaign_team') {
+} elseif ($reqMethod === 'POST' && isset($_POST['action']) && in_array($_POST['action'], ['update_campaign_team', 'update_campaign'], true)) {
     $campId = absint($_POST['campaign_id'] ?? 0);
+    $campTitle = sanitize_text_field($_POST['campaign_title'] ?? '');
+    $campDeadline = sanitize_text_field($_POST['campaign_deadline'] ?? '');
     $campOwnerId = absint($_POST['owner_id'] ?? 0);
     $maker_ids = isset($_POST['maker_ids']) ? array_map('absint', (array) $_POST['maker_ids']) : [];
     $checker_ids = isset($_POST['checker_ids']) ? array_map('absint', (array) $_POST['checker_ids']) : [];
-    if ($campId && function_exists('handle_update_campaign_team')) {
+    if ($campId && function_exists('handle_update_campaign')) {
+        handle_update_campaign($campId, [
+            'title'       => $campTitle,
+            'deadline'    => $campDeadline,
+            'owner_id'    => $campOwnerId,
+            'maker_ids'   => $maker_ids,
+            'checker_ids' => $checker_ids
+        ]);
+        $releaseAlert = 'Campaign details and team assignments updated successfully!';
+        $releaseSuccess = true;
+    } elseif ($campId && function_exists('handle_update_campaign_team')) {
         handle_update_campaign_team($campId, $maker_ids, $checker_ids, $campOwnerId);
         $releaseAlert = 'Campaign team assignments updated successfully!';
         $releaseSuccess = true;
@@ -2084,8 +2096,8 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                             </td>
                                             <td style="text-align: center; white-space: nowrap;">
                                                 <div style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
-                                                    <button type="button" class="btn-action-outline" style="padding: 5px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;" onclick="openEditTeamModal(<?= (int)$camp['id'] ?>, '<?= esc_js($camp['name']) ?>', <?= (int)($camp['owner_id'] ?? 0) ?>, <?= esc_attr(json_encode($camp['maker_ids'] ?? [])) ?>, <?= esc_attr(json_encode($camp['checker_ids'] ?? [])) ?>)">
-                                                        <span>Team</span>
+                                                    <button type="button" class="btn-action-outline" style="padding: 5px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;" onclick="openEditTeamModal(<?= (int)$camp['id'] ?>, '<?= esc_js($camp['name']) ?>', <?= (int)($camp['owner_id'] ?? 0) ?>, <?= esc_attr(json_encode($camp['maker_ids'] ?? [])) ?>, <?= esc_attr(json_encode($camp['checker_ids'] ?? [])) ?>, '<?= esc_js($camp['deadline'] ?? '') ?>')">
+                                                        <span>Edit</span>
                                                     </button>
                                                     <button type="button" class="btn-view-campaign js-toggle-drawer" data-target="drawer-<?= $camp['id'] ?>">
                                                         View
@@ -2120,8 +2132,8 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                                             <button type="button" class="btn-action-outline" style="padding: 4px 10px; font-size: 11.5px; border-radius: 6px;" onclick="openUploadGuidelineModal(<?= (int)$camp['id'] ?>, '<?= esc_js($camp['name']) ?>', <?= esc_attr(json_encode($gList)) ?>)">
                                                                 Manage Guidelines
                                                             </button>
-                                                            <button type="button" class="btn-action-outline" style="padding: 4px 10px; font-size: 11.5px; border-radius: 6px;" onclick="openEditTeamModal(<?= (int)$camp['id'] ?>, '<?= esc_js($camp['name']) ?>', <?= (int)($camp['owner_id'] ?? 0) ?>, <?= esc_attr(json_encode($camp['maker_ids'] ?? [])) ?>, <?= esc_attr(json_encode($camp['checker_ids'] ?? [])) ?>)">
-                                                                Edit Team
+                                                            <button type="button" class="btn-action-outline" style="padding: 4px 10px; font-size: 11.5px; border-radius: 6px;" onclick="openEditTeamModal(<?= (int)$camp['id'] ?>, '<?= esc_js($camp['name']) ?>', <?= (int)($camp['owner_id'] ?? 0) ?>, <?= esc_attr(json_encode($camp['maker_ids'] ?? [])) ?>, <?= esc_attr(json_encode($camp['checker_ids'] ?? [])) ?>, '<?= esc_js($camp['deadline'] ?? '') ?>')">
+                                                                Edit Campaign
                                                             </button>
                                                             <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('detail-asset-admin.php') : 'detail-asset-admin.php') . '?campaign_id=' . (int)$camp['id']) ?>" style="font-size: 12px; font-weight: 600; color: #373E8C; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
                                                                 <span>Open Campaign Governance →</span>
@@ -2543,21 +2555,33 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
         </div>
     </div>
 
-    <!-- Modal 0B: Edit Campaign Team Modal -->
+    <!-- Modal 0B: Edit Campaign Details & Team Modal -->
     <div class="modal-overlay" id="editTeamModal" style="display: none;">
         <div class="modal-window" style="max-width: 580px; max-height: 90vh; overflow-y: auto;">
             <div class="modal-header">
                 <div>
-                    <h3 class="modal-title">Edit Campaign Team</h3>
-                    <p style="font-size: 13px; color: #64748B; margin-top: 2px;" id="editTeamCampaignTitle">Update team assignments</p>
+                    <h3 class="modal-title">Edit Campaign</h3>
+                    <p style="font-size: 13px; color: #64748B; margin-top: 2px;" id="editTeamCampaignTitle">Update campaign details and team assignments</p>
                 </div>
                 <span class="btn-close-modal" onclick="closeEditTeamModal()">&times;</span>
             </div>
             <form method="POST" action="">
-                <input type="hidden" name="action" value="update_campaign_team">
+                <input type="hidden" name="action" value="update_campaign">
                 <input type="hidden" name="campaign_id" id="editTeamCampaignId" value="">
                 
                 <div class="modal-body" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+                    <!-- Edit Campaign Title -->
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Campaign Title</label>
+                        <input type="text" name="campaign_title" id="editCampaignTitleInput" required style="width: 100%; height: 44px; padding: 0 14px; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 14px; background: #fff; box-sizing: border-box;" placeholder="Enter campaign name">
+                    </div>
+
+                    <!-- Edit Deadline -->
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Target Deadline</label>
+                        <input type="date" name="campaign_deadline" id="editCampaignDeadlineInput" style="width: 100%; height: 44px; padding: 0 14px; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 14px; background: #fff; box-sizing: border-box;">
+                    </div>
+
                     <!-- Edit Owner -->
                     <div>
                         <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Campaign Owner</label>
@@ -2622,7 +2646,7 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                 </div>
                 <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid #E2E8F0; display: flex; justify-content: flex-end; gap: 12px;">
                     <button type="button" class="btn-action-outline" onclick="closeEditTeamModal()">Cancel</button>
-                    <button type="submit" class="btn-action-primary">Save Team Assignments</button>
+                    <button type="submit" class="btn-action-primary">Save Campaign Changes</button>
                 </div>
             </form>
         </div>
@@ -3301,13 +3325,23 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             if (tag) tag.remove();
         }
 
-        // Edit Campaign Team Modal Functions
-        function openEditTeamModal(campId, campTitle, ownerId, makerIds, checkerIds) {
+        // Edit Campaign Details & Team Modal Functions
+        function openEditTeamModal(campId, campTitle, ownerId, makerIds, checkerIds, deadline) {
             const modal = document.getElementById('editTeamModal');
             if (!modal) return;
 
             document.getElementById('editTeamCampaignId').value = campId;
-            document.getElementById('editTeamCampaignTitle').textContent = 'Update team assignments for: ' + campTitle;
+            document.getElementById('editTeamCampaignTitle').textContent = 'Update parameters & assignments for: ' + campTitle;
+
+            const titleInput = document.getElementById('editCampaignTitleInput');
+            if (titleInput) {
+                titleInput.value = campTitle || '';
+            }
+
+            const deadlineInput = document.getElementById('editCampaignDeadlineInput');
+            if (deadlineInput) {
+                deadlineInput.value = (deadline && deadline !== 'No deadline') ? deadline : '';
+            }
 
             const ownerSelect = document.getElementById('editTeamOwnerSelect');
             if (ownerSelect) {

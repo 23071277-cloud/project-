@@ -79,22 +79,46 @@ $checks          = $screenData['checks'] ?? [];
 $completedCount  = $screenData['completed_count'] ?? 2;
 $totalChecks     = $screenData['total_checks'] ?? 3;
 $returnUrl       = $screenData['return_url'] ?? (function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php');
-$nextUrl         = (function_exists('pcs_url') ? pcs_url('ai-scoring-result.php') : 'ai-scoring-result.php') . '?' . http_build_query([
-    'version_id'  => $version['id'] ?? $targetVersionId,
-    'campaign_id' => $campaign['id'] ?? $targetCampaignId,
-    'asset_id'    => $asset['id'] ?? $targetAssetId
-]);
 
 $campaignId   = $campaign['id'] ?? $targetCampaignId;
 $campaignName = $campaign['name'] ?? 'General Campaign';
+$assetId      = $asset['id'] ?? $targetAssetId;
 $assetName    = $asset['name'] ?? 'Marketing Asset';
 $assetCode    = $asset['code'] ?? 'ASSET-REV-001';
+$versionId    = $version['id'] ?? $targetVersionId;
 $versionLabel = $version['version_label'] ?? 'V1';
 $versionNum   = $version['version_num'] ?? 1;
 $makerName    = $version['maker_name'] ?? ($currentUser['first_name'] ?? 'Cam Anh');
 $uploadedTime = $version['uploaded_time'] ?? 'Uploaded just now';
 $fileName     = $version['file_name'] ?? 'asset-artwork.png';
 $fileExt      = $version['file_ext'] ?? 'PNG';
+
+// Đảm bảo cập nhật version sang in_review ngay khi AI hoàn tất để chuyển giao cho Checker
+if ($versionId > 0 && pcs_is_wp()) {
+    $curSt = get_post_meta($versionId, '_status', true);
+    if ($curSt === 'draft' || $curSt === 'scoring' || empty($curSt)) {
+        if (function_exists('pcs_server_meta')) {
+            pcs_server_meta($versionId, '_status', 'in_review');
+            if ($assetId > 0) {
+                pcs_server_meta($assetId, '_current_version_id', $versionId);
+            }
+        } else {
+            update_post_meta($versionId, '_status', 'in_review');
+            if ($assetId > 0) {
+                update_post_meta($assetId, '_current_version_id', $versionId);
+            }
+        }
+    }
+}
+
+// Maker không thấy điểm số AI: chuyển hướng về danh sách asset với thông báo thành công
+$nextUrl = ($campaignId > 0)
+    ? ((function_exists('pcs_url') ? pcs_url('detail-asset-maker.php') : 'detail-asset-maker.php') . '?' . http_build_query([
+        'campaign_id'    => $campaignId,
+        'asset_id'       => $assetId,
+        'upload_success' => '1'
+    ]))
+    : ((function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php') . '?upload_success=1');
 $fileSize     = $version['file_size'] ?? '2.4 MB';
 $dimensions   = $version['dimensions'] ?? '1920 × 1080 px';
 $colorway     = $version['colorway'] ?? 'sRGB Colorway';
@@ -1633,9 +1657,9 @@ if (!$activeCheck && !empty($checks)) {
                         <span class="nextstate-badge">Automated Handoff</span>
                     </div>
 
-                    <h3 class="nextstate-heading">Results available when all checks complete</h3>
+                    <h3 class="nextstate-heading">Submitting for Compliance Review</h3>
                     <p class="nextstate-body">
-                        Processing continues automatically in the background. Once MAS Advertising validation concludes, a comprehensive compliance report and audit trail will be generated.
+                        Pre-flight checks are concluding. Upon completion, your artwork will automatically transition to "In Review" status for Compliance Checker verification.
                     </p>
                 </div>
 
@@ -1644,11 +1668,11 @@ if (!$activeCheck && !empty($checks)) {
                         <svg class="pulse-dot" width="14" height="14" viewBox="0 0 12 12" fill="none">
                             <path d="M0 12V10.5H2.0625L1.7625 10.2375C1.1125 9.6625 0.65625 9.00625 0.39375 8.26875C0.13125 7.53125 0 6.7875 0 6.0375C0 4.65 0.415625 3.41562 1.24688 2.33437C2.07812 1.25312 3.1625 0.5375 4.5 0.1875V1.7625C3.6 2.0875 2.875 2.64062 2.325 3.42188C1.775 4.20312 1.5 5.075 1.5 6.0375C1.5 6.6 1.60625 7.14687 1.81875 7.67812C2.03125 8.20938 2.3625 8.7 2.8125 9.15L3 9.3375V7.5H4.5V12H0ZM7.5 11.8125V10.2375C8.4 9.9125 9.125 9.35938 9.675 8.57812C10.225 7.79688 10.5 6.925 10.5 5.9625C10.5 5.4 10.3937 4.85313 10.1812 4.32188C9.96875 3.79063 9.6375 3.3 9.1875 2.85L9 2.6625V4.5H7.5V0H12V1.5H9.9375L10.2375 1.7625C10.85 2.375 11.2969 3.04063 11.5781 3.75938C11.8594 4.47813 12 5.2125 12 5.9625C12 7.35 11.5844 8.58437 10.7531 9.66562C9.92188 10.7469 8.8375 11.4625 7.5 11.8125Z" fill="#4F57A7"/>
                         </svg>
-                        <span>Estimated completion in ~<strong id="timerCountdown">14</strong> seconds</span>
+                        <span>Submitting to Checker in ~<strong id="timerCountdown">4</strong> seconds</span>
                     </div>
 
                     <a href="<?= esc_url($nextUrl) ?>" class="btn-view-results-quick" id="btnViewResults">
-                        <span>View AI Results</span>
+                        <span>Return to Campaign</span>
                         <span>→</span>
                     </a>
                 </div>

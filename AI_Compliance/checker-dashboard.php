@@ -2082,6 +2082,13 @@ foreach ($campaigns as $c) {
                             Approve Asset
                         </button>
                     </div>
+
+                    <div style="margin-top: 12px; display: flex; justify-content: flex-end;">
+                        <a id="modalInspectResultBtn" href="#" style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: #373E8C; text-decoration: underline;">
+                            <span>Open Full AI Scorecard & Artwork Evidence</span>
+                            <span>↗</span>
+                        </a>
+                    </div>
                 </div>
             </form>
         </div>
@@ -2201,6 +2208,15 @@ foreach ($campaigns as $c) {
             });
 
             document.getElementById('reviewNotes').value = '';
+
+            const inspectBtn = document.getElementById('modalInspectResultBtn');
+            if (inspectBtn) {
+                const vId = item.version_id || item.current_version_id || 0;
+                const aId = item.asset_id || item.id || 0;
+                const cId = item.campaign_id || 0;
+                inspectBtn.href = 'ai-scoring-result.php?version_id=' + vId + '&asset_id=' + aId + '&campaign_id=' + cId;
+            }
+
             reviewModal.classList.add('active');
         }
 

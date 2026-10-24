@@ -2465,6 +2465,10 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
                     <p style="font-size: 12px; color: #475569;" id="modalAiSummary">
                         Foreign logo misuse scanning, brand typography, and MAS compliance disclaimers verified.
                     </p>
+                    <a id="modalInspectScorecardLink" href="#" style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #1F2674; text-decoration: underline; margin-top: 8px;">
+                        <span>Open Full AI Scorecard & Evidence Lens</span>
+                        <span>↗</span>
+                    </a>
                 </div>
 
                 <div class="modal-field">
@@ -2614,6 +2618,11 @@ function openReviewModal(asset) {
     if (badge) {
         badge.className = 'ai-pill ' + (asset.ai_verdict === 'Pass' ? 'pass' : (asset.ai_verdict === 'Fail' ? 'fail' : 'needs-look'));
         badge.innerHTML = '<span class="dot"></span><span>' + (asset.ai_verdict || 'NEEDS LOOK') + '</span>';
+    }
+
+    const scorecardLink = document.getElementById('modalInspectScorecardLink');
+    if (scorecardLink) {
+        scorecardLink.href = 'ai-scoring-result.php?version_id=' + (asset.current_version_id || 0) + '&asset_id=' + (asset.id || 0) + '&campaign_id=<?= (int)$campId ?>';
     }
     
     document.getElementById('reviewModal').classList.add('active');

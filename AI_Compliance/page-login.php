@@ -537,11 +537,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['email'])) {
                         </svg>
                     </button>
 
-                    <p class="help-support">
-                        Need help accessing your account? 
-                        <a href="#">Contact support</a>
-                    </p>
-
                 </form>
 
             </div>
