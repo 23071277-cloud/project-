@@ -447,8 +447,12 @@ $nextVersionNum = $currentVersionNum + 1;
             width: 100%;
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            padding-top: 8px;
+            background-color: #ffffff;
+            border-radius: 12px;
+            border: 1px solid #EBEDFF;
+            overflow: hidden;
+            box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.05);
+            margin-top: 16px;
         }
 
         .assets-header-bar {
@@ -457,7 +461,9 @@ $nextVersionNum = $currentVersionNum + 1;
             align-items: center;
             flex-wrap: wrap;
             gap: 16px;
-            padding-bottom: 4px;
+            padding: 18px 24px;
+            border-bottom: 1px solid #F1F5F9;
+            background-color: #ffffff;
         }
 
         .assets-title-group {
@@ -470,9 +476,9 @@ $nextVersionNum = $currentVersionNum + 1;
             padding: 2px 8px;
             background: #EBEDFF;
             border-radius: 9999px;
-            color: #18224B;
-            font-size: 10px;
-            font-weight: 600;
+            color: #1F2674;
+            font-size: 11px;
+            font-weight: 700;
             letter-spacing: 0.4px;
         }
 
@@ -485,46 +491,50 @@ $nextVersionNum = $currentVersionNum + 1;
 
         .search-box-wrapper {
             position: relative;
-            min-width: 220px;
+            min-width: 200px;
         }
         .search-input {
             width: 100%;
-            height: 32px;
-            padding: 0 12px 0 32px;
-            background: white;
-            border: 1px solid rgba(199, 197, 211, 0.60);
-            border-radius: 6px;
-            font-size: 12px;
-            color: #18224B;
+            height: 34px;
+            padding: 0 12px 0 34px;
+            background: #F3F2FF;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #161B2E;
             outline: none;
-            transition: border-color 0.15s ease;
+            transition: all 0.15s ease;
         }
         .search-input:focus {
-            border-color: #4E56A6;
+            background: #FFFFFF;
+            border-color: #373E8C;
+            box-shadow: 0 0 0 2px rgba(55, 62, 140, 0.15);
         }
         .search-icon-svg {
             position: absolute;
-            left: 10px;
-            top: 7px;
+            left: 11px;
+            top: 8px;
             pointer-events: none;
         }
 
         .filter-pills-bar {
             display: flex;
             align-items: center;
-            padding: 2px;
-            background: #F3F2FF;
-            border-radius: 6px;
-            border: 1px solid rgba(199, 197, 211, 0.30);
+            padding: 4px;
+            background: #EBEDFF;
+            border-radius: 8px;
+            gap: 2px;
         }
         .btn-filter-pill {
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-size: 10px;
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-size: 13px;
             font-weight: 600;
-            letter-spacing: 0.4px;
             color: #464651;
             transition: all 0.15s ease;
+            background: transparent;
+            border: none;
+            cursor: pointer;
         }
         .btn-filter-pill.active {
             background: white;
@@ -535,47 +545,67 @@ $nextVersionNum = $currentVersionNum + 1;
         /* Asset Table Grid */
         .assets-table-container {
             width: 100%;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+            display: block;
+            max-height: 460px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            scrollbar-width: thin;
+            scrollbar-color: #CBD5E1 #FAF8FF;
+        }
+        .assets-table-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        .assets-table-container::-webkit-scrollbar-track {
+            background: #F8FAFC;
+        }
+        .assets-table-container::-webkit-scrollbar-thumb {
+            background-color: #CBD5E1;
+            border-radius: 4px;
         }
 
         .table-header-grid {
             display: grid;
-            grid-template-columns: 2.5fr 1fr 1fr 1fr 1.5fr;
-            padding: 8px 16px;
-            border-bottom: 1px solid #EBEDFF;
-            font-size: 10px;
+            grid-template-columns: minmax(180px, 2.4fr) 120px 140px 130px 175px;
+            gap: 12px;
+            padding: 12px 24px;
+            background-color: #f3f2ff;
+            border-bottom: 1px solid #E2E8F0;
+            font-size: 12px;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #767682;
+            letter-spacing: 0.7px;
+            color: #464651;
             align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            box-sizing: border-box;
+            width: 100%;
         }
 
         .asset-row-card {
             display: grid;
-            grid-template-columns: 2.5fr 1fr 1fr 1fr 1.5fr;
-            padding: 12px 16px;
+            grid-template-columns: minmax(180px, 2.4fr) 120px 140px 130px 175px;
+            gap: 12px;
+            padding: 14px 24px;
             background: white;
-            border-radius: 8px;
-            border: 1px solid #EBEDFF;
+            border: none;
+            border-bottom: 1px solid #F1F5F9;
+            border-radius: 0;
             align-items: center;
-            transition: all 0.15s ease;
+            transition: background-color 0.15s ease;
             cursor: pointer;
+            box-sizing: border-box;
+            width: 100%;
         }
         .asset-row-card:hover {
-            border-color: #C7D2FE;
-            background: #FCFBFF;
+            background-color: #F8FAFC;
         }
         .asset-row-card.selected-active {
-            border-color: #4E56A6;
-            background: #FAF8FF;
-            box-shadow: 0 0 0 1px #4E56A6;
+            background-color: #FAF8FF;
         }
         .asset-row-rejected {
             background: #FFF1F2;
-            border: 1px solid #BA1A1A;
             border-left: 4px solid #BA1A1A;
         }
         .asset-row-rejected:hover {
@@ -1350,27 +1380,6 @@ endif;
                 </div>
                 <div class="progress-track">
                     <div class="progress-fill" style="width: <?= (int)$progressPercent ?>%;"></div>
-                </div>
-                <div class="progress-dots-row">
-                    <div class="dot-pill">
-                        <div class="dot-indicator" style="background: #C7C5D3;"></div>
-                        <span><?= (int)$draftCount ?> Draft</span>
-                    </div>
-                    <span>·</span>
-                    <div class="dot-pill">
-                        <div class="dot-indicator" style="background: #4F57A7;"></div>
-                        <span><?= (int)$inReviewDisplayCount ?> In Review</span>
-                    </div>
-                    <span>·</span>
-                    <div class="dot-pill">
-                        <div class="dot-indicator" style="background: #BA1A1A;"></div>
-                        <span><?= (int)$needsRevisionCount ?> Needs Revision</span>
-                    </div>
-                    <span>·</span>
-                    <div class="dot-pill">
-                        <div class="dot-indicator" style="background: #059669;"></div>
-                        <span><?= (int)$releasedDisplayCount ?> Released</span>
-                    </div>
                 </div>
             </section>
 

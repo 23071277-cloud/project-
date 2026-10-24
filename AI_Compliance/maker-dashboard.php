@@ -597,9 +597,9 @@ unset($camp);
         .coming-up-card {
             background: #FFFFFF;
             border: 1px solid #EBEDFF;
-            border-radius: 18px;
-            padding: 24px;
-            box-shadow: 0 2px 8px rgba(31, 42, 90, 0.04);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0px 2px 10px -2px rgba(55, 62, 140, 0.04), 0px 8px 30px -4px rgba(55, 62, 140, 0.07);
             display: flex;
             flex-direction: column;
             height: 540px;
@@ -611,6 +611,9 @@ unset($camp);
             overflow-y: auto;
             flex: 1;
             padding-right: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
             scrollbar-width: thin;
             scrollbar-color: #CBD5E1 #FAF8FF;
         }
@@ -631,13 +634,21 @@ unset($camp);
             margin-bottom: 16px;
         }
 
-        .coming-item {
-            padding: 14px 0;
-            border-bottom: 1px solid #F8FAFC;
+        .coming-item-card {
+            padding: 14px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            position: relative;
+            background: #F6F5FF;
+            border: 1px solid #E0E0FF;
+            border-left: 4px solid #373E8C;
+            transition: transform 0.15s, box-shadow 0.15s;
         }
-
-        .coming-item:last-child {
-            border-bottom: none;
+        .coming-item-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(55, 62, 140, 0.08);
         }
 
         .coming-item-top {
@@ -1443,29 +1454,54 @@ unset($camp);
 
             <!-- --- CỘT TRÁI (ASIDE): COMING UP --- -->
             <aside class="coming-up-card">
-                <h2 class="card-header-title">Coming Up</h2>
+                <div class="coming-up-header" style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid #F1F5F9; margin-bottom: 14px;">
+                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                        <h2 style="display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 800; color: #161B2E; margin: 0;">
+                            <span style="width: 8px; height: 8px; background-color: #373E8C; border-radius: 9999px; display: inline-block;"></span>
+                            <span>Coming Up</span>
+                        </h2>
+                        <p style="font-size: 12px; color: #94A3B8; font-weight: 500; margin: 0;">Upcoming asset deadlines & tasks</p>
+                    </div>
+                    <span style="background-color: #F3F2FF; color: #373E8C; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 9999px;"><?= count($comingUpList) ?> tasks</span>
+                </div>
                 
                 <div class="coming-items-list">
                     <?php if (!empty($comingUpList)): ?>
-                        <?php foreach ($comingUpList as $item): ?>
+                        <?php foreach ($comingUpList as $idx => $item): ?>
                             <?php
                                 $itemCampId = !empty($item['campaign_id']) ? (int)$item['campaign_id'] : 0;
                                 $itemAssetId = !empty($item['asset_id']) ? (int)$item['asset_id'] : 0;
                                 $itemDetailUrl = pcs_url('detail-asset-maker.php') . ($itemCampId ? '?campaign_id=' . $itemCampId . ($itemAssetId ? '&asset_id=' . $itemAssetId : '') : '');
+                                $badgeClass = $item['badge_type'] ?? 'primary';
                             ?>
-                            <div class="coming-item">
-                                <div class="coming-item-top">
-                                    <span class="date-badge <?= $item['badge_type'] ?>"><?= $item['date'] ?></span>
-                                    <span class="status-pill-small <?= $item['badge_type'] ?>"><?= $item['badge'] ?></span>
+                            <div class="coming-item-card">
+                                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                    <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+                                        <span style="background: rgba(255, 255, 255, 0.9); padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 800; color: #373E8C; flex-shrink: 0;"><?= str_pad($idx + 1, 2, '0', STR_PAD_LEFT) ?></span>
+                                        <span style="font-size: 13.5px; font-weight: 700; color: #0F172A; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= esc_html($item['title']) ?></span>
+                                    </div>
+                                    <span class="status-pill-small <?= esc_attr($badgeClass) ?>" style="flex-shrink: 0; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; text-transform: uppercase;">
+                                        <?= esc_html($item['badge']) ?>
+                                    </span>
                                 </div>
-                                <h3 class="coming-title"><?= $item['title'] ?></h3>
-                                <p class="coming-campaign"><?= $item['campaign'] ?></p>
-                                <a href="<?= esc_url($itemDetailUrl) ?>" class="coming-link">Detail</a>
+                                <div style="font-size: 12px; color: #64748B; font-weight: 500; display: flex; align-items: center; gap: 6px;">
+                                    <span><?= esc_html($item['campaign']) ?></span>
+                                </div>
+                                <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 6px; border-top: 1px dashed rgba(55, 62, 140, 0.15); margin-top: 2px;">
+                                    <span class="date-badge <?= esc_attr($badgeClass) ?>" style="font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">
+                                        <?= esc_html($item['date']) ?>
+                                    </span>
+                                    <a href="<?= esc_url($itemDetailUrl) ?>" style="font-size: 12px; font-weight: 700; color: #373E8C; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+                                        <span>Detail</span>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                                    </a>
+                                </div>
                             </div>
                         <?php endforeach; ?>
                     <?php else: ?>
-                        <div style="padding: 36px 16px; text-align: center; color: #94A3B8; font-size: 13.5px;">
-                            No pending tasks.
+                        <div style="padding: 40px 16px; text-align: center; color: #94A3B8;">
+                            <p style="font-weight: 700; color: #161B2E; margin-bottom: 4px;">No pending tasks</p>
+                            <p style="font-size: 12px;">All assets and deadlines are up to date.</p>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -1531,9 +1567,9 @@ unset($camp);
                                         </td>
                                         <td style="text-align: center; white-space: nowrap;">
                                             <div style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
-                                                <button type="button" class="btn-table-action" onclick="toggleDetails(<?= $camp['id'] ?>, this)" style="display: inline-flex; align-items: center; justify-content: center; padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; border-radius: 8px; border: 1px solid #CBD5E1; background: #FFFFFF; color: #334155; transition: all 0.2s; height: 32px; box-sizing: border-box;">
-                                                    <?= $camp['expanded'] ? 'Close' : 'Open' ?>
-                                                </button>
+                                                <a href="<?= esc_url(pcs_url('detail-asset-maker.php') . '?campaign_id=' . (int)$camp['id']) ?>" class="btn-table-action" style="display: inline-flex; align-items: center; justify-content: center; padding: 6px 14px; font-size: 12px; font-weight: 600; text-decoration: none; border-radius: 8px; border: 1px solid #CBD5E1; background: #FFFFFF; color: #334155; transition: all 0.2s; height: 32px; box-sizing: border-box;">
+                                                    Open
+                                                </a>
                                                 <a href="<?= esc_url(pcs_url('smart-maker-upload.php') . '?campaign_id=' . $camp['id'] . '&mode=new_asset') ?>" style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 14px; border-radius: 8px; background: #373E8C; color: #FFFFFF; font-size: 12px; font-weight: 600; text-decoration: none; border: none; white-space: nowrap; height: 32px; box-sizing: border-box; transition: background 0.2s;" onmouseover="this.style.background='#2A306D'" onmouseout="this.style.background='#373E8C'">+ Add Asset</a>
                                             </div>
                                         </td>
@@ -1660,16 +1696,14 @@ unset($camp);
         <section class="schedule-section" id="schedule-section">
             <div class="schedule-header">
                 <h2 class="schedule-title">Schedule</h2>
-                <div class="week-nav">
-                    <a href="?week_offset=<?= $weekOffset - 1 ?>#schedule-section" class="btn-week-nav" style="text-decoration: none; display: inline-flex; align-items: center;">Previous Week</a>
-                    <div class="week-indicator-pill">
+                <div class="week-nav" style="display: inline-flex; align-items: center; gap: 8px;">
+                    <a href="?week_offset=0#schedule-section" class="btn-week-nav" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; <?= ($weekOffset === 0) ? 'background: #373E8C; color: #FFFFFF; border-color: #373E8C;' : 'background: #FFFFFF; color: #4F56A6;' ?>">Current Week</a>
+                    <a href="?week_offset=<?= $weekOffset - 1 ?>#schedule-section" class="btn-week-nav" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">Previous Week</a>
+                    <div class="week-indicator-pill" style="min-width: 140px; text-align: center; justify-content: center;">
                         <span class="dot"></span>
                         <span><?= esc_html($weekLabel) ?></span>
                     </div>
-                    <a href="?week_offset=<?= $weekOffset + 1 ?>#schedule-section" class="btn-week-nav" style="text-decoration: none; display: inline-flex; align-items: center;">Next Week</a>
-                    <?php if ($weekOffset !== 0): ?>
-                        <a href="?week_offset=0#schedule-section" style="font-size: 12px; color: #4F56A6; font-weight: 600; text-decoration: underline; margin-left: 6px;">Current Week</a>
-                    <?php endif; ?>
+                    <a href="?week_offset=<?= $weekOffset + 1 ?>#schedule-section" class="btn-week-nav" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">Next Week</a>
                 </div>
             </div>
 
@@ -1761,6 +1795,15 @@ unset($camp);
 
     <!-- ================= 8. JAVASCRIPT ================= -->
     <script>
+        // Auto-expand Campaigns if loaded with #campaigns-section
+        if (window.location.hash === '#campaigns-section') {
+            setTimeout(function() {
+                if (typeof toggleCampaignsExpansion === 'function') {
+                    toggleCampaignsExpansion(true);
+                }
+            }, 100);
+        }
+
         // 1. Profile Dropdown Menu & Logout Toggle
         const profileBadge = document.getElementById('userProfileBadge');
         const dropdownMenu = document.getElementById('profileDropdownMenu');

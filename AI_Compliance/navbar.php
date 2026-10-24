@@ -46,6 +46,7 @@ if (!empty($_GET['notif_read']) && function_exists('pcs_mark_notification_read')
 
 $unavNotifications = ($unavUserId > 0 && function_exists('pcs_get_user_notifications')) ? pcs_get_user_notifications($unavUserId, 50) : [];
 $unavUnreadCount = ($unavUserId > 0 && function_exists('pcs_get_unread_notifications_count')) ? pcs_get_unread_notifications_count($unavUserId) : 0;
+$unavMakerCampaigns = ($unavRole === 'MAKER' && function_exists('get_all_campaigns')) ? get_all_campaigns('all') : [];
 
 // Sort strictly newest first (DESC)
 if (!empty($unavNotifications)) {
@@ -957,8 +958,30 @@ if ($unavIsHome) {
                 <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('audit-log.php') : 'audit-log.php') ?>" class="unav-nav-item <?= ($unavCurScript === 'audit-log.php') ? 'active' : '' ?>">Audit History</a>
             <?php elseif ($unavRole === 'MAKER'): ?>
                 <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php') ?>" class="unav-nav-item <?= ($unavCurScript === 'maker-dashboard.php' && strpos($_SERVER['REQUEST_URI'] ?? '', '#') === false) ? 'active' : '' ?>">Dashboard</a>
-                <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php') . '#campaigns-section') ?>" class="unav-nav-item">My Campaigns</a>
-                <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('detail-asset-maker.php') : 'detail-asset-maker.php') ?>" class="unav-nav-item <?= in_array($unavCurScript, ['detail-asset-maker.php', 'smart-maker-upload.php', 'ai-scoring-progress.php'], true) ? 'active' : '' ?>">My Assets</a>
+                <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php') . '#campaigns-section') ?>" class="unav-nav-item" onclick="handleAdminCampaignsNavClick(event, this)">My Campaigns</a>
+                <div class="unav-nav-dropdown-wrap" style="position: relative; display: inline-block;">
+                    <a href="javascript:void(0)" class="unav-nav-item <?= in_array($unavCurScript, ['detail-asset-maker.php', 'smart-maker-upload.php', 'ai-scoring-progress.php'], true) ? 'active' : '' ?>" onclick="toggleMakerMyAssetsDropdown(event)" style="display: inline-flex; align-items: center; gap: 4px;">
+                        <span>My Assets</span>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+                    </a>
+                    <div id="unavMakerAssetsDropdown" class="unav-dropdown-menu" style="display: none; position: absolute; top: calc(100% + 8px); left: 0; min-width: 270px; max-width: 340px; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.12); padding: 8px 0; z-index: 100000;">
+                        <div style="padding: 8px 14px 6px 14px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748B; border-bottom: 1px solid #F1F5F9;">
+                            Select Campaign to View Assets
+                        </div>
+                        <div style="max-height: 280px; overflow-y: auto;">
+                            <?php if (!empty($unavMakerCampaigns)): ?>
+                                <?php foreach ($unavMakerCampaigns as $cItem): ?>
+                                    <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('detail-asset-maker.php') : 'detail-asset-maker.php') . '?campaign_id=' . (int)$cItem['id']) ?>" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; font-size: 13px; font-weight: 600; color: #1E293B; text-decoration: none; border-bottom: 1px solid #F8FAFC; transition: background 0.15s;" onmouseover="this.style.background='#F1F5F9'" onmouseout="this.style.background='transparent'">
+                                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 190px;"><?= esc_html($cItem['name']) ?></span>
+                                        <span style="font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: #E0E7FF; color: #373E8C;"><?= count($cItem['assets'] ?? []) ?> assets</span>
+                                    </a>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <div style="padding: 14px; font-size: 12px; color: #94A3B8; text-align: center;">No campaigns found</div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
                 <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php') . '#schedule-section') ?>" class="unav-nav-item">Schedule</a>
             <?php else: ?>
                 <a href="<?= esc_url($unavHomeUrl) ?>" class="unav-nav-item">
@@ -1447,7 +1470,7 @@ if (window.history && window.history.replaceState && window.location.search.inde
     } catch(e) {}
 }
 
-// Admin Campaigns Navigation Handler: Expand to Full Width and scroll down
+// Campaigns Navigation Handler (Admin & Maker): Expand to Full Width and scroll down
 function handleAdminCampaignsNavClick(e, link) {
     var campSec = document.getElementById('campaigns-section');
     if (campSec) {
@@ -1455,6 +1478,8 @@ function handleAdminCampaignsNavClick(e, link) {
         if (typeof toggleCampaignsExpansion === 'function') {
             toggleCampaignsExpansion(true);
         } else {
+            var grid = document.querySelector('.workspace-grid') || document.querySelector('.upper-grid');
+            if (grid) grid.classList.add('campaigns-expanded');
             campSec.classList.add('campaigns-expanded');
             var btnText = document.getElementById('btnToggleCampaignsText');
             if (btnText) btnText.textContent = 'Split View';
@@ -1466,7 +1491,23 @@ function handleAdminCampaignsNavClick(e, link) {
     }
 }
 
+function toggleMakerMyAssetsDropdown(e) {
+    if (e) {
+        e.stopPropagation();
+        e.preventDefault();
+    }
+    var dd = document.getElementById('unavMakerAssetsDropdown');
+    if (dd) {
+        var isShown = dd.style.display === 'block';
+        dd.style.display = isShown ? 'none' : 'block';
+    }
+}
+
 window.addEventListener('click', function(e) {
+    if (!e.target.closest('.unav-nav-dropdown-wrap')) {
+        const makerAssetsDd = document.getElementById('unavMakerAssetsDropdown');
+        if (makerAssetsDd) makerAssetsDd.style.display = 'none';
+    }
     if (!e.target.closest('.unav-profile-wrap')) {
         const menu = document.getElementById('unifiedProfileDropdown');
         if (menu) {

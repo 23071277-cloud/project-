@@ -4039,9 +4039,9 @@ function get_campaign_detail_asset_data($campaign_id = 0, $selected_asset_id = 0
 // =========================================================================
 
 /**
- * Lấy các chỉ số KPI thực tế cho Admin theo 6 core status chuẩn:
+ * Lay cac chi so KPI thuc te cho Admin theo Campaign Lifecycle (Role Admin quan ly theo Campaign):
  * draft -> scoring -> in_review -> rejected -> approved -> released
- * Đảm bảo 100% đồng bộ với các Asset hiện hành trong bảng Campaigns (không đếm version lịch sử đã bị ghi đè)
+ * Campaign chua co asset nao hoac moi tao se o trang thai Draft.
  */
 if (!function_exists('get_admin_kpis')) {
 function get_admin_kpis() {
@@ -4056,40 +4056,32 @@ function get_admin_kpis() {
         'total'            => 0
     ];
 
-    // Source of truth: Aggregate from current assets of all campaigns
+    // Source of truth: Aggregate by Campaign status for Admin overview
     if (function_exists('get_all_campaigns')) {
         $campaigns = get_all_campaigns('all');
         foreach ($campaigns as $camp) {
-            if (!empty($camp['assets'])) {
-                foreach ($camp['assets'] as $ast) {
-                    $st = str_replace([' ', '-'], '_', strtolower(trim($ast['status'] ?? 'draft')));
-                    if ($st === 'approved' || $st === 'awaiting_release' || $st === 'awaiting') {
-                        $counts['awaiting_release']++;
-                        $counts['approved']++;
-                    } elseif (isset($counts[$st])) {
-                        $counts[$st]++;
-                    } else {
-                        $counts['draft']++;
-                    }
-                    $counts['total']++;
-                }
+            $st = str_replace([' ', '-'], '_', strtolower(trim($camp['status_slug'] ?? $camp['status'] ?? 'draft')));
+            if ($st === 'approved' || $st === 'awaiting_release' || $st === 'awaiting') {
+                $counts['awaiting_release']++;
+                $counts['approved']++;
+            } elseif (isset($counts[$st])) {
+                $counts[$st]++;
+            } else {
+                $counts['draft']++;
             }
+            $counts['total']++;
         }
     }
 
-    // Fallback: Nếu không có campaign nào, kiểm tra trực tiếp qua Asset CPT hiện hành
+    // Fallback: Neu chua co campaign data tu get_all_campaigns, dem truc tiep qua Campaign CPT
     if ($counts['total'] === 0 && pcs_is_wp() && function_exists('get_posts')) {
-        $all_assets = get_posts([
-            'post_type'      => ['asset', 'brand_asset'],
-            'post_status'    => 'publish',
+        $all_camps = get_posts([
+            'post_type'      => ['campaign', 'brand_campaign'],
+            'post_status'    => ['publish', 'draft', 'pending'],
             'posts_per_page' => -1
         ]);
-        foreach ($all_assets as $ast_post) {
-            $cur_ver_id = (int) get_post_meta($ast_post->ID, '_current_version_id', true);
-            $st = 'draft';
-            if ($cur_ver_id) {
-                $st = get_post_meta($cur_ver_id, '_status', true) ?: 'draft';
-            }
+        foreach ($all_camps as $c_post) {
+            $st = get_post_meta($c_post->ID, '_status', true) ?: ($c_post->post_status === 'draft' ? 'draft' : 'draft');
             $st = str_replace([' ', '-'], '_', strtolower(trim($st)));
             if ($st === 'approved' || $st === 'awaiting_release' || $st === 'awaiting') {
                 $counts['awaiting_release']++;
