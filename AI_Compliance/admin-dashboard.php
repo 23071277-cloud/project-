@@ -841,13 +841,17 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             display: flex;
             flex-direction: column;
             gap: 10px;
+            min-width: 0;
+            overflow: hidden;
+            box-shadow: none !important;
             transition: all 0.15s ease;
         }
 
         .attention-card:hover {
             border-color: #373E8C;
-            box-shadow: 0 4px 12px rgba(55, 62, 140, 0.08);
-            transform: translateY(-1px);
+            background: #F3F1FF;
+            box-shadow: none !important;
+            transform: none;
         }
 
         .attention-card-top {
@@ -881,7 +885,10 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             font-size: 15px;
             font-weight: 700;
             color: #1E293B;
-            line-height: 1.3;
+            line-height: 1.35;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            min-width: 0;
         }
 
         .attention-campaign-tag {
@@ -890,6 +897,9 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             display: flex;
             align-items: center;
             gap: 6px;
+            flex-wrap: wrap;
+            word-break: break-word;
+            min-width: 0;
         }
 
         .version-tag {
@@ -2157,7 +2167,7 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                                             <tbody>
                                                                 <?php foreach ($camp['assets'] as $asset): ?>
                                                                     <tr class="drawer-asset-row" data-asset-status="<?= htmlspecialchars(strtolower($asset['status'] ?? 'draft')) ?>">
-                                                                        <td style="font-weight: 700;"><?= htmlspecialchars($asset['name']) ?></td>
+                                                                        <td style="font-weight: 700; word-break: break-word; overflow-wrap: anywhere;"><?= htmlspecialchars($asset['name']) ?></td>
                                                                         <td style="text-align: center;"><span class="version-tag"><?= htmlspecialchars($asset['version_raw']) ?></span></td>
                                                                         <td style="white-space: nowrap;"><?= htmlspecialchars($asset['maker_name']) ?></td>
                                                                         <td style="white-space: nowrap;"><?= htmlspecialchars($asset['checker_name']) ?></td>
