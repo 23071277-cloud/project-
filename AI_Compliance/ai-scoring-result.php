@@ -40,12 +40,12 @@ if (!function_exists('home_url')) {
 }
 
 // 2. Current User & RBAC Authentication (Checker & Admin)
-$currentUser = function_exists('pcs_enforce_rbac') ? pcs_enforce_rbac(['CHECKER', 'ADMIN']) : (function_exists('get_current_user_profile') ? get_current_user_profile() : null);
+$currentUser = function_exists('pcs_enforce_rbac') ? pcs_enforce_rbac(['CHECKER', 'ADMIN', 'MAKER']) : (function_exists('get_current_user_profile') ? get_current_user_profile() : null);
 $userRole = strtoupper($currentUser['role'] ?? 'CHECKER');
 $isAllowed = ($userRole === 'CHECKER' || $userRole === 'EDITOR' || $userRole === 'ADMIN' || $userRole === 'ADMINISTRATOR');
 
 // Maker không thấy điểm số: nếu Maker vào trang này, tự động chuyển về trang chi tiết campaign
-if ($userRole === 'MAKER' || $userRole === 'AUTHOR' || $userRole === 'CONTRIBUTOR') {
+if (!$isAllowed && ($userRole === 'MAKER' || $userRole === 'AUTHOR' || $userRole === 'CONTRIBUTOR')) {
     $cId = (int)($_GET['campaign_id'] ?? 0);
     $aId = (int)($_GET['asset_id'] ?? 0);
     $red = (function_exists('pcs_url') ? pcs_url('detail-asset-maker.php') : 'detail-asset-maker.php') . ($cId ? '?campaign_id=' . $cId . ($aId ? '&asset_id=' . $aId : '') : '');
@@ -1326,7 +1326,7 @@ $queueUrl = !empty($campaignId)
                 </div>
                 <h2 style="font-size: 20px; font-weight: 700; color: #161B2E;">Access Restricted</h2>
                 <p style="color: #64748B; font-size: 14px; max-width: 440px;">
-                    This AI compliance evaluation result is restricted to team members with the <strong>Maker</strong> role.
+                    This AI compliance evaluation result is restricted to team members with Checker or Compliance Reviewer roles.
                 </p>
                 <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-page.php') ?>" class="btn-upload-new-version" style="margin-top: 8px;">
                     Return to Homepage

@@ -35,24 +35,33 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     exit;
 }
 
-// 3. XỬ LÝ QUYẾT ĐỊNH DUYỆT (APPROVE / REJECT) CỦA CHECKER TỪ DATABASE
+// 3. XỬ LÝ QUYẾT ĐỊNH DUYỆT (APPROVE / REJECT) CỦA CHECKER HOẶC SỬA ASSET CỦA MAKER
 $decisionAlert = '';
 $decisionSuccess = false;
 $reqMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-if ($reqMethod === 'POST' && isset($_POST['action']) && $_POST['action'] === 'checker_decision') {
-    $version_id = (int) ($_POST['version_id'] ?? 0);
-    $decision = sanitize_text_field($_POST['decision'] ?? '');
-    $review_note = sanitize_text_field($_POST['review_note'] ?? '');
-    
-    if (function_exists('handle_checker_decision')) {
-        $res = handle_checker_decision($version_id, $decision, $review_note);
-        $decisionAlert = $res['message'];
-        $decisionSuccess = $res['success'];
+if ($reqMethod === 'POST' && isset($_POST['action'])) {
+    if ($_POST['action'] === 'checker_decision') {
+        $version_id = (int) ($_POST['version_id'] ?? 0);
+        $decision = sanitize_text_field($_POST['decision'] ?? '');
+        $review_note = sanitize_text_field($_POST['review_note'] ?? '');
+        
+        if (function_exists('handle_checker_decision')) {
+            $res = handle_checker_decision($version_id, $decision, $review_note);
+            $decisionAlert = $res['message'];
+            $decisionSuccess = $res['success'];
+        }
+    } elseif ($_POST['action'] === 'update_asset_identifiers') {
+        $aid = absint($_POST['asset_id'] ?? 0);
+        if ($aid > 0 && function_exists('handle_update_asset')) {
+            handle_update_asset($aid, $_POST);
+            $decisionAlert = 'Asset identifiers updated successfully!';
+            $decisionSuccess = true;
+        }
     }
 }
 
-// 4. LẤY THÔNG TIN USER CHECKER HIỆN TẠI VÀ PHÂN QUYỀN RBAC (CHECKER ONLY)
-$currentUser = function_exists('pcs_enforce_rbac') ? pcs_enforce_rbac(['CHECKER']) : (function_exists('get_current_user_profile') ? get_current_user_profile() : null);
+// 4. LẤY THÔNG TIN USER HIỆN TẠI VÀ PHÂN QUYỀN RBAC (CHECKER, ADMIN, MAKER)
+$currentUser = function_exists('pcs_enforce_rbac') ? pcs_enforce_rbac(['CHECKER', 'ADMIN', 'MAKER']) : (function_exists('get_current_user_profile') ? get_current_user_profile() : null);
 $userRole = strtoupper($currentUser['role'] ?? 'CHECKER');
 
 // 5. TRUY VẤN DỮ LIỆU THỰC TỪ DATABASE CHO CAMPAIGN VÀ CÁC ASSETS
@@ -823,14 +832,15 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
         }
 
         .detail-asset-checker .container-9 {
-            display: flex;
-            flex-direction: column;
-            max-width: 680px;
-            align-items: flex-start;
+            display: flex !important;
+            flex-direction: row !important;
+            max-width: none !important;
+            align-items: center;
             gap: 12px;
             position: relative;
             flex: 1;
             flex-grow: 1;
+            flex-wrap: wrap;
         }
 
         .detail-asset-checker .background-wrapper {
@@ -1070,14 +1080,15 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
             pointer-events: none;
         }
 
-        /* TABLE GRID */
+        /* TABLE GRID - 6 COLUMNS: ASSET (flexible), VERSION, AI ASSESSMENT, STATUS, SUBMITTED, ACTION */
         .detail-asset-checker .table-header {
             display: grid;
-            grid-template-columns: 3.2fr 1.1fr 1.6fr 1.6fr 1.8fr 1fr 1.5fr;
+            grid-template-columns: minmax(260px, 3.2fr) 95px 145px 135px 145px 165px;
             align-items: center;
-            padding: 10px 24px;
+            padding: 12px 24px;
             background-color: #f3f2ff;
             border-bottom: 1px solid #E2E8F0;
+            gap: 12px;
         }
 
         .detail-asset-checker .text-17 {
@@ -1100,12 +1111,13 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
         /* ROW TYPES */
         .detail-asset-checker .asset-table-row {
             display: grid;
-            grid-template-columns: 3.2fr 1.1fr 1.6fr 1.6fr 1.8fr 1fr 1.5fr;
+            grid-template-columns: minmax(260px, 3.2fr) 95px 145px 135px 145px 165px;
             align-items: center;
             padding: 14px 24px;
             border-bottom: 1px solid #F1F5F9;
             transition: background-color 0.15s;
             cursor: pointer;
+            gap: 12px;
         }
         .detail-asset-checker .asset-table-row:hover {
             background-color: #F8FAFC;
@@ -1125,6 +1137,14 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
             display: flex;
             align-items: center;
             gap: 12px;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .detail-asset-checker .container-18 .div-2 {
+            min-width: 0;
+            flex: 1;
+            overflow: hidden;
         }
 
         .detail-asset-checker .container-wrapper {
@@ -1143,7 +1163,10 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
             font-weight: 700;
             color: #161b2e;
             font-size: 14px;
-            line-height: 20px;
+            line-height: 1.4;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            white-space: normal;
         }
 
         .detail-asset-checker .background-10 {
@@ -1333,6 +1356,28 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
             align-items: center;
             justify-content: center;
             gap: 8px;
+        }
+
+        .btn-table-edit {
+            width: 30px;
+            height: 30px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #FFFFFF;
+            border: 1px solid #CBD5E1;
+            border-radius: 6px;
+            color: #475569;
+            transition: all 0.15s ease;
+            cursor: pointer;
+            padding: 0;
+            flex-shrink: 0;
+        }
+        .btn-table-edit:hover {
+            background-color: #F1F5F9;
+            border-color: #94A3B8;
+            color: #1F2674;
+            transform: translateY(-1px);
         }
 
         .btn-table-review {
@@ -2029,7 +2074,7 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
                         <div class="text-10">assets reviewed (<?= $percent ?>%)</div>
                     </div>
                 </div>
-                <div class="container-9" style="display: flex; gap: 12px; align-items: center; width: auto; flex-wrap: wrap;">
+                <div class="container-9" style="display: flex; flex-direction: row; gap: 12px; align-items: center; width: auto; flex-wrap: wrap;">
                     <div class="container-6" style="padding: 6px 14px; background: rgba(59, 130, 246, 0.08); border-radius: 6px; border: 1px solid rgba(59, 130, 246, 0.2); display: flex; align-items: center; gap: 8px;">
                         <span style="width: 8px; height: 8px; border-radius: 50%; background: #3B82F6; display: inline-block;"></span>
                         <div class="text-12" style="font-weight: 600; color: #1D4ED8; font-size: 13px;"><?= $inReviewCount ?> In Review</div>
@@ -2075,12 +2120,11 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
                 </div>
 
                 <div class="table-header">
-                    <div class="text-17">ASSET</div>
+                    <div class="text-17" style="text-align: left;">ASSET</div>
                     <div class="text-17" style="text-align: center;">VERSION</div>
                     <div class="text-17" style="text-align: center;">AI ASSESSMENT</div>
                     <div class="text-17" style="text-align: center;">STATUS</div>
                     <div class="text-17" style="text-align: center;">SUBMITTED</div>
-                    <div class="text-17" style="text-align: center;">NEXT</div>
                     <div class="text-18" style="text-align: center;">ACTION</div>
                 </div>
 
@@ -2127,20 +2171,20 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
                                         <?php endif; ?>
                                     </div>
                                     <div class="div-2">
-                                        <div class="text-19"><?= htmlspecialchars($ast['name']) ?></div>
+                                        <div class="text-19"><?= htmlspecialchars(html_entity_decode((string)$ast['name'], ENT_QUOTES, 'UTF-8')) ?></div>
                                         <div class="text-4"><?= htmlspecialchars($ast['format']) ?></div>
                                     </div>
                                 </div>
 
                                 <!-- VERSION -->
-                                <div style="text-align: center;">
+                                <div style="display: flex; justify-content: center; align-items: center; text-align: center;">
                                     <span class="<?= $isSelected ? 'background-10 text-20' : 'background-14 text-23' ?>">
                                         <?= htmlspecialchars($ast['version_label']) ?>
                                     </span>
                                 </div>
 
                                 <!-- AI ASSESSMENT -->
-                                <div style="text-align: center;">
+                                <div style="display: flex; justify-content: center; align-items: center; text-align: center;">
                                     <span class="ai-pill <?= $aiPillClass ?>">
                                         <span class="dot"></span>
                                         <span><?= htmlspecialchars($ast['ai_verdict']) ?></span>
@@ -2148,7 +2192,7 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
                                 </div>
 
                                 <!-- STATUS -->
-                                <div style="text-align: center;">
+                                <div style="display: flex; justify-content: center; align-items: center; text-align: center;">
                                     <span class="status-pill-table <?= $statusPillClass ?>">
                                         <span class="dot"></span>
                                         <span><?= htmlspecialchars($statusLabelText) ?></span>
@@ -2156,26 +2200,25 @@ $homeUrl        = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-
                                 </div>
 
                                 <!-- SUBMITTED -->
-                                <div class="div-3" style="text-align: center;">
+                                <div class="div-3" style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
                                     <div class="text-wrapper-8"><?= htmlspecialchars($ast['submitted_date']) ?></div>
                                     <div class="text-wrapper-9" style="white-space: nowrap;"><?= htmlspecialchars($ast['maker_name']) ?></div>
                                 </div>
 
-                                <!-- NEXT -->
-                                <div style="text-align: center;">
-                                    <span class="<?= $ast['status'] === 'in_review' ? 'text-21' : 'text-29' ?>">
-                                        <?= htmlspecialchars($ast['next_label']) ?>
-                                    </span>
-                                </div>
-
                                 <!-- ACTION -->
                                 <div class="table-action-cell" onclick="event.stopPropagation();">
+                                    <button type="button" class="btn-table-edit" title="Edit Asset" onclick="event.stopPropagation(); openEditAssetNameModal(<?= (int)$ast['id'] ?>, '<?= esc_js($ast['name']) ?>', '<?= esc_js($ast['format']) ?>')">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                        </svg>
+                                    </button>
                                     <?php if ($ast['status'] === 'in_review'): ?>
-                                        <button class="btn-table-review" onclick="openReviewModal(<?= htmlspecialchars(json_encode($ast)) ?>)">Review</button>
+                                        <a href="ai-scoring-result.php?version_id=<?= (int)($ast['current_version_id'] ?? 0) ?>&asset_id=<?= (int)$ast['id'] ?>&campaign_id=<?= (int)$campId ?>" class="btn-table-review" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">Review</a>
                                     <?php else: ?>
-                                        <button class="btn-table-view" onclick="selectAssetRow(<?= $ast['id'] ?>)">View</button>
+                                        <a href="ai-scoring-result.php?version_id=<?= (int)($ast['current_version_id'] ?? 0) ?>&asset_id=<?= (int)$ast['id'] ?>&campaign_id=<?= (int)$campId ?>" class="btn-table-view" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">View</a>
                                     <?php endif; ?>
-                                    <button class="btn-table-diff" onclick="openDiffModal(<?= htmlspecialchars(json_encode($ast)) ?>)">Diff</button>
+                                    <button type="button" class="btn-table-diff" onclick="event.stopPropagation(); openDiffModal(<?= htmlspecialchars(json_encode($ast)) ?>)">Diff</button>
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -2610,26 +2653,42 @@ function filterAssetsText(query) {
 
 function openReviewModal(asset) {
     if (!asset) return;
-    document.getElementById('modalVersionId').value = asset.current_version_id || 0;
-    document.getElementById('modalAssetTitle').textContent = 'Review ' + (asset.name || 'Asset') + ' · ' + (asset.version_label || 'V1');
-    document.getElementById('modalAssetMeta').textContent = 'Format: ' + (asset.format || 'Digital Asset') + ' · Maker: ' + (asset.maker_name || 'Author');
-    
-    const badge = document.getElementById('modalAiBadge');
-    if (badge) {
-        badge.className = 'ai-pill ' + (asset.ai_verdict === 'Pass' ? 'pass' : (asset.ai_verdict === 'Fail' ? 'fail' : 'needs-look'));
-        badge.innerHTML = '<span class="dot"></span><span>' + (asset.ai_verdict || 'NEEDS LOOK') + '</span>';
-    }
-
-    const scorecardLink = document.getElementById('modalInspectScorecardLink');
-    if (scorecardLink) {
-        scorecardLink.href = 'ai-scoring-result.php?version_id=' + (asset.current_version_id || 0) + '&asset_id=' + (asset.id || 0) + '&campaign_id=<?= (int)$campId ?>';
-    }
-    
-    document.getElementById('reviewModal').classList.add('active');
+    const vId = asset.current_version_id || asset.version_id || 0;
+    const aId = asset.id || asset.asset_id || 0;
+    const cId = asset.campaign_id || <?= (int)$campId ?>;
+    window.location.href = 'ai-scoring-result.php?version_id=' + vId + '&asset_id=' + aId + (cId ? '&campaign_id=' + cId : '');
 }
 
 function closeReviewModal() {
-    document.getElementById('reviewModal').classList.remove('active');
+    const el = document.getElementById('reviewModal');
+    if (el) el.classList.remove('active');
+}
+
+function openEditAssetNameModal(assetId, assetName, assetFormat) {
+    document.getElementById('editAssetIdInput').value = assetId;
+    document.getElementById('editAssetNameInput').value = assetName;
+    const typeSelect = document.getElementById('editAssetTypeInput');
+    if (typeSelect) {
+        let found = false;
+        for (let i = 0; i < typeSelect.options.length; i++) {
+            if (typeSelect.options[i].value === assetFormat) {
+                typeSelect.selectedIndex = i;
+                found = true;
+                break;
+            }
+        }
+        if (!found && assetFormat) {
+            const opt = new Option(assetFormat, assetFormat, true, true);
+            typeSelect.add(opt);
+        }
+    }
+    const modal = document.getElementById('editAssetNameModal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeEditAssetNameModal() {
+    const modal = document.getElementById('editAssetNameModal');
+    if (modal) modal.style.display = 'none';
 }
 
 function openGuidelinesModal() {
@@ -2650,6 +2709,42 @@ function closeDiffModal() {
     if (el) el.classList.remove('active');
 }
 </script>
+
+    <!-- ================= MODAL: EDIT ASSET IDENTIFIERS ================= -->
+    <div id="editAssetNameModal" class="modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 10000; align-items: center; justify-content: center;">
+        <div style="background: #FFFFFF; border-radius: 12px; width: 100%; max-width: 480px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); position: relative; margin: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h3 style="font-size: 18px; font-weight: 800; color: #161B2E; margin: 0;">Edit Asset Identifiers</h3>
+                <button type="button" style="font-size: 24px; cursor: pointer; color: #94A3B8; line-height: 1; border: none; background: none;" onclick="closeEditAssetNameModal()">&times;</button>
+            </div>
+            <p style="font-size: 13px; color: #64748B; margin-bottom: 16px;">Update asset name and format. Changes will be audited in compliance log.</p>
+            <form method="POST" action="">
+                <input type="hidden" name="action" value="update_asset_identifiers">
+                <input type="hidden" name="asset_id" id="editAssetIdInput" value="">
+                <div style="display: flex; flex-direction: column; gap: 14px;">
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Asset Name</label>
+                        <input type="text" name="title" id="editAssetNameInput" required style="width: 100%; height: 42px; padding: 0 12px; border: 1px solid #CBD5E1; border-radius: 8px; font-size: 14px; box-sizing: border-box; outline: none;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Asset Format / Channel</label>
+                        <select name="type" id="editAssetTypeInput" style="width: 100%; height: 42px; padding: 0 12px; border: 1px solid #CBD5E1; border-radius: 8px; font-size: 14px; box-sizing: border-box; background: #FFF; outline: none;">
+                            <option value="PNG • Image">PNG • Image</option>
+                            <option value="JPG • Image">JPG • Image</option>
+                            <option value="PDF Document">PDF Document</option>
+                            <option value="Social Story (9:16)">Social Story (9:16)</option>
+                            <option value="Display Banner (300x250)">Display Banner (300x250)</option>
+                            <option value="Marketing Asset">Marketing Asset</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+                        <button type="button" onclick="closeEditAssetNameModal()" style="padding: 10px 16px; border: 1px solid #CBD5E1; border-radius: 8px; background: #FFF; color: #475569; font-weight: 600; font-size: 13.5px; cursor: pointer;">Cancel</button>
+                        <button type="submit" style="padding: 10px 20px; border: none; border-radius: 8px; background: #1F2674; color: #FFF; font-weight: 700; font-size: 13.5px; cursor: pointer;">Save Changes</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
 
 </body>
 </html>

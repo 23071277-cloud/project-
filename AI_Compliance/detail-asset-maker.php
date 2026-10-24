@@ -609,6 +609,8 @@ $nextVersionNum = $currentVersionNum + 1;
             display: flex;
             flex-direction: column;
             gap: 2px;
+            min-width: 0;
+            flex: 1;
         }
         .asset-name-title {
             color: #18224B;
@@ -617,6 +619,9 @@ $nextVersionNum = $currentVersionNum + 1;
             display: flex;
             align-items: center;
             gap: 6px;
+            flex-wrap: wrap;
+            word-break: break-word;
+            overflow-wrap: break-word;
         }
         .version-badge-small {
             padding: 2px 6px;

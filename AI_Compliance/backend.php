@@ -1147,14 +1147,13 @@ function pcs_format_wp_user($wp_user) {
         }
     }
 
-    if ($role_name === 'MAKER' && !in_array('author', $roles) && !in_array('maker', $roles)) {
-        $login_low = strtolower($wp_user->user_login);
-        $email_low = strtolower($wp_user->user_email);
-        if (strpos($login_low, 'admin') !== false || strpos($email_low, 'admin') !== false) {
-            $role_name = 'ADMIN';
-        } elseif (strpos($login_low, 'checker') !== false || strpos($email_low, 'checker') !== false) {
-            $role_name = 'CHECKER';
-        }
+    // Prioritize username/email matching for Checker & Admin test accounts even if WP role defaults to author/subscriber
+    $login_low = strtolower($wp_user->user_login ?? '');
+    $email_low = strtolower($wp_user->user_email ?? '');
+    if ($role_name !== 'ADMIN' && (strpos($login_low, 'admin') !== false || strpos($email_low, 'admin') !== false)) {
+        $role_name = 'ADMIN';
+    } elseif ($role_name !== 'ADMIN' && (strpos($login_low, 'checker') !== false || strpos($email_low, 'checker') !== false)) {
+        $role_name = 'CHECKER';
     }
 
     $name = $wp_user->display_name ?: ($wp_user->first_name ? trim($wp_user->first_name . ' ' . $wp_user->last_name) : $wp_user->user_login);

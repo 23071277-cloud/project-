@@ -2161,76 +2161,23 @@ foreach ($campaigns as $c) {
             });
         }
 
-        // 5. Review & Decision Modal
+        // 5. Direct Review Navigation to AI Scoring Result
         const reviewModal = document.getElementById('reviewModal');
 
         function openReviewModal(item) {
             if (!item) return;
-
-            document.getElementById('modalAssetTitle').textContent = item.asset_name || 'Marketing Asset';
-            document.getElementById('modalAssetMeta').textContent = (item.campaign_name || 'Campaign') + ' · ' + (item.version_label || 'V1');
-            document.getElementById('modalVersionId').value = item.version_id || 0;
-            document.getElementById('modalMakerName').textContent = item.maker_name || 'Cam Anh Hoang';
-
-            const previewImg = document.getElementById('modalPreviewImg');
-            if (item.file_url) {
-                previewImg.src = item.file_url;
-            } else {
-                previewImg.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="%234F56A6" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
-            }
-
-            const overallBadge = document.getElementById('modalOverallBadge');
-            overallBadge.textContent = item.ai_status || 'PASS';
-            overallBadge.className = 'ai-pill ' + (item.ai_status === 'FAIL' ? 'fail' : (item.ai_status === 'NEEDS REVIEW' ? 'needs_review' : 'pass'));
-
-            // Render AI Checks
-            const checksList = document.getElementById('modalChecksList');
-            checksList.innerHTML = '';
-
-            const checks = item.checks && item.checks.length > 0 ? item.checks : [
-                { criterion: 'Foreign Logo Misuse', score: 95, verdict: 'PASS', quote: 'No unauthorized third-party brand logos detected.' },
-                { criterion: 'Brand Guidelines Check', score: 88, verdict: 'PASS', quote: 'Colors and typography align with corporate standards.' },
-                { criterion: 'MAS Financial Regulations', score: 92, verdict: 'PASS', quote: 'Mandatory Singapore financial disclosures present.' }
-            ];
-
-            checks.forEach(chk => {
-                const card = document.createElement('div');
-                card.className = 'check-card';
-                const verdictClass = chk.score >= 85 ? 'pass' : (chk.score >= 70 ? 'needs_review' : 'fail');
-                card.innerHTML = `
-                    <div class="check-card-header">
-                        <span class="check-name">${chk.criterion}</span>
-                        <span class="ai-pill ${verdictClass}">${chk.score}/100 · ${chk.verdict || (chk.score >= 85 ? 'PASS' : 'FLAGGED')}</span>
-                    </div>
-                    <p class="check-quote">${chk.quote || 'No specific deviations recorded.'}</p>
-                `;
-                checksList.appendChild(card);
-            });
-
-            document.getElementById('reviewNotes').value = '';
-
-            const inspectBtn = document.getElementById('modalInspectResultBtn');
-            if (inspectBtn) {
-                const vId = item.version_id || item.current_version_id || 0;
-                const aId = item.asset_id || item.id || 0;
-                const cId = item.campaign_id || 0;
-                inspectBtn.href = 'ai-scoring-result.php?version_id=' + vId + '&asset_id=' + aId + '&campaign_id=' + cId;
-            }
-
-            reviewModal.classList.add('active');
+            const vId = item.version_id || item.current_version_id || 0;
+            const aId = item.asset_id || item.id || 0;
+            const cId = item.campaign_id || 0;
+            window.location.href = 'ai-scoring-result.php?version_id=' + vId + '&asset_id=' + aId + (cId ? '&campaign_id=' + cId : '');
         }
 
         function openReviewModalFromAsset(asset, campaignName) {
-            openReviewModal({
-                version_id: asset.current_version_id || 0,
-                asset_name: asset.name,
-                campaign_name: campaignName,
-                version_label: 'V' + (asset.current_version_num || 1),
-                maker_name: 'Cam Anh Hoang',
-                file_url: asset.file_url,
-                ai_status: asset.badge_type === 'danger' ? 'FAIL' : (asset.badge_type === 'warning' ? 'NEEDS REVIEW' : 'PASS'),
-                checks: []
-            });
+            if (!asset) return;
+            const vId = asset.current_version_id || asset.version_id || 0;
+            const aId = asset.id || asset.asset_id || 0;
+            const cId = asset.campaign_id || 0;
+            window.location.href = 'ai-scoring-result.php?version_id=' + vId + '&asset_id=' + aId + (cId ? '&campaign_id=' + cId : '');
         }
 
         function closeReviewModal() {
