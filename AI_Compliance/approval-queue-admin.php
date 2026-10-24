@@ -89,11 +89,10 @@ $auditLogBaseUrl = function_exists('pcs_url') ? pcs_url('audit-log.php') : 'audi
 // 7. Dynamic Data Query: Approval Queue Items
 $rawQueue = function_exists('get_admin_release_queue') ? get_admin_release_queue('awaiting_release') : [];
 
-$needsAttentionItems = [];
-$otherPendingItems = [];
 $uniqueCheckers = [];
+$needsAttentionCount = 0;
 
-foreach ($rawQueue as $item) {
+foreach ($rawQueue as &$item) {
     $chk = trim($item['checker_name'] ?? '');
     if ($chk !== '' && $chk !== '—' && !in_array($chk, $uniqueCheckers, true)) {
         $uniqueCheckers[] = $chk;
@@ -101,18 +100,20 @@ foreach ($rawQueue as $item) {
 
     // Determine if item requires urgent attention (<= 14 days or overdue)
     $days = $item['days_remaining'] ?? null;
-    $dueSoon = !empty($item['due_soon']) || ($days !== null && $days <= 14);
-
-    if ($dueSoon) {
-        $needsAttentionItems[] = $item;
-    } else {
-        $otherPendingItems[] = $item;
+    if ($days !== null && abs($days) > 3650 && !empty($item['deadline_raw'])) {
+        $re_ts = function_exists('pcs_parse_deadline_timestamp') ? pcs_parse_deadline_timestamp($item['deadline_raw']) : false;
+        if ($re_ts) {
+            $days = (int) ceil(($re_ts - time()) / 86400);
+            $item['days_remaining'] = $days;
+        }
+    }
+    if (!empty($item['due_soon']) || ($days !== null && $days <= 14)) {
+        $needsAttentionCount++;
     }
 }
+unset($item);
 
 $totalAwaiting = count($rawQueue);
-$needsAttentionCount = count($needsAttentionItems);
-$otherPendingCount = count($otherPendingItems);
 sort($uniqueCheckers);
 ?>
 <!DOCTYPE html>
@@ -1197,17 +1198,8 @@ sort($uniqueCheckers);
                             </thead>
                             <tbody>
 
-                                <!-- SUB-SECTION 1: NEEDS ATTENTION -->
-                                <tr class="sub-header-row" id="needsAttentionSubHeader">
-                                    <td colspan="7">
-                                        <div class="sub-header-title" id="needsAttentionTitle">
-                                            NEEDS ATTENTION &middot; <span id="needsAttentionCountSpan"><?php echo (int) $needsAttentionCount; ?></span> ITEMS
-                                        </div>
-                                    </td>
-                                </tr>
-
-                                <?php if (!empty($needsAttentionItems)): ?>
-                                    <?php foreach ($needsAttentionItems as $item): 
+                                <?php if (!empty($rawQueue)): ?>
+                                    <?php foreach ($rawQueue as $item): 
                                         $cId = (int) ($item['campaign_id'] ?? 0);
                                         $aId = (int) ($item['asset_id'] ?? 0);
                                         $vId = (int) ($item['version_id'] ?? 0);
@@ -1218,10 +1210,15 @@ sort($uniqueCheckers);
                                             'campaign_id' => $cId
                                         ], $finalReviewBaseUrl);
                                         $days = $item['days_remaining'] ?? null;
+                                        if ($days !== null && abs($days) > 3650 && !empty($item['deadline_raw'])) {
+                                            $re_ts = function_exists('pcs_parse_deadline_timestamp') ? pcs_parse_deadline_timestamp($item['deadline_raw']) : false;
+                                            if ($re_ts) {
+                                                $days = (int) ceil(($re_ts - time()) / 86400);
+                                            }
+                                        }
                                         $isOverdue = ($days !== null && $days < 0);
                                     ?>
                                         <tr class="queue-row queue-item"
-                                            data-group="needs_attention"
                                             data-asset-name="<?php echo esc_attr(strtolower($item['asset_name'] ?? '')); ?>"
                                             data-campaign-name="<?php echo esc_attr(strtolower($item['campaign_name'] ?? '')); ?>"
                                             data-maker-name="<?php echo esc_attr(strtolower($item['maker_name'] ?? '')); ?>"
@@ -1302,113 +1299,6 @@ sort($uniqueCheckers);
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
-                                <?php else: ?>
-                                    <tr class="section-empty-row" id="needsAttentionEmptyRow">
-                                        <td colspan="7">No urgent assets requiring attention at this time.</td>
-                                    </tr>
-                                <?php endif; ?>
-
-                                <!-- SUB-SECTION 2: OTHER PENDING -->
-                                <tr class="sub-header-row" id="otherPendingSubHeader">
-                                    <td colspan="7">
-                                        <div class="sub-header-title" id="otherPendingTitle">
-                                            OTHER PENDING &middot; <span id="otherPendingCountSpan"><?php echo (int) $otherPendingCount; ?></span> ITEMS
-                                        </div>
-                                    </td>
-                                </tr>
-
-                                <?php if (!empty($otherPendingItems)): ?>
-                                    <?php foreach ($otherPendingItems as $item): 
-                                        $cId = (int) ($item['campaign_id'] ?? 0);
-                                        $aId = (int) ($item['asset_id'] ?? 0);
-                                        $vId = (int) ($item['version_id'] ?? 0);
-                                        $detailUrl = $cId && $aId ? add_query_arg(['campaign_id' => $cId, 'asset_id' => $aId], $detailAdminBaseUrl) : '#';
-                                        $finalReviewUrl = add_query_arg([
-                                            'version_id'  => $vId,
-                                            'asset_id'    => $aId,
-                                            'campaign_id' => $cId
-                                        ], $finalReviewBaseUrl);
-                                        $days = $item['days_remaining'] ?? null;
-                                        $isOverdue = ($days !== null && $days < 0);
-                                    ?>
-                                        <tr class="queue-row queue-item"
-                                            data-group="other_pending"
-                                            data-asset-name="<?php echo esc_attr(strtolower($item['asset_name'] ?? '')); ?>"
-                                            data-campaign-name="<?php echo esc_attr(strtolower($item['campaign_name'] ?? '')); ?>"
-                                            data-maker-name="<?php echo esc_attr(strtolower($item['maker_name'] ?? '')); ?>"
-                                            data-checker-name="<?php echo esc_attr(strtolower($item['checker_name'] ?? '')); ?>"
-                                            data-deadline-raw="<?php echo esc_attr($item['deadline_raw'] ?? ''); ?>"
-                                            data-days-remaining="<?php echo esc_attr($days !== null ? $days : 9999); ?>"
-                                            data-due-soon="<?php echo !empty($item['due_soon']) ? '1' : '0'; ?>"
-                                            data-overdue="<?php echo $isOverdue ? '1' : '0'; ?>"
-                                            data-approved-timestamp="<?php echo esc_attr(strtotime($item['approved_at_full'] ?? '') ?: 0); ?>">
-                                            
-                                            <td class="queue-td col-asset">
-                                                <a href="<?php echo esc_url($detailUrl); ?>" class="asset-link">
-                                                    <?php echo esc_html($item['asset_name'] ?: '—'); ?>
-                                                </a>
-                                                <div class="campaign-name-row">
-                                                    <?php echo esc_html($item['campaign_name'] ?: '—'); ?>
-                                                    <?php if (!empty($item['campaign_code'])): ?>
-                                                        &middot; <?php echo esc_html($item['campaign_code']); ?>
-                                                    <?php endif; ?>
-                                                </div>
-                                            </td>
-
-                                            <td class="queue-td col-version">
-                                                <span class="version-badge">
-                                                    <?php echo esc_html($item['version_label'] ?: 'V1'); ?>
-                                                </span>
-                                            </td>
-
-                                            <td class="queue-td col-users">
-                                                <div class="user-line-maker">
-                                                    M &middot; <?php echo esc_html($item['maker_name'] ?: '—'); ?>
-                                                </div>
-                                                <div class="user-line-checker">
-                                                    C &middot; <?php echo esc_html($item['checker_name'] ?: '—'); ?>
-                                                </div>
-                                            </td>
-
-                                            <td class="queue-td col-approved">
-                                                <span class="approved-time-text">
-                                                    <?php echo esc_html($item['approved_at_full'] ?: '—'); ?>
-                                                </span>
-                                            </td>
-
-                                            <td class="queue-td col-deadline">
-                                                <div class="deadline-cell-content">
-                                                    <span class="deadline-date-text">
-                                                        <?php echo esc_html($item['deadline'] ?: '—'); ?>
-                                                    </span>
-                                                    <?php if ($days !== null): ?>
-                                                        <span class="deadline-days-muted">
-                                                            (<?php echo (int) $days; ?>d)
-                                                        </span>
-                                                    <?php endif; ?>
-                                                </div>
-                                            </td>
-
-                                            <td class="queue-td col-status">
-                                                <span class="status-pill-awaiting">
-                                                    <span class="dot-amber"></span>
-                                                    <span>Approved</span>
-                                                </span>
-                                            </td>
-
-                                            <td class="queue-td col-action">
-                                                <div style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
-                                                    <a href="<?php echo esc_url($finalReviewUrl); ?>" class="btn-open-review" title="Open Final Review" style="padding: 6px 14px; font-size: 12px; white-space: nowrap;">
-                                                        <span>Review &rarr;</span>
-                                                    </a>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                <?php else: ?>
-                                    <tr class="section-empty-row" id="otherPendingEmptyRow">
-                                        <td colspan="7">No other pending items in queue.</td>
-                                    </tr>
                                 <?php endif; ?>
 
                                 <!-- Universal Filter No-Match Notice Row (hidden by default) -->
@@ -1525,31 +1415,24 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!table) return;
 
     const rows = Array.from(table.querySelectorAll('.queue-item'));
-    const needsAttSubHeader = document.getElementById('needsAttentionSubHeader');
-    const otherPendSubHeader = document.getElementById('otherPendingSubHeader');
-    const needsAttEmptyRow = document.getElementById('needsAttentionEmptyRow');
-    const otherPendEmptyRow = document.getElementById('otherPendingEmptyRow');
     const noResultsRow = document.getElementById('noResultsFilterRow');
 
     const heroTotal = document.getElementById('heroTotalCounter');
     const heroAttention = document.getElementById('heroAttentionLabel');
-    const needsCountSpan = document.getElementById('needsAttentionCountSpan');
-    const otherCountSpan = document.getElementById('otherPendingCountSpan');
 
     function applyFilters() {
         const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
         const dlVal = deadlineFilter ? deadlineFilter.value : 'all';
         const chkVal = checkerFilter ? checkerFilter.value.trim().toLowerCase() : 'all';
 
+        let visibleCount = 0;
         let visibleNeeds = 0;
-        let visibleOther = 0;
 
         rows.forEach(function(row) {
             const asset = row.getAttribute('data-asset-name') || '';
             const campaign = row.getAttribute('data-campaign-name') || '';
             const maker = row.getAttribute('data-maker-name') || '';
             const checker = row.getAttribute('data-checker-name') || '';
-            const group = row.getAttribute('data-group') || '';
             const isDueSoon = row.getAttribute('data-due-soon') === '1';
             const isOverdue = row.getAttribute('data-overdue') === '1';
             const daysRemaining = parseInt(row.getAttribute('data-days-remaining') || '9999', 10);
@@ -1578,31 +1461,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (matchSearch && matchDeadline && matchChecker) {
                 row.style.display = '';
-                if (group === 'needs_attention') {
+                visibleCount++;
+                if (isDueSoon || isOverdue) {
                     visibleNeeds++;
-                } else {
-                    visibleOther++;
                 }
             } else {
                 row.style.display = 'none';
             }
         });
 
-        // Toggle subheaders & empty state messages
-        if (needsAttSubHeader) needsAttSubHeader.style.display = visibleNeeds > 0 ? '' : 'none';
-        if (otherPendSubHeader) otherPendSubHeader.style.display = visibleOther > 0 ? '' : 'none';
-
-        if (needsAttEmptyRow) needsAttEmptyRow.style.display = (visibleNeeds === 0 && rows.some(r => r.getAttribute('data-group') === 'needs_attention')) ? '' : 'none';
-        if (otherPendEmptyRow) otherPendEmptyRow.style.display = (visibleOther === 0 && rows.some(r => r.getAttribute('data-group') === 'other_pending')) ? '' : 'none';
-
         if (noResultsRow) {
-            noResultsRow.style.display = (visibleNeeds === 0 && visibleOther === 0) ? '' : 'none';
+            noResultsRow.style.display = (visibleCount === 0) ? '' : 'none';
         }
 
         // Update counts in UI
-        if (needsCountSpan) needsCountSpan.textContent = visibleNeeds;
-        if (otherCountSpan) otherCountSpan.textContent = visibleOther;
-        if (heroTotal) heroTotal.textContent = visibleNeeds + visibleOther;
+        if (heroTotal) heroTotal.textContent = visibleCount;
         if (heroAttention) heroAttention.textContent = visibleNeeds + ' Needs Attention';
     }
 
@@ -1611,10 +1484,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const tbody = table.querySelector('tbody');
         if (!tbody) return;
 
-        const needsRows = rows.filter(r => r.getAttribute('data-group') === 'needs_attention');
-        const otherRows = rows.filter(r => r.getAttribute('data-group') === 'other_pending');
-
-        function sortFn(a, b) {
+        rows.sort(function(a, b) {
             if (sortVal === 'earliest_deadline') {
                 const da = parseInt(a.getAttribute('data-days-remaining') || '9999', 10);
                 const db = parseInt(b.getAttribute('data-days-remaining') || '9999', 10);
@@ -1633,26 +1503,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 return na.localeCompare(nb);
             }
             return 0;
-        }
+        });
 
-        needsRows.sort(sortFn);
-        otherRows.sort(sortFn);
-
-        // Re-insert into DOM in order
-        if (needsAttSubHeader) {
-            let refNode = needsAttSubHeader;
-            needsRows.forEach(function(row) {
-                refNode.after(row);
-                refNode = row;
-            });
-        }
-
-        if (otherPendSubHeader) {
-            let refNode = otherPendSubHeader;
-            otherRows.forEach(function(row) {
-                refNode.after(row);
-                refNode = row;
-            });
+        // Re-insert into DOM in sorted order
+        rows.forEach(function(row) {
+            tbody.appendChild(row);
+        });
+        if (noResultsRow) {
+            tbody.appendChild(noResultsRow);
         }
     }
 

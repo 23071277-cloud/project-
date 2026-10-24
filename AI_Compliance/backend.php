@@ -443,6 +443,50 @@ function pcs_get_campaign_team_user_ids($campaign_id) {
 }
 
 /**
+ * Chuyển đổi và chuẩn hóa chuỗi deadline thành Unix timestamp hợp lệ.
+ * Khắc phục lỗi nhập ngày dạng 2 chữ số hoặc năm bị hiểu sai thành 0004/0026 dẫn đến tính sai số ngày quá hạn (ví dụ: Overdue 738715d).
+ */
+if (!function_exists('pcs_parse_deadline_timestamp')) {
+function pcs_parse_deadline_timestamp($raw) {
+    if (empty($raw)) {
+        return false;
+    }
+    $raw = trim((string)$raw);
+    
+    // Thử strtotime thông thường
+    $ts = strtotime($raw);
+    if (!$ts) {
+        // Thử thay thế dấu / thành - cho định dạng ngày Châu Âu d-m-Y
+        $ts = strtotime(str_replace('/', '-', $raw));
+    }
+    if (!$ts) {
+        return false;
+    }
+    
+    // Kiểm tra nếu năm < 2020 (ví dụ 0004, 0026, 26, 24...)
+    $year = (int) date('Y', $ts);
+    if ($year < 2020) {
+        $m = (int) date('m', $ts);
+        $d = (int) date('d', $ts);
+        
+        $cur_year = (int) date('Y');
+        if ($cur_year < 2026) {
+            $cur_year = 2026;
+        }
+        
+        if ($year >= 20 && $year <= 99) {
+            $target_year = 2000 + $year;
+        } else {
+            $target_year = $cur_year;
+        }
+        
+        $ts = strtotime(sprintf('%04d-%02d-%02d 23:59:59', $target_year, $m, $d));
+    }
+    return $ts;
+}
+}
+
+/**
  * Lấy tiêu đề ngữ cảnh chiến dịch, asset, version phục vụ nội dung thông báo
  */
 if (!function_exists('pcs_resolve_context_names')) {
@@ -4248,7 +4292,7 @@ function get_admin_release_queue($filter = 'all') {
                 $campaign_code = get_post_meta($cid, '_campaign_code', true) ?: '';
                 $deadline_raw = get_post_meta($cid, '_campaign_deadline', true) ?: get_post_meta($cid, '_deadline', true);
                 if ($deadline_raw) {
-                    $ts = strtotime($deadline_raw);
+                    $ts = pcs_parse_deadline_timestamp($deadline_raw);
                     if ($ts) {
                         $deadline_display = date('d M', $ts);
                         $days_remaining = (int) ceil(($ts - time()) / 86400);
@@ -4833,7 +4877,7 @@ function get_admin_final_review_data($target_version_id = 0, $target_asset_id = 
     $deadline_raw = $camp_post ? (get_post_meta($cid, '_campaign_deadline', true) ?: get_post_meta($cid, '_deadline', true)) : '';
     $deadline = '—';
     if ($deadline_raw) {
-        $ts = strtotime($deadline_raw);
+        $ts = pcs_parse_deadline_timestamp($deadline_raw);
         if ($ts) $deadline = date('d M Y', $ts);
     }
 
@@ -6671,7 +6715,7 @@ function get_release_detail_screen_data($target_version_id = 0, $target_asset_id
     $deadline_raw = $camp_post ? (get_post_meta($cid, '_campaign_deadline', true) ?: get_post_meta($cid, '_deadline', true)) : '';
     $deadline = '—';
     if ($deadline_raw) {
-        $ts = strtotime($deadline_raw);
+        $ts = pcs_parse_deadline_timestamp($deadline_raw);
         if ($ts) $deadline = date('d M Y', $ts);
     }
 
