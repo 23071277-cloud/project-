@@ -1473,9 +1473,9 @@ if (!function_exists('pcs_render_score_status_icon')) {
                 <div class="lens-header-row">
                     <div class="lens-title-group">
                         <h2 class="lens-title">Artwork</h2>
-                        <span class="lens-badge">EVIDENCE LENS ACTIVE</span>
+                        <span class="lens-badge">PREVIEW</span>
                     </div>
-                    <span class="lens-subtext">Interactive overlay pins enabled</span>
+                    <span class="lens-subtext">Compliance Inspection</span>
                 </div>
 
                 <div class="artwork-frame-box">
@@ -1756,13 +1756,6 @@ if (!function_exists('pcs_render_score_status_icon')) {
                             <span class="compliance-breakdown-val"><?= esc_html($chk1['finding'] ?? $chk1['reason'] ?? 'Đảm bảo tính độc quyền thương hiệu.') ?></span>
                         </div>
                         <div class="compliance-breakdown-item">
-                            <span class="compliance-breakdown-label">Vị trí đối soát:</span>
-                            <span class="compliance-breakdown-val" style="display: inline-flex; align-items: center; gap: 6px;">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: #4F57A7; flex-shrink: 0;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                                <?= esc_html($chk1['location'] ?? 'Khu vực hiển thị biểu trưng ấn phẩm (Marker ①)') ?>
-                            </span>
-                        </div>
-                        <div class="compliance-breakdown-item">
                             <span class="compliance-breakdown-label">Đánh giá tuân thủ:</span>
                             <span class="compliance-breakdown-val"><?= esc_html($chk1['analysis'] ?? $chk1['reason'] ?? 'Đạt tiêu chuẩn thương hiệu.') ?></span>
                         </div>
@@ -1834,13 +1827,6 @@ if (!function_exists('pcs_render_score_status_icon')) {
                         <div class="compliance-breakdown-item">
                             <span class="compliance-breakdown-label">Vấn đề phát hiện:</span>
                             <span class="compliance-breakdown-val"><?= esc_html($chk2['finding'] ?? $chk2['reason'] ?? 'Bảng màu và phân cấp chữ trên ấn phẩm.') ?></span>
-                        </div>
-                        <div class="compliance-breakdown-item">
-                            <span class="compliance-breakdown-label">Vị trí đối soát:</span>
-                            <span class="compliance-breakdown-val" style="display: inline-flex; align-items: center; gap: 6px;">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: #4F57A7; flex-shrink: 0;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                                <?= esc_html($chk2['location'] ?? 'Khu vực Visual Hero & Tiêu đề chính') ?>
-                            </span>
                         </div>
                         <div class="compliance-breakdown-item">
                             <span class="compliance-breakdown-label">Đánh giá tuân thủ:</span>
@@ -1923,13 +1909,6 @@ if (!function_exists('pcs_render_score_status_icon')) {
                         <div class="compliance-breakdown-item">
                             <span class="compliance-breakdown-label">Vấn đề phát hiện:</span>
                             <span class="compliance-breakdown-val"><?= esc_html($chk3['finding'] ?? $chk3['reason'] ?? 'Điều khoản cảnh báo rủi ro pháp lý MAS Singapore.') ?></span>
-                        </div>
-                        <div class="compliance-breakdown-item">
-                            <span class="compliance-breakdown-label">Vị trí đối soát:</span>
-                            <span class="compliance-breakdown-val" style="display: inline-flex; align-items: center; gap: 6px;">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: #4F57A7; flex-shrink: 0;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                                <?= esc_html($chk3['location'] ?? 'Dải chân trang Footer Statutory Area') ?>
-                            </span>
                         </div>
                         <div class="compliance-breakdown-item">
                             <span class="compliance-breakdown-label">Đánh giá tuân thủ:</span>

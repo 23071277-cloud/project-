@@ -1284,6 +1284,7 @@ foreach ($campaigns as $c) {
             top: 0;
             z-index: 10;
             box-shadow: 0 1px 0 #E2E8F0;
+            white-space: nowrap;
         }
 
         .queue-table th:first-child { border-radius: 10px 0 0 10px; }
@@ -1294,6 +1295,7 @@ foreach ($campaigns as $c) {
             border-bottom: 1px solid #F1F5F9;
             vertical-align: middle;
             font-size: 13px;
+            white-space: nowrap;
         }
 
         .queue-asset-cell {
@@ -1386,7 +1388,9 @@ foreach ($campaigns as $c) {
             box-shadow: 0px 4px 14px rgba(55, 62, 140, 0.25);
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 6px;
+            white-space: nowrap;
             transition: all 0.15s;
         }
         .btn-open-review-primary:hover {
@@ -1897,9 +1901,9 @@ foreach ($campaigns as $c) {
                                                                         <td>
                                                                             <span class="ai-pill <?= $aiPill ?>"><?= $aiLabel ?></span>
                                                                         </td>
-                                                                        <td style="text-align: center;">
-                                                                            <button class="btn-table-open-review" onclick="openReviewModalFromAsset(<?= htmlspecialchars(json_encode($asset)) ?>, <?= htmlspecialchars(json_encode($camp['name'])) ?>)">
-                                                                                Review AI Result
+                                                                        <td style="text-align: center; white-space: nowrap;">
+                                                                            <button class="btn-table-open-review" style="white-space: nowrap;" onclick="openReviewModalFromAsset(<?= htmlspecialchars(json_encode($asset)) ?>, <?= htmlspecialchars(json_encode($camp['name'])) ?>)">
+                                                                                AI Result
                                                                             </button>
                                                                         </td>
                                                                     </tr>
@@ -1950,15 +1954,15 @@ foreach ($campaigns as $c) {
                     <table class="queue-table" id="queueTable">
                         <thead>
                             <tr>
-                                <th>ASSET</th>
-                                <th>CAMPAIGN</th>
-                                <th style="text-align: center;">VERSION</th>
-                                <th>MAKER</th>
-                                <th style="text-align: center;">AI ASSESSMENT</th>
-                                <th style="text-align: center;">SUBMITTED</th>
-                                <th style="text-align: center;">DEADLINE</th>
-                                <th style="text-align: center;">STATUS</th>
-                                <th style="text-align: center;">ACTION</th>
+                                <th style="white-space: nowrap;">ASSET</th>
+                                <th style="white-space: nowrap;">CAMPAIGN</th>
+                                <th style="text-align: center; white-space: nowrap;">VERSION</th>
+                                <th style="white-space: nowrap;">MAKER</th>
+                                <th style="text-align: center; white-space: nowrap;">AI ASSESSMENT</th>
+                                <th style="text-align: center; white-space: nowrap;">SUBMITTED</th>
+                                <th style="text-align: center; white-space: nowrap;">DEADLINE</th>
+                                <th style="text-align: center; white-space: nowrap;">STATUS</th>
+                                <th style="text-align: center; white-space: nowrap; width: 140px;">ACTION</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -2013,9 +2017,9 @@ foreach ($campaigns as $c) {
                                         <td style="text-align: center;">
                                             <?= function_exists('pcs_format_status_badge') ? pcs_format_status_badge($item['status'] ?? 'in_review') : '<span class="status-pill-badge in_review"><span class="status-dot"></span><span>In Review</span></span>' ?>
                                         </td>
-                                        <td style="text-align: center;">
-                                            <button class="btn-open-review-primary" style="margin: 0 auto;" onclick="openReviewModal(<?= htmlspecialchars(json_encode($item)) ?>)">
-                                                <span>Review AI Result</span>
+                                        <td style="text-align: center; white-space: nowrap;">
+                                            <button class="btn-open-review-primary" style="margin: 0 auto; white-space: nowrap;" onclick="openReviewModal(<?= htmlspecialchars(json_encode($item)) ?>)">
+                                                <span>AI Result</span>
                                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                                             </button>
                                         </td>
