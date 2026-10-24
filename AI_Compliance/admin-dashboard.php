@@ -155,7 +155,15 @@ $totalCampaigns       = count($campaigns);
 $totalQueue           = count($queue);
 
 // First awaiting release item for "Open Next Final Review" CTA
-$firstAwaitingId = !empty($needsAttention) ? $needsAttention[0]['version_id'] : (!empty($queue) ? $queue[0]['version_id'] : 0);
+$firstAwaitingItem = !empty($needsAttention) ? $needsAttention[0] : (!empty($queue) ? $queue[0] : null);
+$firstAwaitingId = !empty($firstAwaitingItem) ? (int)$firstAwaitingItem['version_id'] : 0;
+$firstAwaitingAid = !empty($firstAwaitingItem) ? (int)($firstAwaitingItem['asset_id'] ?? 0) : 0;
+$firstAwaitingCid = !empty($firstAwaitingItem) ? (int)($firstAwaitingItem['campaign_id'] ?? 0) : 0;
+$firstAwaitingUrl = !empty($firstAwaitingId) ? (function_exists('pcs_url') ? pcs_url('final-review-admin.php') : 'final-review-admin.php') . '?' . http_build_query([
+    'version_id'  => $firstAwaitingId,
+    'asset_id'    => $firstAwaitingAid,
+    'campaign_id' => $firstAwaitingCid
+]) : '';
 
 // Retrieve all Admins, Makers and Checkers for dynamic interactive assignment
 $allAdminsList = function_exists('pcs_get_system_users_by_role') ? pcs_get_system_users_by_role('ADMIN') : [];
@@ -1960,10 +1968,17 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v7H3z"/><path d="M14 3h7v7h-7z"/><path d="M14 14h7v7h-7z"/><path d="M3 14h7v7H3z"/></svg>
                         <span>View All Campaigns</span>
                     </a>
-                    <button type="button" class="btn-action-primary" id="btnHeroOpenReview" <?= empty($firstAwaitingId) ? 'disabled' : '' ?> data-version-id="<?= $firstAwaitingId ?>">
-                        <span>Open Next Final Review</span>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                    </button>
+                    <?php if (!empty($firstAwaitingUrl)): ?>
+                        <a href="<?= esc_url($firstAwaitingUrl) ?>" class="btn-action-primary" id="btnHeroOpenReview" style="text-decoration: none;">
+                            <span>Open Next Final Review</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                        </a>
+                    <?php else: ?>
+                        <button type="button" class="btn-action-primary" id="btnHeroOpenReview" disabled>
+                            <span>Open Next Final Review</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                        </button>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -2017,7 +2032,13 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                         </div>
                     <?php else: ?>
                         <div class="attention-list">
-                            <?php foreach ($needsAttention as $idx => $item): ?>
+                            <?php foreach ($needsAttention as $idx => $item): 
+                                $attFinalReviewUrl = (function_exists('pcs_url') ? pcs_url('final-review-admin.php') : 'final-review-admin.php') . '?' . http_build_query([
+                                    'version_id'  => (int)($item['version_id'] ?? 0),
+                                    'asset_id'    => (int)($item['asset_id'] ?? 0),
+                                    'campaign_id' => (int)($item['campaign_id'] ?? 0)
+                                ]);
+                            ?>
                                 <div class="attention-card">
                                     <div class="attention-card-top">
                                         <span class="attention-pill"><?= sprintf('%02d', $idx + 1) ?> · AWAITING RELEASE</span>
@@ -2033,18 +2054,9 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                         <span>Checker: <strong><?= htmlspecialchars($item['checker_name']) ?></strong></span>
                                         <span><?= htmlspecialchars($item['approved_at']) ?></span>
                                     </div>
-                                    <button type="button" class="btn-open-review-link js-trigger-modal" 
-                                            data-version-id="<?= $item['version_id'] ?>"
-                                            data-asset-name="<?= htmlspecialchars($item['asset_name']) ?>"
-                                            data-campaign-name="<?= htmlspecialchars($item['campaign_name']) ?>"
-                                            data-version-label="<?= htmlspecialchars($item['version_label']) ?>"
-                                            data-maker-name="<?= htmlspecialchars($item['maker_name']) ?>"
-                                            data-checker-name="<?= htmlspecialchars($item['checker_name']) ?>"
-                                            data-checker-notes="<?= htmlspecialchars($item['checker_notes']) ?>"
-                                            data-score="<?= $item['score'] ?>"
-                                            data-file-url="<?= htmlspecialchars($item['file_url']) ?>">
-                                        <span>Open Final Review →</span>
-                                    </button>
+                                    <a href="<?= esc_url($attFinalReviewUrl) ?>" class="btn-open-review-link" style="text-decoration: none;">
+                                        <span>Open Final Review &rarr;</span>
+                                    </a>
                                 </div>
                             <?php endforeach; ?>
                         </div>
@@ -2216,19 +2228,16 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                                                                     <span style="width: 88px; height: 32px; display: inline-block; flex-shrink: 0;"></span>
                                                                                 <?php endif; ?>
 
-                                                                                <?php if ($asset['status'] === 'approved'): ?>
-                                                                                    <button type="button" class="btn-open-review-primary js-trigger-modal" style="width: 104px; height: 32px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 11.5px; border-radius: 6px; white-space: nowrap; flex-shrink: 0;"
-                                                                                            data-version-id="<?= $asset['current_version_id'] ?>"
-                                                                                            data-asset-name="<?= htmlspecialchars($asset['name']) ?>"
-                                                                                            data-campaign-name="<?= htmlspecialchars($camp['name']) ?>"
-                                                                                            data-version-label="<?= htmlspecialchars($asset['version_raw']) ?>"
-                                                                                            data-maker-name="<?= htmlspecialchars($asset['maker_name']) ?>"
-                                                                                            data-checker-name="<?= htmlspecialchars($asset['checker_name']) ?>"
-                                                                                            data-checker-notes=""
-                                                                                            data-score="100"
-                                                                                            data-file-url="<?= htmlspecialchars($asset['file_url']) ?>">
+                                                                                <?php if ($asset['status'] === 'approved'): 
+                                                                                    $assetFinalReviewUrl = (function_exists('pcs_url') ? pcs_url('final-review-admin.php') : 'final-review-admin.php') . '?' . http_build_query([
+                                                                                        'version_id'  => (int)($asset['current_version_id'] ?? 0),
+                                                                                        'asset_id'    => (int)($asset['id'] ?? 0),
+                                                                                        'campaign_id' => (int)($camp['id'] ?? 0)
+                                                                                    ]);
+                                                                                ?>
+                                                                                    <a href="<?= esc_url($assetFinalReviewUrl) ?>" class="btn-open-review-primary" title="Open Final Review" style="width: 104px; height: 32px; box-sizing: border-box; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 11.5px; border-radius: 6px; white-space: nowrap; flex-shrink: 0;">
                                                                                         <span>Review &rarr;</span>
-                                                                                    </button>
+                                                                                    </a>
                                                                                 <?php elseif ($asset['status'] === 'released'): ?>
                                                                                     <button type="button" class="btn-view-release js-trigger-release-modal" style="width: 104px; height: 32px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 11.5px; border-radius: 6px; white-space: nowrap; flex-shrink: 0;"
                                                                                             data-asset-name="<?= htmlspecialchars($asset['name']) ?>"
@@ -3106,7 +3115,7 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
 
             // Hero CTA button
             const btnHeroOpenReview = document.getElementById('btnHeroOpenReview');
-            if (btnHeroOpenReview && !btnHeroOpenReview.disabled) {
+            if (btnHeroOpenReview && btnHeroOpenReview.tagName === 'BUTTON' && !btnHeroOpenReview.disabled) {
                 btnHeroOpenReview.addEventListener('click', function() {
                     const firstBtn = document.querySelector('.js-trigger-modal');
                     if (firstBtn) {
