@@ -1470,15 +1470,13 @@ $aiScoringResultUrl = function_exists('pcs_url') ? pcs_url('ai-scoring-result.ph
             color: #1F2674;
             text-decoration: underline;
         }
-            text-decoration: underline;
-        }
 
         /* ================= 7. SECTION SELECTED VERSION ================= */
         .detail-asset-checker .section-SELECTED {
-            display: grid;
-            grid-template-columns: 1.15fr 1.35fr 1fr;
-            align-items: stretch;
-            gap: 24px;
+            display: grid !important;
+            grid-template-columns: 1.15fr 1.35fr 1fr !important;
+            align-items: stretch !important;
+            gap: 24px !important;
             padding: 24px;
             position: relative;
             align-self: stretch;
@@ -1487,6 +1485,7 @@ $aiScoringResultUrl = function_exists('pcs_url') ? pcs_url('ai-scoring-result.ph
             border-radius: 12px;
             border: 1px solid #EBEDFF;
             box-shadow: 0px 1px 2px #0000000d;
+            box-sizing: border-box;
         }
 
         .detail-asset-checker .zone-version {

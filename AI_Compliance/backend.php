@@ -603,6 +603,70 @@ function pcs_notify_campaign_owner($campaign_id, $title, $message, $type = 'info
 }
 
 /**
+ * Gui thong bao den tat ca Admin trong he thong
+ * Dam bao 100% Admin deu nhan duoc day du thong bao tien trinh (maker nop file, checker duyet/reject, v.v.)
+ * va co duong dan hop le toi trang Admin co quyen truy cap
+ */
+if (!function_exists('pcs_notify_all_admins')) {
+function pcs_notify_all_admins($title, $message, $type = 'info', $link = '', $campaign_id = 0, $asset_id = 0, $version_id = 0) {
+    $campaign_id = (int) $campaign_id;
+    $asset_id = (int) $asset_id;
+    $version_id = (int) $version_id;
+
+    // Chuan hoa duong dan luon tro ve trang Admin co quyen xem
+    $admin_link = $link;
+    if (empty($admin_link) || preg_match('/(maker|checker|smart-maker|ai-upload)/i', $admin_link)) {
+        if ($campaign_id > 0) {
+            $p_args = ['campaign_id' => $campaign_id];
+            if ($asset_id > 0) $p_args['asset_id'] = $asset_id;
+            if ($version_id > 0) $p_args['version_id'] = $version_id;
+            $admin_link = pcs_get_notification_link('detail-asset-admin.php', $p_args);
+        } else {
+            $admin_link = pcs_get_notification_link('admin-dashboard.php');
+        }
+    }
+
+    $admin_ids = [];
+
+    // 1. Lay tat ca tai khoan co role administrator trong WordPress
+    if (pcs_is_wp() && function_exists('get_users')) {
+        $admins = get_users(['role' => 'administrator']);
+        foreach ($admins as $adm) {
+            if ($adm->ID > 0 && !in_array((int)$adm->ID, $admin_ids, true)) {
+                $admin_ids[] = (int) $adm->ID;
+            }
+        }
+    }
+
+    // 2. Lay them tu mock users hoac session
+    if (empty($admin_ids) && function_exists('pcs_get_system_users_by_role')) {
+        $u_admins = pcs_get_system_users_by_role('ADMIN');
+        foreach ($u_admins as $ua) {
+            $u_id = (int) ($ua->ID ?? $ua->id ?? 0);
+            if ($u_id > 0 && !in_array($u_id, $admin_ids, true)) {
+                $admin_ids[] = $u_id;
+            }
+        }
+    }
+
+    // 3. Fallback Admin ID 1
+    if (empty($admin_ids)) {
+        $admin_ids[] = 1;
+    }
+
+    $sent = 0;
+    foreach ($admin_ids as $aid) {
+        if (function_exists('pcs_send_notification')) {
+            $nid = pcs_send_notification($aid, $title, $message, $type, $admin_link, $campaign_id, $asset_id, $version_id);
+            if ($nid) $sent++;
+        }
+    }
+
+    return $sent;
+}
+}
+
+/**
  * Helper: Kiểm tra xem User có phải là role Admin / Administrator hay không
  */
 if (!function_exists('pcs_is_admin_user')) {
@@ -652,7 +716,7 @@ function pcs_get_user_notifications($user_id, $limit = 50, $unread_only = false)
     ];
 
     if (pcs_is_wp() && function_exists('get_posts')) {
-        // Voi Admin: truy van pool rong hon de sau khi loc bo cac task Maker/Checker van du $limit bai
+        // Voi Admin: truy van pool rong hon de duoc cap nhat day du toan he thong
         $query_limit = $is_admin ? max(150, $limit * 3) : $limit;
 
         $args = [
@@ -682,59 +746,37 @@ function pcs_get_user_notifications($user_id, $limit = 50, $unread_only = false)
             $cid = (int) get_post_meta($nid, '_campaign_id', true);
             $aid = (int) get_post_meta($nid, '_asset_id', true);
             $vid = (int) get_post_meta($nid, '_version_id', true);
-            $title_lower = strtolower($p->post_title);
 
             // =========================================================================
-            // LOC THONG BAO CHO ADMIN: Chi nhan cac thong bao co quyen xem (Bo het cac trang bi gioi han role)
+            // CHUAN HOA THONG BAO CHO ADMIN: Khong bo sot thong bao nao!
+            // Tu dong chuyen huong link ve trang Admin co quyen truy cap (detail-asset-admin / admin-dashboard)
             // =========================================================================
             if ($is_admin) {
-                $is_direct_recipient = ($recipient_uid > 0 && $recipient_uid === $user_id);
-
-                // 1. Bo qua cac thong bao danh rieng cho Maker upload/chinh sua version noi bo
-                if (preg_match('/(smart-maker-upload|ai-upload|maker-dashboard|checker-dashboard)/i', $link)) {
-                    continue; // Bo di! Admin khong co quyen va khong upload thay Maker
-                }
-                if (strpos($title_lower, 'revisions required') !== false && !$is_direct_recipient) {
-                    continue; // Bo di! Day la thong bao Maker phai sua bai
-                }
-                if (in_array($type, ['campaign_assigned_maker', 'campaign_assigned_checker'], true) && !$is_direct_recipient) {
-                    continue; // Bo di!
+                $has_admin_link = false;
+                foreach ($admin_accessible_pages as $page_slug) {
+                    if (strpos($link, $page_slug) !== false) {
+                        $has_admin_link = true;
+                        break;
+                    }
                 }
 
-                // 2. Tu dong chuyen huong link sang trang Admin neu thong bao tro ve trang checker/maker
-                if (preg_match('/(detail-asset-checker|detail-asset-maker|checker-review)/i', $link)) {
+                if (!$has_admin_link) {
                     if ($cid > 0) {
                         $p_args = ['campaign_id' => $cid];
                         if ($aid > 0) $p_args['asset_id'] = $aid;
                         if ($vid > 0) $p_args['version_id'] = $vid;
                         $link = pcs_get_notification_link('detail-asset-admin.php', $p_args);
                     } else {
-                        continue; // Bo di!
+                        $link = pcs_get_notification_link('admin-dashboard.php');
                     }
-                }
-
-                // 3. Kiem tra bao dam 100% link thuoc cac trang Admin co quyen truy cap
-                $is_allowed_link = false;
-                foreach ($admin_accessible_pages as $page_slug) {
-                    if (strpos($link, $page_slug) !== false) {
-                        $is_allowed_link = true;
-                        break;
-                    }
-                }
-                if (!$is_allowed_link) {
-                    continue; // Bo di! Admin khong co quyen truy cap trang nay
                 }
             }
 
-            // Trang thai da doc (Read Status)
+            // Trang thai da doc (Read Status) - kiem tra read_by_{user_id} truoc cho moi role
             $is_read = false;
-            if ($is_admin) {
-                $admin_read = get_post_meta($nid, '_read_by_' . $user_id, true);
-                if ($admin_read !== '') {
-                    $is_read = ($admin_read == '1');
-                } else {
-                    $is_read = (get_post_meta($nid, '_is_read', true) == '1');
-                }
+            $user_read = get_post_meta($nid, '_read_by_' . $user_id, true);
+            if ($user_read !== '') {
+                $is_read = ($user_read == '1');
             } else {
                 $is_read = (get_post_meta($nid, '_is_read', true) == '1');
             }
@@ -2872,7 +2914,7 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
             }
         }
 
-        // Notification: Notify Campaign Owner & Checkers
+        // Notification: Notify Campaign Owner & All Admins & Checkers
         if (function_exists('pcs_notify_campaign_owner')) {
             pcs_notify_campaign_owner(
                 $campaign_id,
@@ -2880,6 +2922,18 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
                 $maker_display . ' submitted V' . $ver_num . ' for asset "' . $asset_name . '" in "' . $camp_name . '". AI Pre-flight completed, awaiting Checker verification.',
                 'in_review',
                 pcs_get_notification_link('detail-asset-admin.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id, 'version_id' => $version_id]),
+                $asset_id,
+                $version_id
+            );
+        }
+
+        if (function_exists('pcs_notify_all_admins')) {
+            pcs_notify_all_admins(
+                'New Asset Uploaded: ' . $asset_name . ' (V' . $ver_num . ')',
+                'Maker ' . $maker_display . ' uploaded V' . $ver_num . ' for asset "' . $asset_name . '" in campaign "' . $camp_name . '". Awaiting Checker compliance verification.',
+                'in_review',
+                pcs_get_notification_link('detail-asset-admin.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id, 'version_id' => $version_id]),
+                $campaign_id,
                 $asset_id,
                 $version_id
             );
@@ -3438,22 +3492,16 @@ function handle_checker_decision($version_id, $decision, $review_note = '') {
                     $version_id
                 );
             }
-            if (function_exists('pcs_get_system_users_by_role')) {
-                $admins = pcs_get_system_users_by_role('ADMIN');
-                foreach ($admins as $adm) {
-                    if (function_exists('pcs_send_notification')) {
-                        pcs_send_notification(
-                            $adm['id'],
-                            'Ready for Release: ' . $asset_name . ' (V' . $v_num . ')',
-                            'Checker ' . $checker_name . ' approved "' . $asset_name . '" (V' . $v_num . ') in campaign "' . $camp_name . '". Ready for final production release in Admin Dashboard.',
-                            'awaiting_release',
-                            pcs_get_notification_link('admin-dashboard.php', ['campaign_id' => $campaign_id, 'version_id' => $version_id]) . '#queue-section',
-                            $campaign_id,
-                            $asset_id,
-                            $version_id
-                        );
-                    }
-                }
+            if (function_exists('pcs_notify_all_admins')) {
+                pcs_notify_all_admins(
+                    'Asset Approved: ' . $asset_name . ' (V' . $v_num . ')',
+                    'Checker ' . $checker_name . ' approved "' . $asset_name . '" (V' . $v_num . ') in campaign "' . $camp_name . '". Ready for final production release.',
+                    'awaiting_release',
+                    pcs_get_notification_link('detail-asset-admin.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id, 'version_id' => $version_id]),
+                    $campaign_id,
+                    $asset_id,
+                    $version_id
+                );
             }
         } elseif ($decision === 'rejected') {
             if (function_exists('pcs_notify_campaign_owner')) {
@@ -3474,6 +3522,17 @@ function handle_checker_decision($version_id, $decision, $review_note = '') {
                     'Checker ' . $checker_name . ' rejected V' . $v_num . ' and requested revisions. Feedback: "' . ($review_note ?: 'Please review and submit revision.') . '". Please upload V' . ($v_num + 1) . '.',
                     'rejected',
                     pcs_get_notification_link('smart-maker-upload.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id, 'mode' => 'new_version']),
+                    $campaign_id,
+                    $asset_id,
+                    $version_id
+                );
+            }
+            if (function_exists('pcs_notify_all_admins')) {
+                pcs_notify_all_admins(
+                    'Asset Rejected: ' . $asset_name . ' (V' . $v_num . ')',
+                    'Checker ' . $checker_name . ' rejected "' . $asset_name . '" (V' . $v_num . ') in campaign "' . $camp_name . '". Feedback: ' . ($review_note ?: 'Revisions requested before approval.'),
+                    'rejected',
+                    pcs_get_notification_link('detail-asset-admin.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id, 'version_id' => $version_id]),
                     $campaign_id,
                     $asset_id,
                     $version_id
@@ -7456,6 +7515,8 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
         $quote = get_post_meta($cr->ID, '_source_quote', true);
         $reason = get_post_meta($cr->ID, '_reason', true);
         $rule = get_post_meta($cr->ID, '_rule', true);
+        $finding = get_post_meta($cr->ID, '_finding', true);
+        $analysis = get_post_meta($cr->ID, '_analysis', true);
         $m_top = get_post_meta($cr->ID, '_marker_top', true);
         $m_left = get_post_meta($cr->ID, '_marker_left', true);
         $m_loc = get_post_meta($cr->ID, '_marker_location', true);
@@ -7465,6 +7526,8 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
                 'quote'           => $quote,
                 'reason'          => $reason,
                 'rule'            => $rule,
+                'finding'         => $finding,
+                'analysis'        => $analysis,
                 'id'              => $cr->ID,
                 'marker_top'      => $m_top,
                 'marker_left'     => $m_left,
@@ -7534,6 +7597,12 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
         $m1_badge_text = 'Pass';
         $m1_label = '① Logo area · Pass';
     }
+    if (!empty($existing_checks['foreign_logo']['finding'])) {
+        $finding_foreign = $existing_checks['foreign_logo']['finding'];
+    }
+    if (!empty($existing_checks['foreign_logo']['analysis'])) {
+        $analysis_foreign = $existing_checks['foreign_logo']['analysis'];
+    }
     $reason_foreign = !empty($existing_checks['foreign_logo']['reason']) 
         ? $existing_checks['foreign_logo']['reason'] 
         : ($finding_foreign . ' ' . $analysis_foreign);
@@ -7573,6 +7642,12 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
         $m2_badge_text = 'Pass';
         $m2_label = '② Brand Identity · Pass';
     }
+    if (!empty($existing_checks['guideline']['finding'])) {
+        $finding_guideline = $existing_checks['guideline']['finding'];
+    }
+    if (!empty($existing_checks['guideline']['analysis'])) {
+        $analysis_guideline = $existing_checks['guideline']['analysis'];
+    }
     $reason_guideline = !empty($existing_checks['guideline']['reason'])
         ? $existing_checks['guideline']['reason']
         : ($finding_guideline . ' ' . $analysis_guideline);
@@ -7599,8 +7674,8 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
         $analysis_mas = 'Vi phạm nghiêm trọng Rule MAS-01 & Singapore MAS Notice §4.1b: Ấn phẩm có chứa thông điệp ưu đãi/lợi ích đầu tư nhưng hoàn toàn không có đoạn cảnh báo: \'Past performance is not indicative of future performance. Investments are subject to market risks.\' hoặc kích thước chữ không đạt mức tối thiểu 8pt.';
         $m3_top = !empty($existing_checks['mas_rule']['marker_top']) ? $existing_checks['mas_rule']['marker_top'] : '91%';
         $m3_left = !empty($existing_checks['mas_rule']['marker_left']) ? $existing_checks['mas_rule']['marker_left'] : '8%';
-        $m3_badge_text = 'Fail';
-        $m3_label = '③ MAS Disclaimer · Fail';
+        $m3_badge_text = ($score_mas <= 30) ? 'Fail' : 'Needs Human Look';
+        $m3_label = '③ MAS Disclaimer · ' . $m3_badge_text;
     } else {
         $finding_mas = 'Nội dung quảng cáo có đầy đủ điều khoản cảnh báo rủi ro theo đúng quy định của Cơ quan Quản lý Tiền tệ Singapore (MAS §4.1b).';
         $location_mas = !empty($existing_checks['mas_rule']['marker_location'])
@@ -7611,6 +7686,12 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
         $m3_left = !empty($existing_checks['mas_rule']['marker_left']) ? $existing_checks['mas_rule']['marker_left'] : '8%';
         $m3_badge_text = 'Pass';
         $m3_label = '③ MAS Disclaimer · Pass';
+    }
+    if (!empty($existing_checks['mas_rule']['finding'])) {
+        $finding_mas = $existing_checks['mas_rule']['finding'];
+    }
+    if (!empty($existing_checks['mas_rule']['analysis'])) {
+        $analysis_mas = $existing_checks['mas_rule']['analysis'];
     }
     $reason_mas = !empty($existing_checks['mas_rule']['reason'])
         ? $existing_checks['mas_rule']['reason']
@@ -7796,6 +7877,8 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
             'file_ext'       => $ext,
             'file_size'      => '2.4 MB',
             'status'         => $status,
+            'review_note'    => get_post_meta($vid, '_review_note', true) ?: '',
+            'reviewed_by'    => get_post_meta($vid, '_reviewed_by', true) ?: '',
             'maker_name'     => $maker_name
         ],
         'previous_version'  => $previous_version,

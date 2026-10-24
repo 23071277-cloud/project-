@@ -151,6 +151,22 @@ $versionStatus = $version['status'] ?? 'scoring';
 $queueUrl = !empty($campaignId)
     ? ((function_exists('pcs_url') ? pcs_url('detail-asset-checker.php') : 'detail-asset-checker.php') . '?campaign_id=' . (int)$campaignId)
     : ((function_exists('pcs_url') ? pcs_url('checker-dashboard.php') : 'checker-dashboard.php') . '#queue-section');
+
+if (!function_exists('pcs_render_score_status_icon')) {
+    function pcs_render_score_status_icon($score) {
+        $score = (int) $score;
+        if ($score >= 71) {
+            // Checkmark 'v' Pass (Green)
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+        } elseif ($score >= 31) {
+            // Warning Triangle '!' Needs Human Look (Amber)
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+        } else {
+            // Cross 'x' Fail (Red)
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#E11D48" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1558,7 +1574,7 @@ $queueUrl = !empty($campaignId)
                             </div>
                             <div class="snapshot-score-badge-group">
                                 <div>
-                                    <span class="score-number-text"><?= (int)($chk1['score'] ?? 92) ?></span>
+                                    <span class="score-number-text" style="color: <?= esc_attr($chk1['text_color'] ?? '#10B981') ?>;"><?= (int)($chk1['score'] ?? 92) ?></span>
                                     <span class="score-total-denom">/100</span>
                                 </div>
                                 <div class="status-pill-badge" style="background: <?= esc_attr($chk1['bg_color'] ?? '#ECFDF5') ?>; color: <?= esc_attr($chk1['text_color'] ?? '#10B981') ?>; outline: 1px solid <?= esc_attr($chk1['border'] ?? 'rgba(16, 185, 129, 0.2)') ?>;">
@@ -1600,7 +1616,7 @@ $queueUrl = !empty($campaignId)
                             </div>
                             <div class="snapshot-score-badge-group">
                                 <div>
-                                    <span class="score-number-text"><?= (int)($chk2['score'] ?? 64) ?></span>
+                                    <span class="score-number-text" style="color: <?= esc_attr($chk2['text_color'] ?? '#D97706') ?>;"><?= (int)($chk2['score'] ?? 64) ?></span>
                                     <span class="score-total-denom">/100</span>
                                 </div>
                                 <div class="status-pill-badge" style="background: <?= esc_attr($chk2['bg_color'] ?? '#FFF6E5') ?>; color: <?= esc_attr($chk2['text_color'] ?? '#D97706') ?>; outline: 1px solid <?= esc_attr($chk2['border'] ?? 'rgba(217, 119, 6, 0.2)') ?>;">
@@ -1713,12 +1729,12 @@ $queueUrl = !empty($campaignId)
                 <span style="color: #464651; font-size: 12px;">(3 heuristic evaluation checks)</span>
             </div>
 
-            <!-- BAND 01: Foreign Logos (Pass) -->
+            <!-- BAND 01: Foreign Logos -->
             <div class="editorial-band-card editorial-band-white" id="band-foreign-logo">
                 <div class="band-score-col">
                     <span class="band-category-title"><?= esc_html($chk1['name'] ?? 'FOREIGN LOGOS') ?></span>
                     <div class="band-score-number-row">
-                        <span class="band-score-number" style="color: #161B2E;"><?= (int)($chk1['score'] ?? 92) ?></span>
+                        <span class="band-score-number" style="color: <?= esc_attr($chk1['text_color'] ?? '#10B981') ?>;"><?= (int)($chk1['score'] ?? 92) ?></span>
                         <span style="color: #464651; font-size: 12px;">/ 100</span>
                     </div>
                     <div class="status-pill-badge" style="background: <?= esc_attr($chk1['bg_color'] ?? '#ECFDF5') ?>; color: <?= esc_attr($chk1['text_color'] ?? '#10B981') ?>; outline: 1px solid <?= esc_attr($chk1['border'] ?? 'rgba(16, 185, 129, 0.2)') ?>; width: fit-content; margin-top: 4px;">
@@ -1765,11 +1781,13 @@ $queueUrl = !empty($campaignId)
                         </div>
                     </div>
 
-                    <div class="band-evidence-box" style="background: #F3F2FF; margin-top: 6px;">
-                        <div class="evidence-tag-left">
-                            <svg width="15" height="14" viewBox="0 0 15 14" fill="none">
-                                <path d="M5.06667 14L3.8 11.8667L1.4 11.3333L1.63333 8.86667L0 7L1.63333 5.13333L1.4 2.66667L3.8 2.13333L5.06667 0L7.33333 0.966667L9.6 0L10.8667 2.13333L13.2667 2.66667L13.0333 5.13333L14.6667 7L13.0333 8.86667L13.2667 11.3333L10.8667 11.8667L9.6 14L7.33333 13.0333L5.06667 14ZM6.63333 9.36667L10.4 5.6L9.46667 4.63333L6.63333 7.46667L5.2 6.06667L4.26667 7L6.63333 9.36667Z" fill="#5EDAC9"/>
-                            </svg>
+                    <?php 
+                        $score1 = (int)($chk1['score'] ?? 92);
+                        $boxStyle1 = ($score1 >= 71) ? 'background: #ECFDF5; outline: 1px solid rgba(16, 185, 129, 0.25);' : (($score1 >= 31) ? 'background: #FFFBEB; outline: 1px solid rgba(217, 119, 6, 0.25);' : 'background: rgba(255, 241, 242, 0.65); outline: 1px solid #FECDD3;');
+                    ?>
+                    <div class="band-evidence-box" style="<?= $boxStyle1 ?> margin-top: 6px;">
+                        <div class="evidence-tag-left" style="display: flex; align-items: center; gap: 8px;">
+                            <?= pcs_render_score_status_icon($score1) ?>
                             <span><?= esc_html($chk1['evidence_tag'] ?? 'Evidence: Logo area · Marker ①') ?></span>
                         </div>
                         <div class="btn-view-in-artwork" onclick="highlightMarker('marker-1')">
@@ -1808,12 +1826,12 @@ $queueUrl = !empty($campaignId)
                 </div>
             </div>
 
-            <!-- BAND 02: Brand & Compliance Documents (Needs Human Look) -->
+            <!-- BAND 02: Brand & Compliance Documents -->
             <div class="editorial-band-card editorial-band-lavender" id="band-guideline">
                 <div class="band-score-col">
                     <span class="band-category-title"><?= esc_html($chk2['name'] ?? 'BRAND & COMPLIANCE DOCUMENTS') ?></span>
                     <div class="band-score-number-row">
-                        <span class="band-score-number" style="color: #161B2E;"><?= (int)($chk2['score'] ?? 64) ?></span>
+                        <span class="band-score-number" style="color: <?= esc_attr($chk2['text_color'] ?? '#D97706') ?>;"><?= (int)($chk2['score'] ?? 64) ?></span>
                         <span style="color: #464651; font-size: 12px;">/ 100</span>
                     </div>
                     <div class="status-pill-badge" style="background: <?= esc_attr($chk2['bg_color'] ?? '#FFF6E5') ?>; color: <?= esc_attr($chk2['text_color'] ?? '#D97706') ?>; outline: 1px solid <?= esc_attr($chk2['border'] ?? 'rgba(217, 119, 6, 0.2)') ?>; width: fit-content; margin-top: 4px;">
@@ -1860,11 +1878,13 @@ $queueUrl = !empty($campaignId)
                         </div>
                     </div>
 
-                    <div class="band-evidence-box" style="background: #ffffff; margin-top: 6px;">
-                        <div class="evidence-tag-left">
-                            <svg width="15" height="13" viewBox="0 0 15 13" fill="none">
-                                <path d="M0 12.6667L7.33333 0L14.6667 12.6667H0ZM7.33333 10.6667C7.52222 10.6667 7.68056 10.6028 7.80833 10.475C7.93611 10.3472 8 10.1889 8 10C8 9.81111 7.93611 9.65278 7.80833 9.525C7.68056 9.39722 7.52222 9.33333 7.33333 9.33333C7.14444 9.33333 6.98611 9.39722 6.85833 9.525C6.73056 9.65278 6.66667 9.81111 6.66667 10C6.66667 10.1889 6.73056 10.3472 6.85833 10.475C6.98611 10.6028 7.14444 10.6667 7.33333 10.6667ZM6.66667 8.66667H8V5.33333H6.66667V8.66667Z" fill="#D97706"/>
-                            </svg>
+                    <?php 
+                        $score2 = (int)($chk2['score'] ?? 64);
+                        $boxStyle2 = ($score2 >= 71) ? 'background: #ECFDF5; outline: 1px solid rgba(16, 185, 129, 0.25);' : (($score2 >= 31) ? 'background: #FFFBEB; outline: 1px solid rgba(217, 119, 6, 0.25);' : 'background: rgba(255, 241, 242, 0.65); outline: 1px solid #FECDD3;');
+                    ?>
+                    <div class="band-evidence-box" style="<?= $boxStyle2 ?> margin-top: 6px;">
+                        <div class="evidence-tag-left" style="display: flex; align-items: center; gap: 8px;">
+                            <?= pcs_render_score_status_icon($score2) ?>
                             <span><?= esc_html($chk2['evidence_tag'] ?? 'Evidence: Visual Hero & Brand Identity · Marker ②') ?></span>
                         </div>
                         <div class="btn-view-in-artwork" onclick="highlightMarker('marker-2')">
@@ -1955,11 +1975,13 @@ $queueUrl = !empty($campaignId)
                         </div>
                     </div>
 
-                    <div class="band-evidence-box" style="background: rgba(255, 241, 242, 0.65); outline: 1px solid #FFE4E6; margin-top: 6px;">
-                        <div class="evidence-tag-left">
-                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                                <path d="M4.26667 10L6.66667 7.6L9.06667 10L10 9.06667L7.6 6.66667L10 4.26667L9.06667 3.33333L6.66667 5.73333L4.26667 3.33333L3.33333 4.26667L5.73333 6.66667L3.33333 9.06667L4.26667 10ZM6.66667 13.3333C5.74444 13.3333 4.87778 13.1583 4.06667 12.8083C3.25556 12.4583 2.55 11.9833 1.95 11.3833C1.35 10.7833 0.875 10.0778 0.525 9.26667C0.175 8.45555 0 7.58889 0 6.66667C0 5.74444 0.175 4.87778 0.525 4.06667C0.875 3.25556 1.35 2.55 1.95 1.95C2.55 1.35 3.25556 0.875 4.06667 0.525C4.87778 0.175 5.74444 0 6.66667 0C7.58889 0 8.45555 0.175 9.26667 0.525C10.0778 0.875 10.7833 1.35 11.3833 1.95C11.9833 2.55 12.4583 3.25556 12.8083 4.06667C13.1583 4.87778 13.3333 5.74444 13.3333 6.66667C13.3333 7.58889 13.1583 8.45555 12.8083 9.26667C12.4583 10.0778 11.9833 10.7833 11.3833 11.3833C10.7833 11.9833 10.0778 12.4583 9.26667 12.8083C8.45555 13.1583 7.58889 13.3333 6.66667 13.3333ZM6.66667 12C8.15556 12 9.41667 11.4833 10.45 10.45C11.4833 9.41667 12 8.15556 12 6.66667C12 5.17778 11.4833 3.91667 10.45 2.88333C9.41667 1.85 8.15556 1.33333 6.66667 1.33333C5.17778 1.33333 3.91667 1.85 2.88333 2.88333C1.85 3.91667 1.33333 5.17778 1.33333 6.66667C1.33333 8.15556 1.85 9.41667 2.88333 10.45C3.91667 11.4833 5.17778 12 6.66667 12Z" fill="#E11D48"/>
-                            </svg>
+                    <?php 
+                        $score3 = (int)($chk3['score'] ?? 25);
+                        $boxStyle3 = ($score3 >= 71) ? 'background: #ECFDF5; outline: 1px solid rgba(16, 185, 129, 0.25);' : (($score3 >= 31) ? 'background: #FFFBEB; outline: 1px solid rgba(217, 119, 6, 0.25);' : 'background: rgba(255, 241, 242, 0.65); outline: 1px solid #FECDD3;');
+                    ?>
+                    <div class="band-evidence-box" style="<?= $boxStyle3 ?> margin-top: 6px;">
+                        <div class="evidence-tag-left" style="display: flex; align-items: center; gap: 8px;">
+                            <?= pcs_render_score_status_icon($score3) ?>
                             <span><?= esc_html($chk3['evidence_tag'] ?? 'Evidence: Footer Statutory Disclaimer · Marker ③') ?></span>
                         </div>
                         <div class="btn-view-in-artwork" onclick="highlightMarker('marker-3')">
@@ -2112,7 +2134,16 @@ $queueUrl = !empty($campaignId)
                         <path d="M6.33333 12.5417L12.2083 6.66667L11.0417 5.5L6.33333 10.2083L3.95833 7.83333L2.79167 9L6.33333 12.5417ZM1.66667 16.6667C1.20833 16.6667 0.815972 16.5035 0.489583 16.1771C0.163194 15.8507 0 15.4583 0 15V3.33333C0 2.875 0.163194 2.48264 0.489583 2.15625C0.815972 1.82986 1.20833 1.66667 1.66667 1.66667H5.16667C5.34722 1.16667 5.64931 0.763889 6.07292 0.458333C6.49653 0.152778 6.97222 0 7.5 0C8.02778 0 8.50347 0.152778 8.92708 0.458333C9.35069 0.763889 9.65278 1.16667 9.83333 1.66667H13.3333C13.7917 1.66667 14.184 1.82986 14.5104 2.15625C14.8368 2.48264 15 2.875 15 3.33333V15C15 15.4583 14.8368 15.8507 14.5104 16.1771C14.184 16.5035 13.7917 16.6667 13.3333 16.6667H1.66667ZM1.66667 15H13.3333V3.33333H1.66667V15ZM7.5 2.70833C7.68056 2.70833 7.82986 2.64931 7.94792 2.53125C8.06597 2.41319 8.125 2.26389 8.125 2.08333C8.125 1.90278 8.06597 1.75347 7.94792 1.63542C7.82986 1.51736 7.68056 1.45833 7.5 1.45833C7.31944 1.45833 7.17014 1.51736 7.05208 1.63542C6.93403 1.75347 6.875 1.90278 6.875 2.08333C6.875 2.26389 6.93403 2.41319 7.05208 2.53125C7.17014 2.64931 7.31944 2.70833 7.5 2.70833Z" fill="#4F57A7"/>
                     </svg>
                 </div>
-                <h3 class="decision-strip-heading">Ready for your decision</h3>
+                <?php 
+                $vStatusCheck = strtolower($versionStatus);
+                if ($vStatusCheck === 'approved' || $vStatusCheck === 'awaiting_release' || $vStatusCheck === 'released'): 
+                ?>
+                    <h3 class="decision-strip-heading" style="color: #065F46;">Decision Recorded: Approved</h3>
+                <?php elseif ($vStatusCheck === 'rejected'): ?>
+                    <h3 class="decision-strip-heading" style="color: #991B1B;">Decision Recorded: Revisions Requested</h3>
+                <?php else: ?>
+                    <h3 class="decision-strip-heading">Ready for your decision</h3>
+                <?php endif; ?>
             </div>
 
             <div class="decision-strip-right">
@@ -2137,37 +2168,41 @@ $queueUrl = !empty($campaignId)
             </a>
 
             <div class="dock-actions-right" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                <!-- Reject Action -->
-                <button type="button" onclick="openCheckerRejectModal()" style="padding: 10px 18px; border-radius: 8px; background: #FFF1F2; border: 1px solid #FECDD3; color: #BA1A1A; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px;">
-                    <span>Reject Version</span>
-                </button>
-
-                <!-- Approve Action -->
-                <form method="POST" style="display: inline;">
-                    <input type="hidden" name="action" value="checker_approve">
-                    <input type="hidden" name="version_id" value="<?= (int)$versionId ?>">
-                    <input type="hidden" name="asset_id" value="<?= (int)$assetId ?>">
-                    <input type="hidden" name="campaign_id" value="<?= (int)$campaignId ?>">
-                    <input type="hidden" name="review_notes" value="Approved after AI pre-flight inspection">
-                    <button type="submit" style="padding: 10px 20px; border-radius: 8px; background: #00B894; color: #FFF; font-weight: 700; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px;" onclick="return confirm('Confirm approval for this asset version?');">
-                        <span>Approve Version</span>
-                    </button>
-                </form>
-
-                <!-- Proceed to Full Checker Review Workspace -->
                 <?php 
-                $fullReviewUrl = (function_exists('pcs_url') ? pcs_url('checker-review.php') : 'checker-review.php') . '?' . http_build_query([
-                    'version_id'  => $versionId,
-                    'asset_id'    => $assetId,
-                    'campaign_id' => $campaignId
-                ]);
+                $vStatus = strtolower($versionStatus);
+                if ($vStatus === 'approved' || $vStatus === 'awaiting_release' || $vStatus === 'released'): 
                 ?>
-                <a href="<?= esc_url($fullReviewUrl) ?>" class="btn-submit-checker-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
-                    <span>Open Review Workspace</span>
-                    <svg width="15" height="12" viewBox="0 0 15 12" fill="none">
-                        <path d="M0 12V0L14.25 6L0 12ZM1.5 9.75L10.3875 6L1.5 2.25V4.875L6 6L1.5 7.125V9.75Z" fill="white"/>
-                    </svg>
-                </a>
+                    <div style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 8px; background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46; font-size: 13.5px; font-weight: 700;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span>Decision Recorded: Approved</span>
+                        <span style="font-weight: 500; font-size: 12.5px; color: #047857;">&bull; Ready for Admin release</span>
+                    </div>
+                <?php elseif ($vStatus === 'rejected'): ?>
+                    <div style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 8px; background: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; font-size: 13.5px; font-weight: 700;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                        <span>Decision Recorded: Revisions Requested</span>
+                        <?php if (!empty($version['review_note'])): ?>
+                            <span style="font-weight: 500; font-size: 12.5px; color: #B91C1C;">(<?= esc_html($version['review_note']) ?>)</span>
+                        <?php endif; ?>
+                    </div>
+                <?php else: ?>
+                    <!-- Reject Action -->
+                    <button type="button" onclick="openCheckerRejectModal()" style="padding: 10px 18px; border-radius: 8px; background: #FFF1F2; border: 1px solid #FECDD3; color: #BA1A1A; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px;">
+                        <span>Reject Version</span>
+                    </button>
+
+                    <!-- Approve Action -->
+                    <form method="POST" style="display: inline;">
+                        <input type="hidden" name="action" value="checker_approve">
+                        <input type="hidden" name="version_id" value="<?= (int)$versionId ?>">
+                        <input type="hidden" name="asset_id" value="<?= (int)$assetId ?>">
+                        <input type="hidden" name="campaign_id" value="<?= (int)$campaignId ?>">
+                        <input type="hidden" name="review_notes" value="Approved after AI pre-flight inspection">
+                        <button type="submit" style="padding: 10px 20px; border-radius: 8px; background: #00B894; color: #FFF; font-weight: 700; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px;" onclick="return confirm('Confirm approval for this asset version?');">
+                            <span>Approve Version</span>
+                        </button>
+                    </form>
+                <?php endif; ?>
             </div>
         </footer>
 

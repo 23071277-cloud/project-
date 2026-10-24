@@ -1250,6 +1250,62 @@ function markItemReadLocally(wrap) {
     if (qBtn) qBtn.remove();
 }
 
+// URL helper: Append param before fragment (#)
+function pcsAppendParamBeforeHash(url, key, val) {
+    if (!url) return url;
+    var hashIndex = url.indexOf('#');
+    var hash = '';
+    var base = url;
+    if (hashIndex !== -1) {
+        hash = url.substring(hashIndex);
+        base = url.substring(0, hashIndex);
+    }
+    var sep = base.indexOf('?') !== -1 ? '&' : '?';
+    return base + sep + encodeURIComponent(key) + '=' + encodeURIComponent(val) + hash;
+}
+
+// LocalStorage helpers for persistent read caching across reloads & edge caches
+var pcsNotifStorageKey = 'pcs_read_notifs_' + unavUserId;
+
+function pcsGetStoredReadIds() {
+    if (!unavUserId) return [];
+    try {
+        var raw = localStorage.getItem(pcsNotifStorageKey);
+        return raw ? JSON.parse(raw) : [];
+    } catch(e) {
+        return [];
+    }
+}
+
+function pcsSaveReadIdToStorage(id) {
+    if (!id || !unavUserId) return;
+    try {
+        var ids = pcsGetStoredReadIds();
+        id = parseInt(id, 10);
+        if (id && ids.indexOf(id) === -1) {
+            ids.push(id);
+            if (ids.length > 200) ids = ids.slice(-200);
+            localStorage.setItem(pcsNotifStorageKey, JSON.stringify(ids));
+        }
+    } catch(e) {}
+}
+
+function pcsSaveAllReadIdsToStorage() {
+    if (!unavUserId) return;
+    try {
+        var items = document.querySelectorAll('.unav-notif-item-wrap');
+        var ids = pcsGetStoredReadIds();
+        items.forEach(function(it) {
+            var nid = parseInt(it.getAttribute('data-notif-id'), 10);
+            if (nid && ids.indexOf(nid) === -1) {
+                ids.push(nid);
+            }
+        });
+        if (ids.length > 200) ids = ids.slice(-200);
+        localStorage.setItem(pcsNotifStorageKey, JSON.stringify(ids));
+    } catch(e) {}
+}
+
 function handleNotificationClick(e, notifId, targetUrl, el) {
     var wrap = el ? el.closest('.unav-notif-item-wrap') : null;
     var wasUnread = wrap && wrap.getAttribute('data-status') === 'unread';
@@ -1257,6 +1313,9 @@ function handleNotificationClick(e, notifId, targetUrl, el) {
     if (wasUnread) {
         markItemReadLocally(wrap);
         updateNotifBadges(1);
+        if (notifId) {
+            pcsSaveReadIdToStorage(notifId);
+        }
 
         // Async AJAX fallback
         if (notifId && unavUserId) {
@@ -1279,10 +1338,9 @@ function handleNotificationClick(e, notifId, targetUrl, el) {
     if (targetUrl && targetUrl !== '#' && targetUrl !== 'javascript:void(0)') {
         e.preventDefault();
         
-        // Them notif_read vao targetUrl de trang dich danh dau doc DONG BO trong PHP ngay truoc khi render
+        // Them notif_read vao targetUrl TRUOC fragment (#hash) de trang dich danh dau doc DONG BO trong PHP ngay truoc khi render
         if (wasUnread && notifId) {
-            var sep = targetUrl.indexOf('?') !== -1 ? '&' : '?';
-            targetUrl = targetUrl + sep + 'notif_read=' + encodeURIComponent(notifId);
+            targetUrl = pcsAppendParamBeforeHash(targetUrl, 'notif_read', notifId);
         }
         
         window.location.href = targetUrl;
@@ -1299,6 +1357,9 @@ function quickMarkNotifRead(e, notifId, btnEl) {
 
     markItemReadLocally(wrap);
     updateNotifBadges(1);
+    if (notifId) {
+        pcsSaveReadIdToStorage(notifId);
+    }
 
     if (notifId && unavUserId) {
         var params = new URLSearchParams();
@@ -1337,6 +1398,7 @@ function markAllNotificationsRead(userId) {
 
     currentUnreadCount = 0;
     updateNotifBadges();
+    pcsSaveAllReadIdsToStorage();
 
     var params = new URLSearchParams();
     params.append('action', 'pcs_mark_all_notifs_read');
@@ -1353,6 +1415,27 @@ function markAllNotificationsRead(userId) {
         filterNotifTab('unread', currentActiveBtn);
     }
 }
+
+// Dong bo ngay lap tuc voi localStorage de chong giat so thong bao (bounce-back) khi F5 hoac edge-cache
+(function pcsSyncNotifsWithLocalStorage() {
+    if (!unavUserId) return;
+    var cachedReadIds = pcsGetStoredReadIds();
+    if (!cachedReadIds || !cachedReadIds.length) return;
+
+    var reconciledCount = 0;
+    var items = document.querySelectorAll('.unav-notif-item-wrap.is-unread');
+    items.forEach(function(it) {
+        var nid = parseInt(it.getAttribute('data-notif-id'), 10);
+        if (nid && cachedReadIds.indexOf(nid) !== -1) {
+            markItemReadLocally(it);
+            reconciledCount++;
+        }
+    });
+
+    if (reconciledCount > 0) {
+        updateNotifBadges(reconciledCount);
+    }
+})();
 
 // Don sach tham so notif_read tren thanh dia chi URL
 if (window.history && window.history.replaceState && window.location.search.indexOf('notif_read=') !== -1) {
