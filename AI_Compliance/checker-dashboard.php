@@ -1167,24 +1167,22 @@ foreach ($campaigns as $c) {
         /* ================= 3. SECTION 4: FULL-WIDTH REVIEW QUEUE ================= */
         .queue-section {
             background: #FFFFFF;
-            border: 1px solid #E0E0FF;
+            border: 1px solid #E2E8F0;
             border-radius: 16px;
             box-shadow: none;
             padding: 24px;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 16px;
             position: relative;
             overflow: hidden;
+            scroll-margin-top: 85px;
+            min-height: calc(100vh - 100px);
+            box-sizing: border-box;
         }
 
         .queue-top-gradient-bar {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
-            background: linear-gradient(90deg, #373E8C 0%, #4F56A6 50%, #E0E0FF 100%);
+            display: none !important;
         }
 
         .queue-header {
@@ -1248,13 +1246,16 @@ foreach ($campaigns as $c) {
         }
 
         .queue-section .table-responsive {
-            max-height: 330px;
+            height: calc(100vh - 240px);
+            max-height: calc(100vh - 220px);
+            min-height: 420px;
             overflow-y: auto;
             overflow-x: auto;
             border-radius: 8px;
-            border: 1px solid #E0E0FF;
+            border: 1px solid #E2E8F0;
             scrollbar-width: thin;
             scrollbar-color: #CBD5E1 #FAF8FF;
+            flex: 1;
         }
         .queue-section .table-responsive::-webkit-scrollbar {
             width: 6px;
@@ -1269,6 +1270,7 @@ foreach ($campaigns as $c) {
             width: 100%;
             border-collapse: separate;
             border-spacing: 0;
+            table-layout: auto;
         }
 
         .queue-table th {
@@ -1277,7 +1279,7 @@ foreach ($campaigns as $c) {
             font-weight: 700;
             color: #94A3B8;
             letter-spacing: 0.5px;
-            padding: 14px 16px;
+            padding: 12px 10px;
             border-bottom: 1px solid rgba(226, 232, 240, 0.8);
             text-transform: uppercase;
             position: sticky;
@@ -1291,22 +1293,23 @@ foreach ($campaigns as $c) {
         .queue-table th:last-child { border-radius: 0 10px 10px 0; }
 
         .queue-table td {
-            padding: 18px 16px;
+            padding: 13px 10px;
             border-bottom: 1px solid #F1F5F9;
             vertical-align: middle;
             font-size: 13px;
-            white-space: nowrap;
         }
 
         .queue-asset-cell {
             display: flex;
             align-items: center;
-            gap: 14px;
+            gap: 10px;
+            min-width: 0;
+            max-width: 260px;
         }
 
         .asset-icon-box {
-            width: 36px;
-            height: 36px;
+            width: 34px;
+            height: 34px;
             border-radius: 8px;
             display: flex;
             align-items: center;
@@ -1318,10 +1321,13 @@ foreach ($campaigns as $c) {
         }
 
         .asset-name-title {
-            font-size: 14px;
+            font-size: 13.5px;
             font-weight: 700;
             color: #0F172A;
-            line-height: 1.25;
+            line-height: 1.35;
+            white-space: normal;
+            word-break: break-word;
+            overflow-wrap: break-word;
         }
 
         .asset-type-sub {
@@ -1334,6 +1340,10 @@ foreach ($campaigns as $c) {
             font-size: 13px;
             font-weight: 600;
             color: #334155;
+            white-space: normal;
+            word-break: break-word;
+            line-height: 1.35;
+            max-width: 180px;
         }
 
         .version-tag {
@@ -1372,26 +1382,31 @@ foreach ($campaigns as $c) {
         }
 
         .maker-name-text {
-            font-size: 12.5px;
+            font-size: 12px;
             color: #475569;
             font-weight: 500;
             white-space: nowrap;
         }
 
         .btn-open-review-primary {
-            padding: 8px 18px;
+            padding: 6px 13px;
             background-color: #373E8C;
             color: #FFFFFF;
-            font-size: 12px;
+            font-size: 11.5px;
             font-weight: 700;
-            border-radius: 10px;
-            box-shadow: 0px 4px 14px rgba(55, 62, 140, 0.25);
+            border-radius: 8px;
+            box-shadow: 0px 3px 10px rgba(55, 62, 140, 0.2);
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 6px;
+            gap: 5px;
             white-space: nowrap;
             transition: all 0.15s;
+        }
+        .btn-open-review-primary:hover {
+            background-color: #4F56A6;
+            transform: translateY(-1px);
+            box-shadow: 0px 5px 14px rgba(55, 62, 140, 0.3);
         }
         .btn-open-review-primary:hover {
             background-color: #4F56A6;
@@ -1935,8 +1950,6 @@ foreach ($campaigns as $c) {
 
             <!-- ================= 3. SECTION 4: REVIEW QUEUE ================= -->
             <section class="queue-section" id="queue-section">
-                <div class="queue-top-gradient-bar"></div>
-
                 <div class="queue-header">
                     <div class="queue-title-wrap">
                         <h2 class="queue-title">Review Queue</h2>
@@ -1954,15 +1967,15 @@ foreach ($campaigns as $c) {
                     <table class="queue-table" id="queueTable">
                         <thead>
                             <tr>
-                                <th style="white-space: nowrap;">ASSET</th>
-                                <th style="white-space: nowrap;">CAMPAIGN</th>
-                                <th style="text-align: center; white-space: nowrap;">VERSION</th>
-                                <th style="white-space: nowrap;">MAKER</th>
-                                <th style="text-align: center; white-space: nowrap;">AI ASSESSMENT</th>
-                                <th style="text-align: center; white-space: nowrap;">SUBMITTED</th>
-                                <th style="text-align: center; white-space: nowrap;">DEADLINE</th>
-                                <th style="text-align: center; white-space: nowrap;">STATUS</th>
-                                <th style="text-align: center; white-space: nowrap; width: 140px;">ACTION</th>
+                                <th style="width: 26%; min-width: 160px;">ASSET</th>
+                                <th style="width: 17%; min-width: 120px;">CAMPAIGN</th>
+                                <th style="width: 7%; min-width: 55px; text-align: center; white-space: nowrap;">VERSION</th>
+                                <th style="width: 13%; min-width: 110px; white-space: nowrap;">MAKER</th>
+                                <th style="width: 11%; min-width: 95px; text-align: center; white-space: nowrap;">AI ASSESSMENT</th>
+                                <th style="width: 8%; min-width: 80px; text-align: center; white-space: nowrap;">SUBMITTED</th>
+                                <th style="width: 8%; min-width: 75px; text-align: center; white-space: nowrap;">DEADLINE</th>
+                                <th style="width: 9%; min-width: 85px; text-align: center; white-space: nowrap;">STATUS</th>
+                                <th style="width: 10%; min-width: 95px; text-align: center; white-space: nowrap;">ACTION</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1973,30 +1986,30 @@ foreach ($campaigns as $c) {
                                     elseif ($item['ai_status'] === 'NEEDS REVIEW') $aiClass = 'needs_review';
                                 ?>
                                     <tr class="queue-row" data-status="<?= $item['status'] ?>">
-                                        <td>
+                                        <td style="min-width: 160px;">
                                             <div class="queue-asset-cell">
                                                 <div class="asset-icon-box">
                                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
                                                 </div>
-                                                <div>
+                                                <div style="min-width: 0; flex: 1;">
                                                     <div class="asset-name-title"><?= htmlspecialchars($item['asset_name']) ?></div>
                                                     <div class="asset-type-sub"><?= htmlspecialchars($item['asset_type']) ?></div>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td>
+                                        <td style="min-width: 120px;">
                                             <div class="queue-campaign-title"><?= htmlspecialchars($item['campaign_name']) ?></div>
                                         </td>
-                                        <td style="text-align: center;">
+                                        <td style="text-align: center; white-space: nowrap;">
                                             <span class="version-tag"><?= htmlspecialchars($item['version_label']) ?></span>
                                         </td>
-                                        <td>
+                                        <td style="white-space: nowrap;">
                                             <div class="maker-cell-wrap">
                                                 <div class="maker-mini-avatar"><?= htmlspecialchars($item['maker_initials']) ?></div>
                                                 <span class="maker-name-text"><?= htmlspecialchars($item['maker_name']) ?></span>
                                             </div>
                                         </td>
-                                        <td style="text-align: center;">
+                                        <td style="text-align: center; white-space: nowrap;">
                                             <span class="ai-pill <?= $aiClass ?>">
                                                 <?php if ($aiClass === 'pass'): ?>
                                                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
@@ -2008,13 +2021,13 @@ foreach ($campaigns as $c) {
                                                 <span><?= htmlspecialchars($item['ai_status']) ?></span>
                                             </span>
                                         </td>
-                                        <td style="text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #64748B;">
+                                        <td style="text-align: center; white-space: nowrap; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #64748B;">
                                             <?= htmlspecialchars($item['submitted']) ?>
                                         </td>
-                                        <td style="text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #1E293B;">
+                                        <td style="text-align: center; white-space: nowrap; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #1E293B;">
                                             <?= htmlspecialchars($item['deadline']) ?>
                                         </td>
-                                        <td style="text-align: center;">
+                                        <td style="text-align: center; white-space: nowrap;">
                                             <?= function_exists('pcs_format_status_badge') ? pcs_format_status_badge($item['status'] ?? 'in_review') : '<span class="status-pill-badge in_review"><span class="status-dot"></span><span>In Review</span></span>' ?>
                                         </td>
                                         <td style="text-align: center; white-space: nowrap;">
@@ -2259,6 +2272,20 @@ foreach ($campaigns as $c) {
                 }
             }
         }
+
+        // Auto-scroll to #queue-section smoothly under navbar
+        function checkQueueHashScroll() {
+            if (window.location.hash === '#queue-section') {
+                const el = document.getElementById('queue-section');
+                if (el) {
+                    setTimeout(function() {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 120);
+                }
+            }
+        }
+        window.addEventListener('load', checkQueueHashScroll);
+        window.addEventListener('hashchange', checkQueueHashScroll);
     </script>
 </body>
 </html>

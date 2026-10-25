@@ -6347,7 +6347,7 @@ function get_compare_versions_screen_data($target_asset_id = 0, $target_v_prev_i
     }
 
     if (empty($prev_checks_map) && $v_prev && function_exists('get_ai_scoring_result_data')) {
-        $p_ai = get_ai_scoring_result_data($v_prev['id'], $asset_id, $campaign_id);
+        $p_ai = get_ai_scoring_result_data($v_prev['id'], $target_asset_id, $target_campaign_id);
         if (!empty($p_ai['checks'])) {
             foreach ($p_ai['checks'] as $ck => $cv) {
                 $sc = (int)($cv['score'] ?? 0);
@@ -6364,7 +6364,7 @@ function get_compare_versions_screen_data($target_asset_id = 0, $target_v_prev_i
     }
 
     if (empty($cur_checks_map) && $v_cur && function_exists('get_ai_scoring_result_data')) {
-        $c_ai = get_ai_scoring_result_data($v_cur['id'], $asset_id, $campaign_id);
+        $c_ai = get_ai_scoring_result_data($v_cur['id'], $target_asset_id, $target_campaign_id);
         if (!empty($c_ai['checks'])) {
             foreach ($c_ai['checks'] as $ck => $cv) {
                 $sc = (int)($cv['score'] ?? 0);

@@ -2040,6 +2040,14 @@ $aiScoringResultUrl = function_exists('pcs_url') ? pcs_url('ai-scoring-result.ph
                 </div>
             <?php endif; ?>
 
+            <!-- Back to Dashboard -->
+            <div class="back-nav-row" style="margin-bottom: 12px; align-self: flex-start;">
+                <a href="<?= esc_url($checkerDashUrl) ?>" class="btn-back-to-dash" style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #373E8C; text-decoration: none; padding: 6px 14px; background: #FFFFFF; border: 1px solid #E0E0FF; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); transition: all 0.15s;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                    <span>Back to Dashboard</span>
+                </a>
+            </div>
+
             <!-- ================= SECTION: CAMPAIGN INFO BAR ================= -->
             <div class="section-CAMPAIGN">
                 <div class="container-3">
@@ -2091,28 +2099,6 @@ $aiScoringResultUrl = function_exists('pcs_url') ? pcs_url('ai-scoring-result.ph
                             </svg>
                         </div>
                         <div class="container-7"><div class="text-6">View Guidelines</div></div>
-                    </button>
-
-                    <?php 
-                    // Tìm asset tiếp theo đang chờ duyệt (in_review)
-                    $nextReviewAsset = null;
-                    foreach ($assets as $ast) {
-                        if ($ast['status'] === 'in_review') {
-                            $nextReviewAsset = $ast;
-                            break;
-                        }
-                    }
-                    if (!$nextReviewAsset && !empty($assets)) {
-                        $nextReviewAsset = $assets[0];
-                    }
-                    ?>
-                    <button class="button-2" onclick="openReviewModal(<?= htmlspecialchars(json_encode($nextReviewAsset)) ?>)">
-                        <div class="container-7"><div class="text-7">Review AI Result</div></div>
-                        <div class="container-7">
-                            <svg class="icon-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                <path d="M5 12h14M12 5l7 7-7 7"/>
-                            </svg>
-                        </div>
                     </button>
                 </div>
             </div>
@@ -2678,10 +2664,35 @@ window.addEventListener('click', function(e) {
 });
 
 function selectAssetRow(assetId) {
+    sessionStorage.setItem('detail_checker_scroll_y', window.scrollY);
+    const tableEl = document.getElementById('assetsTableBody');
+    if (tableEl) {
+        sessionStorage.setItem('detail_checker_table_scroll_y', tableEl.scrollTop);
+    }
     const url = new URL(window.location.href);
     url.searchParams.set('asset_id', assetId);
     window.location.href = url.toString();
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    const savedTableY = sessionStorage.getItem('detail_checker_table_scroll_y');
+    if (savedTableY !== null) {
+        const tableEl = document.getElementById('assetsTableBody');
+        if (tableEl) {
+            tableEl.scrollTop = parseInt(savedTableY, 10);
+        }
+        sessionStorage.removeItem('detail_checker_table_scroll_y');
+    }
+
+    const savedY = sessionStorage.getItem('detail_checker_scroll_y');
+    if (savedY !== null) {
+        window.scrollTo({
+            top: parseInt(savedY, 10),
+            behavior: 'instant'
+        });
+        sessionStorage.removeItem('detail_checker_scroll_y');
+    }
+});
 
 function filterAssetTab(filter, btn) {
     document.querySelectorAll('.filter-btn').forEach(b => {
