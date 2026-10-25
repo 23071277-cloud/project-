@@ -135,6 +135,9 @@ if ( ! function_exists( 'pcs_run_ai_scoring_for_version' ) ) {
     // Cập nhật trạng thái version sang 'in_review' sau khi AI chấm điểm xong
     update_post_meta( $version_id, '_version_status', 'in_review' );
     update_post_meta( $version_id, '_status', 'in_review' );
+    if ( function_exists('pcs_server_meta') ) {
+        pcs_server_meta( $version_id, '_status', 'in_review' );
+    }
     update_post_meta( $version_id, '_ai_completed', 1 );
     if ( function_exists('pcs_transition_version_to_in_review') ) {
         pcs_transition_version_to_in_review( $version_id );

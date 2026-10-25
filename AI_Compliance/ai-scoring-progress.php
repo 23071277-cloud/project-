@@ -129,9 +129,8 @@ $version         = $screenData['version'] ?? null;
 $previousVersion = $screenData['previous_version'] ?? null;
 $versionCount    = $screenData['version_count'] ?? 1;
 $lineage         = $screenData['lineage'] ?? [];
-$checks          = $screenData['checks'] ?? [];
-$completedCount  = $screenData['completed_count'] ?? 2;
-$totalChecks     = $screenData['total_checks'] ?? 3;
+$completedCount  = 0;
+$totalChecks     = 3;
 $returnUrl       = $screenData['return_url'] ?? (function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php');
 
 $campaignId   = $campaign['id'] ?? $targetCampaignId;
@@ -162,24 +161,61 @@ if ($versionId > 0 && pcs_is_wp()) {
             pcs_server_meta($assetId, '_current_version_id', $versionId);
         }
     }
-
-    // Kiểm tra nếu chưa có bản ghi check_result trong CPT thì chạy AI scoring lưu database ngay lập tức
-    $existing_checks = get_posts([
-        'post_type'   => 'check_result',
-        'post_status' => ['publish', 'any'],
-        'numberposts' => 1,
-        'meta_key'    => '_version_id',
-        'meta_value'  => (string) $versionId
-    ]);
-
-    if (empty($existing_checks)) {
-        if (function_exists('pcs_run_ai_scoring_for_version')) {
-            pcs_run_ai_scoring_for_version($versionId);
-        } elseif (function_exists('pcs_execute_ai_scoring')) {
-            pcs_execute_ai_scoring($versionId, $assetId);
-        }
-    }
 }
+
+// 3 bước kiểm tra tuần tự trong pipeline (khởi tạo động: bước 1 Processing, 2 & 3 Queued)
+$checks = [
+    [
+        'id'           => 'foreign_logo',
+        'name'         => 'Foreign Logos',
+        'category'     => 'Logo usage',
+        'status'       => 'processing',
+        'status_label' => 'Processing',
+        'badge_label'  => 'Processing',
+        'icon'         => 'shield',
+        'score'        => 0,
+        'is_active'    => true,
+        'detail'       => 'Foreign Logos Verification',
+        'live_tag'     => 'Live',
+        'sub_text'     => 'Scanning third-party marks...',
+        'desc'         => 'Verifying brand exclusivity against competitor marks (OCBC, UOB, HSBC, Citi, Maybank) and clear space geometry.',
+        'ruleset'      => 'Regulatory ruleset: Trademark Clearance FL-01'
+    ],
+    [
+        'id'           => 'guideline',
+        'name'         => 'Brand & Compliance Documents',
+        'category'     => 'Brand references',
+        'status'       => 'waiting',
+        'status_label' => 'Queued',
+        'badge_label'  => 'Waiting',
+        'icon'         => 'doc',
+        'score'        => 0,
+        'is_active'    => false,
+        'detail'       => 'Brand & Compliance Docs',
+        'live_tag'     => '',
+        'sub_text'     => 'Awaiting logo clearance',
+        'desc'         => 'Verifying corporate color palette (#0A192F Navy, #D4AF37 Gold) and typography exclusion boundaries.',
+        'ruleset'      => 'Regulatory ruleset: Corporate Visual Identity BG-01'
+    ],
+    [
+        'id'           => 'mas_rule',
+        'name'         => 'MAS Advertising Rules',
+        'category'     => 'Advertising compliance',
+        'status'       => 'waiting',
+        'status_label' => 'Queued',
+        'badge_label'  => 'Waiting',
+        'icon'         => 'shield_active',
+        'score'        => 0,
+        'is_active'    => false,
+        'detail'       => 'Advertising Provisions',
+        'live_tag'     => '',
+        'sub_text'     => 'Awaiting guideline verification',
+        'desc'         => 'Evaluating financial disclaimer prominence, legibility against imagery contrast, and regulatory wealth management phrasing.',
+        'ruleset'      => 'Regulatory ruleset: MAS Guidelines §4.1b'
+    ]
+];
+
+$activeCheck = $checks[0];
 
 // Maker không thấy điểm số AI: chuyển hướng về danh sách asset với thông báo thành công
 $nextUrl = ($campaignId > 0)
@@ -193,18 +229,6 @@ $fileSize     = $version['file_size'] ?? '2.4 MB';
 $dimensions   = $version['dimensions'] ?? '1920 × 1080 px';
 $colorway     = $version['colorway'] ?? 'sRGB Colorway';
 $fileUrl      = $version['file_url'] ?? '';
-
-// Active Check (Rule MAS-01)
-$activeCheck = null;
-foreach ($checks as $chk) {
-    if (!empty($chk['is_active'])) {
-        $activeCheck = $chk;
-        break;
-    }
-}
-if (!$activeCheck && !empty($checks)) {
-    $activeCheck = end($checks);
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1023,6 +1047,10 @@ if (!$activeCheck && !empty($checks)) {
             animation: progressGlow 2.5s infinite;
         }
 
+        .segment-bar-pending {
+            background: #E2E8F0;
+        }
+
         .segments-labels-row {
             display: flex;
             justify-content: space-between;
@@ -1039,6 +1067,22 @@ if (!$activeCheck && !empty($checks)) {
         .segment-label-active {
             color: #4F57A7;
             font-weight: 600;
+        }
+
+        .segment-label-pending {
+            color: #94A3B8;
+            font-weight: 400;
+        }
+
+        .timeline-icon-pending {
+            background: #F1F5F9;
+        }
+
+        .timeline-sub-pending {
+            color: #94A3B8;
+            font-size: 12px;
+            font-weight: 400;
+            line-height: 16px;
         }
 
         /* Version Path + Next State Grid (5 cols / 7 cols) */
@@ -1388,7 +1432,7 @@ if (!$activeCheck && !empty($checks)) {
                     </div>
                 </div>
                 <div class="progress-bar-track">
-                    <div class="progress-bar-fill" id="mainProgressBar" style="width: 66.66%;"></div>
+                    <div class="progress-bar-fill" id="mainProgressBar" style="width: 15%;"></div>
                 </div>
             </div>
         </section>
@@ -1514,37 +1558,39 @@ if (!$activeCheck && !empty($checks)) {
                         </div>
 
                         <div>
-                            <h3 class="focus-title"><?= esc_html($activeCheck['name'] ?? 'MAS Advertising Rules') ?></h3>
-                            <p class="focus-description">
-                                <?= esc_html($activeCheck['desc'] ?? 'Evaluating financial disclaimer prominence, legibility against imagery contrast, and regulatory wealth management phrasing.') ?>
+                            <h3 class="focus-title" id="focusCardTitle"><?= esc_html($activeCheck['name'] ?? 'Foreign Logos Verification') ?></h3>
+                            <p class="focus-description" id="focusCardDesc">
+                                <?= esc_html($activeCheck['desc'] ?? 'Verifying brand exclusivity against competitor marks (OCBC, UOB, HSBC, Citi, Maybank) and clear space geometry.') ?>
                             </p>
                         </div>
 
                         <!-- Vertical Timeline Sequence -->
                         <div class="vertical-timeline">
-                            <?php foreach ($checks as $chk): 
+                            <?php foreach ($checks as $idx => $chk): 
                                 $isDone = ($chk['status'] === 'finished');
                                 $isActive = !empty($chk['is_active']);
                             ?>
-                                <div class="timeline-step">
-                                    <div class="timeline-icon-box <?= $isDone ? 'timeline-icon-done' : 'timeline-icon-active' ?>">
+                                <div class="timeline-step" id="timelineStep<?= (int)$idx ?>">
+                                    <div class="timeline-icon-box <?= $isDone ? 'timeline-icon-done' : ($isActive ? 'timeline-icon-active' : 'timeline-icon-pending') ?>" id="timelineIcon<?= (int)$idx ?>">
                                         <?php if ($isDone): ?>
                                             <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                                                 <rect width="10" height="10" rx="5" fill="#5EDAC9"/>
                                             </svg>
-                                        <?php else: ?>
+                                        <?php elseif ($isActive): ?>
                                             <svg class="pulse-dot" width="10" height="10" viewBox="0 0 10 10" fill="none">
                                                 <rect width="10" height="10" rx="5" fill="#4F57A7"/>
+                                            </svg>
+                                        <?php else: ?>
+                                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                                <rect width="10" height="10" rx="5" fill="#CBD5E1"/>
                                             </svg>
                                         <?php endif; ?>
                                     </div>
                                     <div class="timeline-text-col">
                                         <span class="timeline-title"><?= esc_html($chk['detail'] ?? $chk['name']) ?></span>
-                                        <?php if ($isDone): ?>
-                                            <span class="timeline-sub-done"><?= esc_html($chk['status_label']) ?></span>
-                                        <?php else: ?>
-                                            <span class="timeline-sub-active"><?= esc_html($chk['sub_text'] ?? 'Analyzing disclaimer legibility') ?></span>
-                                        <?php endif; ?>
+                                        <span class="<?= $isDone ? 'timeline-sub-done' : ($isActive ? 'timeline-sub-active' : 'timeline-sub-pending') ?>" id="timelineSub<?= (int)$idx ?>">
+                                            <?= esc_html($isDone ? $chk['status_label'] : ($isActive ? ($chk['sub_text'] ?? 'Processing...') : 'Queued')) ?>
+                                        </span>
                                     </div>
                                 </div>
                             <?php endforeach; ?>
@@ -1555,16 +1601,16 @@ if (!$activeCheck && !empty($checks)) {
                     <div class="summary-box-card">
                         <div class="summary-box-row">
                             <span class="summary-box-label">Audit Pipeline</span>
-                            <span class="summary-box-step">Step 3 of 3</span>
+                            <span class="summary-box-step" id="summaryBoxStep">Step 1 of 3</span>
                         </div>
-                        <div class="summary-box-body">
-                            2 checks complete · 1 processing
+                        <div class="summary-box-body" id="summaryBoxBody">
+                            0 checks complete · 1 processing
                         </div>
                         <div class="summary-box-footer">
                             <svg width="10" height="13" viewBox="0 0 10 13" fill="none">
                                 <path d="M1.16667 12.25C0.845833 12.25 0.571181 12.1358 0.342708 11.9073C0.114236 11.6788 0 11.4042 0 11.0833V5.25C0 4.92917 0.114236 4.65451 0.342708 4.42604C0.571181 4.19757 0.845833 4.08333 1.16667 4.08333H1.75V2.91667C1.75 2.10972 2.03438 1.42188 2.60313 0.853125C3.17188 0.284375 3.85972 0 4.66667 0C5.47361 0 6.16146 0.284375 6.73021 0.853125C7.29896 1.42188 7.58333 2.10972 7.58333 2.91667V4.08333H8.16667C8.4875 4.08333 8.76215 4.19757 8.99063 4.42604C9.2191 4.65451 9.33333 4.92917 9.33333 5.25V11.0833C9.33333 11.4042 9.2191 11.6788 8.99063 11.9073C8.76215 12.1358 8.4875 12.25 8.16667 12.25H1.16667V12.25M1.16667 11.0833H8.16667V5.25H1.16667V11.0833M4.66667 9.33333C4.9875 9.33333 5.26215 9.2191 5.49062 8.99063C5.7191 8.76215 5.83333 8.4875 5.83333 8.16667C5.83333 7.84583 5.7191 7.57118 5.49062 7.34271C5.26215 7.11424 4.9875 7 4.66667 7C4.34583 7 4.07118 7.11424 3.84271 7.34271C3.61424 7.57118 3.5 7.84583 3.5 8.16667C3.5 8.4875 3.61424 8.76215 3.84271 8.99063C4.07118 9.2191 4.34583 9.33333 4.66667 9.33333M2.91667 4.08333H6.41667V2.91667C6.41667 2.43056 6.24653 2.01736 5.90625 1.67708C5.56597 1.33681 5.15278 1.16667 4.66667 1.16667C4.18056 1.16667 3.76736 1.33681 3.42708 1.67708C3.08681 2.01736 2.91667 2.43056 2.91667 2.91667V4.08333H1.16667" fill="#5EDAC9"/>
                             </svg>
-                            <span><?= esc_html($activeCheck['ruleset'] ?? 'Regulatory ruleset: MAS Guidelines §4.1b') ?></span>
+                            <span id="focusCardRuleset"><?= esc_html($activeCheck['ruleset'] ?? 'Regulatory ruleset: Trademark Clearance FL-01') ?></span>
                         </div>
                     </div>
                 </div>
@@ -1579,7 +1625,7 @@ if (!$activeCheck && !empty($checks)) {
                     <span style="color: #C7C5D3;">·</span>
                     <span class="check-board-sub">Deterministic Evaluation Protocols</span>
                 </div>
-                <span class="check-board-progress-text" id="boardProgressCount">2 / 3 complete</span>
+                <span class="check-board-progress-text" id="boardProgressCount">0 / 3 complete</span>
             </div>
 
             <!-- Exactly THREE large horizontal rows (~82px height each) -->
@@ -1588,16 +1634,14 @@ if (!$activeCheck && !empty($checks)) {
                     $isDone = ($chk['status'] === 'finished');
                     $isActive = !empty($chk['is_active']);
                 ?>
-                    <div class="check-row-card <?= $isActive ? 'check-row-active' : 'check-row-done' ?>" id="checkRow<?= (int)$index ?>">
+                    <div class="check-row-card <?= $isActive ? 'check-row-active' : ($isDone ? 'check-row-done' : 'check-row-pending') ?>" id="checkRow<?= (int)$index ?>">
                         <div class="check-row-left">
-                            <div class="check-icon-badge <?= $isActive ? 'check-icon-primary' : 'check-icon-white' ?>">
+                            <div class="check-icon-badge <?= $isActive ? 'check-icon-primary' : 'check-icon-white' ?>" id="checkIconBadge<?= (int)$index ?>">
                                 <?php if ($chk['id'] === 'guideline'): ?>
-                                    <!-- Document Icon -->
                                     <svg width="14" height="17" viewBox="0 0 14 17" fill="none">
                                         <path d="M3.33333 13.3333H10V11.6667H3.33333V13.3333M3.33333 10H10V8.33333H3.33333V10M1.66667 16.6667C1.20833 16.6667 0.815972 16.5035 0.489583 16.1771C0.163194 15.8507 0 15.4583 0 15V1.66667C0 1.20833 0.163194 0.815972 0.489583 0.489583C0.815972 0.163194 1.20833 0 1.66667 0H8.33333L13.3333 5V15C13.3333 15.4583 13.1701 15.8507 12.8438 16.1771C12.5174 16.5035 12.125 16.6667 11.6667 16.6667H1.66667V16.6667M7.5 5.83333V1.66667H1.66667V15H11.6667V5.83333H7.5Z" fill="currentColor"/>
                                     </svg>
                                 <?php else: ?>
-                                    <!-- Shield with Checkmark Icon -->
                                     <svg width="14" height="17" viewBox="0 0 14 17" fill="none">
                                         <path d="M5.79167 11.2917L10.5 6.58333L9.3125 5.39583L5.79167 8.91667L4.04167 7.16667L2.85417 8.35417L5.79167 11.2917M6.66667 16.6667C4.73611 16.1806 3.14236 15.0729 1.88542 13.3438C0.628472 11.6146 0 9.69444 0 7.58333V2.5L6.66667 0L13.3333 2.5V7.58333C13.3333 9.69444 12.7049 11.6146 11.4479 13.3438C10.191 15.0729 8.59722 16.1806 6.66667 16.6667M6.66667 14.9167C8.11111 14.4583 9.30556 13.5417 10.25 12.1667C11.1944 10.7917 11.6667 9.26389 11.6667 7.58333V3.64583L6.66667 1.77083L1.66667 3.64583V7.58333C1.66667 9.26389 2.13889 10.7917 3.08333 12.1667C4.02778 13.5417 5.22222 14.4583 6.66667 14.9167Z" fill="currentColor"/>
                                     </svg>
@@ -1607,7 +1651,9 @@ if (!$activeCheck && !empty($checks)) {
                                 <div class="check-row-heading-row">
                                     <span class="check-row-heading"><?= esc_html($chk['name']) ?></span>
                                     <?php if (!empty($chk['live_tag'])): ?>
-                                        <span class="check-row-live-badge"><?= esc_html($chk['live_tag']) ?></span>
+                                        <span class="check-row-live-badge" id="checkLiveBadge<?= (int)$index ?>"><?= esc_html($chk['live_tag']) ?></span>
+                                    <?php else: ?>
+                                        <span class="check-row-live-badge" id="checkLiveBadge<?= (int)$index ?>" style="display: none;">Live</span>
                                     <?php endif; ?>
                                 </div>
                                 <span class="check-row-category"><?= esc_html($chk['category']) ?></span>
@@ -1617,22 +1663,13 @@ if (!$activeCheck && !empty($checks)) {
                         <div class="check-row-right">
                             <div class="check-row-activity">
                                 <span class="activity-label">ACTIVITY</span>
-                                <span class="activity-val <?= $isActive ? 'activity-val-active' : '' ?>">
-                                    <?= esc_html($chk['status_label']) ?>
+                                <span class="activity-val <?= $isActive ? 'activity-val-active' : '' ?>" id="checkActivity<?= (int)$index ?>">
+                                    <?= esc_html($isActive ? ($chk['sub_text'] ?? 'Processing...') : ($isDone ? 'Finished' : 'Queued')) ?>
                                 </span>
                             </div>
 
-                            <div class="check-status-pill <?= $isActive ? 'status-pill-active' : '' ?>">
-                                <?php if ($isDone): ?>
-                                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                                        <rect width="10" height="10" rx="5" fill="#5EDAC9"/>
-                                    </svg>
-                                <?php else: ?>
-                                    <svg class="pulse-dot" width="10" height="10" viewBox="0 0 10 10" fill="none">
-                                        <rect width="10" height="10" rx="5" fill="#4F57A7"/>
-                                    </svg>
-                                <?php endif; ?>
-                                <span><?= esc_html($chk['badge_label']) ?></span>
+                            <div class="check-status-pill <?= $isActive ? 'status-pill-active' : '' ?>" id="checkStatusPill<?= (int)$index ?>">
+                                <span id="checkPillText<?= (int)$index ?>"><?= esc_html($isActive ? 'Processing' : ($isDone ? 'Complete' : 'Waiting')) ?></span>
                             </div>
                         </div>
                     </div>
@@ -1642,14 +1679,14 @@ if (!$activeCheck && !empty($checks)) {
             <!-- Refined 3-segment progress indicator line -->
             <div class="segments-indicator-wrapper">
                 <div class="segments-bar-row">
-                    <div class="segment-bar segment-bar-done"></div>
-                    <div class="segment-bar segment-bar-done"></div>
-                    <div class="segment-bar segment-bar-active" id="activeSegmentBar"></div>
+                    <div class="segment-bar segment-bar-active" id="segmentBar0"></div>
+                    <div class="segment-bar segment-bar-pending" id="segmentBar1"></div>
+                    <div class="segment-bar segment-bar-pending" id="segmentBar2"></div>
                 </div>
                 <div class="segments-labels-row">
-                    <span class="segment-label-done">Foreign Logos (Done)</span>
-                    <span class="segment-label-done" style="text-align: center;">Brand Docs (Done)</span>
-                    <span class="segment-label-active" style="text-align: right;" id="activeSegmentLabel">MAS Advertising (Evaluating...)</span>
+                    <span class="segment-label-active" id="segmentLabel0">Foreign Logos (Evaluating...)</span>
+                    <span class="segment-label-pending" style="text-align: center;" id="segmentLabel1">Brand Docs (Queued)</span>
+                    <span class="segment-label-pending" style="text-align: right;" id="segmentLabel2">MAS Advertising (Queued)</span>
                 </div>
             </div>
         </section>
@@ -1755,30 +1792,7 @@ if (!$activeCheck && !empty($checks)) {
             </div>
         </section>
 
-        <!-- 06. BOTTOM ACTION BAR -->
-        <footer class="bottom-action-bar">
-            <div class="action-bar-asset-info">
-                <span><?= esc_html($assetName) ?> · <?= esc_html($versionLabel) ?></span>
-                <span style="color: #C7C5D3;">·</span>
-                <span style="color: #767682; font-weight: 500;"><?= esc_html($assetCode) ?></span>
-            </div>
 
-            <div class="action-bar-running-indicator">
-                <svg class="pulse-dot" width="8" height="8" viewBox="0 0 8 8" fill="none">
-                    <rect width="8" height="8" rx="4" fill="#4F57A7"/>
-                </svg>
-                <span>Active Scoring Routine Running</span>
-            </div>
-
-            <div>
-                <a href="<?= esc_url($returnUrl) ?>" class="btn-back-campaign">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                        <path d="M2.86875 6.75L7.06875 10.95L6 12L0 6L6 0L7.06875 1.05L2.86875 5.25H12V6.75H2.86875Z" fill="#1F2674"/>
-                    </svg>
-                    <span>Back to Campaign</span>
-                </a>
-            </div>
-        </footer>
 
     </main>
 
@@ -1822,12 +1836,6 @@ if (!$activeCheck && !empty($checks)) {
             if (m) m.style.display = 'none';
         }
 
-        // Kích hoạt AI Scoring chạy ngầm trong khi thanh tiến trình đang chạy
-        try {
-            var runAiUrl = window.location.href + (window.location.href.indexOf('?') >= 0 ? '&' : '?') + 'ajax_run_ai=1';
-            fetch(runAiUrl, { method: 'POST' }).catch(function(){});
-        } catch(e) {}
-
         // Live Scanning Stage Text Cycling
         const stagePhrases = [
             "Scanning Frame Layers",
@@ -1839,37 +1847,230 @@ if (!$activeCheck && !empty($checks)) {
         let phraseIdx = 0;
         const stageLabel = document.getElementById('scanningStageLabel');
 
-        setInterval(function() {
+        const phraseTimer = setInterval(function() {
             if (stageLabel && phraseIdx < stagePhrases.length - 1) {
                 phraseIdx++;
                 stageLabel.textContent = stagePhrases[phraseIdx];
             }
-        }, 3200);
+        }, 3000);
 
-        // Real AI Scanning Execution
-        const runAiUrl = window.location.href + (window.location.href.indexOf('?') !== -1 ? '&' : '?') + 'action=run_real_ai&version_id=<?= (int)$versionId ?>&asset_id=<?= (int)$assetId ?>';
+        // 3 Pipeline Steps Configuration
+        const stepsConfig = [
+            {
+                name: "Foreign Logos Verification",
+                desc: "Verifying brand exclusivity against competitor marks (OCBC, UOB, HSBC, Citi, Maybank) and clear space geometry.",
+                ruleset: "Regulatory ruleset: Trademark Clearance FL-01",
+                activityActive: "Scanning competitor marks...",
+                activityDone: "Finished",
+                subActive: "Analyzing clear space & marks...",
+                subDone: "Finished",
+                labelActive: "Foreign Logos (Evaluating...)",
+                labelDone: "Foreign Logos (Done)",
+                labelPending: "Foreign Logos (Queued)"
+            },
+            {
+                name: "Brand & Compliance Docs",
+                desc: "Verifying corporate color palette (#0A192F Navy, #D4AF37 Gold) and typography exclusion boundaries.",
+                ruleset: "Regulatory ruleset: Corporate Visual Identity BG-01",
+                activityActive: "Analyzing palette harmony & text contrast...",
+                activityDone: "Finished",
+                subActive: "Analyzing corporate palette...",
+                subDone: "Finished",
+                labelActive: "Brand Docs (Evaluating...)",
+                labelDone: "Brand Docs (Done)",
+                labelPending: "Brand Docs (Queued)"
+            },
+            {
+                name: "MAS Advertising Rules",
+                desc: "Evaluating financial disclaimer prominence, legibility against imagery contrast, and regulatory wealth management phrasing.",
+                ruleset: "Regulatory ruleset: MAS Guidelines §4.1b",
+                activityActive: "Evaluating financial risk disclosure prominence...",
+                activityDone: "Finished",
+                subActive: "Analyzing disclaimer legibility...",
+                subDone: "Finished",
+                labelActive: "MAS Advertising (Evaluating...)",
+                labelDone: "MAS Advertising (Done)",
+                labelPending: "MAS Advertising (Queued)"
+            }
+        ];
+
         let aiCompleted = false;
+        let currentStepIdx = 0;
         let elapsedSeconds = 0;
         const countdownEl = document.getElementById('timerCountdown');
         const progressBar = document.getElementById('mainProgressBar');
         const nextUrl = "<?= esc_js($nextUrl) ?>";
 
+        function updateStepUI(activeIdx) {
+            if (aiCompleted) return;
+            currentStepIdx = activeIdx;
+
+            // 1. Focus Card
+            const fTitle = document.getElementById('focusCardTitle');
+            if (fTitle) fTitle.textContent = stepsConfig[activeIdx].name;
+
+            const fDesc = document.getElementById('focusCardDesc');
+            if (fDesc) fDesc.textContent = stepsConfig[activeIdx].desc;
+
+            const fRule = document.getElementById('focusCardRuleset');
+            if (fRule) fRule.textContent = stepsConfig[activeIdx].ruleset;
+
+            // 2. Summary Box
+            const sStep = document.getElementById('summaryBoxStep');
+            if (sStep) sStep.textContent = 'Step ' + (activeIdx + 1) + ' of 3';
+
+            const sBody = document.getElementById('summaryBoxBody');
+            if (sBody) sBody.textContent = activeIdx + ' checks complete · 1 processing';
+
+            // 3. Header Progress Labels
+            const pCount = document.getElementById('progressCountLabel');
+            if (pCount) pCount.textContent = activeIdx + ' of 3 complete';
+
+            const bCount = document.getElementById('boardProgressCount');
+            if (bCount) bCount.textContent = activeIdx + ' / 3 complete';
+
+            // 4. Vertical Timeline & Check Rows & Segments
+            for (let i = 0; i < 3; i++) {
+                const tIcon = document.getElementById('timelineIcon' + i);
+                const tSub  = document.getElementById('timelineSub' + i);
+                const cRow  = document.getElementById('checkRow' + i);
+                const cAct  = document.getElementById('checkActivity' + i);
+                const cPill = document.getElementById('checkStatusPill' + i);
+                const cText = document.getElementById('checkPillText' + i);
+                const cLive = document.getElementById('checkLiveBadge' + i);
+                const sBar  = document.getElementById('segmentBar' + i);
+                const sLbl  = document.getElementById('segmentLabel' + i);
+
+                if (i < activeIdx) {
+                    // Done
+                    if (tIcon) {
+                        tIcon.className = 'timeline-icon-box timeline-icon-done';
+                        tIcon.innerHTML = '<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect width="10" height="10" rx="5" fill="#5EDAC9"/></svg>';
+                    }
+                    if (tSub) {
+                        tSub.className = 'timeline-sub-done';
+                        tSub.textContent = stepsConfig[i].subDone;
+                    }
+                    if (cRow) {
+                        cRow.className = 'check-row-card check-row-done';
+                    }
+                    if (cAct) {
+                        cAct.className = 'activity-val';
+                        cAct.textContent = stepsConfig[i].activityDone;
+                    }
+                    if (cPill) {
+                        cPill.className = 'check-status-pill';
+                    }
+                    if (cText) {
+                        cText.textContent = 'Complete';
+                    }
+                    if (cLive) {
+                        cLive.style.display = 'none';
+                    }
+                    if (sBar) {
+                        sBar.className = 'segment-bar segment-bar-done';
+                    }
+                    if (sLbl) {
+                        sLbl.className = 'segment-label-done';
+                        sLbl.textContent = stepsConfig[i].labelDone;
+                    }
+                } else if (i === activeIdx) {
+                    // Active (Processing)
+                    if (tIcon) {
+                        tIcon.className = 'timeline-icon-box timeline-icon-active';
+                        tIcon.innerHTML = '<svg class="pulse-dot" width="10" height="10" viewBox="0 0 10 10" fill="none"><rect width="10" height="10" rx="5" fill="#4F57A7"/></svg>';
+                    }
+                    if (tSub) {
+                        tSub.className = 'timeline-sub-active';
+                        tSub.textContent = stepsConfig[i].subActive;
+                    }
+                    if (cRow) {
+                        cRow.className = 'check-row-card check-row-active';
+                    }
+                    if (cAct) {
+                        cAct.className = 'activity-val activity-val-active';
+                        cAct.textContent = stepsConfig[i].activityActive;
+                    }
+                    if (cPill) {
+                        cPill.className = 'check-status-pill status-pill-active';
+                    }
+                    if (cText) {
+                        cText.textContent = 'Processing';
+                    }
+                    if (cLive) {
+                        cLive.style.display = 'inline-block';
+                    }
+                    if (sBar) {
+                        sBar.className = 'segment-bar segment-bar-active';
+                    }
+                    if (sLbl) {
+                        sLbl.className = 'segment-label-active';
+                        sLbl.textContent = stepsConfig[i].labelActive;
+                    }
+                } else {
+                    // Pending (Queued)
+                    if (tIcon) {
+                        tIcon.className = 'timeline-icon-box timeline-icon-pending';
+                        tIcon.innerHTML = '<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect width="10" height="10" rx="5" fill="#CBD5E1"/></svg>';
+                    }
+                    if (tSub) {
+                        tSub.className = 'timeline-sub-pending';
+                        tSub.textContent = 'Queued';
+                    }
+                    if (cRow) {
+                        cRow.className = 'check-row-card check-row-pending';
+                    }
+                    if (cAct) {
+                        cAct.className = 'activity-val';
+                        cAct.textContent = 'Queued';
+                    }
+                    if (cPill) {
+                        cPill.className = 'check-status-pill';
+                    }
+                    if (cText) {
+                        cText.textContent = 'Waiting';
+                    }
+                    if (cLive) {
+                        cLive.style.display = 'none';
+                    }
+                    if (sBar) {
+                        sBar.className = 'segment-bar segment-bar-pending';
+                    }
+                    if (sLbl) {
+                        sLbl.className = 'segment-label-pending';
+                        sLbl.textContent = stepsConfig[i].labelPending;
+                    }
+                }
+            }
+        }
+
+        // Timer for elapsed seconds and simulated progress bar
         const scanTimer = setInterval(function() {
             if (aiCompleted) return;
             elapsedSeconds++;
             if (countdownEl) {
                 countdownEl.textContent = elapsedSeconds + 's';
             }
-            if (progressBar && elapsedSeconds < 15) {
-                const simulatedWidth = Math.min(90, 35 + (elapsedSeconds * 4));
+            if (progressBar && elapsedSeconds < 18) {
+                const simulatedWidth = Math.min(92, 20 + (elapsedSeconds * 4.5));
                 progressBar.style.width = simulatedWidth + '%';
             }
         }, 1000);
+
+        // Sequence step transitions: Step 0 -> Step 1 at 2.5s -> Step 2 at 5.5s
+        setTimeout(function() {
+            if (!aiCompleted) updateStepUI(1);
+        }, 2500);
+
+        setTimeout(function() {
+            if (!aiCompleted) updateStepUI(2);
+        }, 5500);
 
         function handleAiFinished(data) {
             if (aiCompleted) return;
             aiCompleted = true;
             clearInterval(scanTimer);
+            clearInterval(phraseTimer);
 
             // Animate progress bar to 100%
             if (progressBar) progressBar.style.width = '100%';
@@ -1891,22 +2092,60 @@ if (!$activeCheck && !empty($checks)) {
             const bCount = document.getElementById('boardProgressCount');
             if (bCount) bCount.textContent = '3 / 3 complete';
 
-            const activeSegBar = document.getElementById('activeSegmentBar');
-            if (activeSegBar) {
-                activeSegBar.classList.remove('segment-bar-active');
-                activeSegBar.classList.add('segment-bar-done');
-            }
+            const sStep = document.getElementById('summaryBoxStep');
+            if (sStep) sStep.textContent = 'Step 3 of 3';
 
-            const activeSegLabel = document.getElementById('activeSegmentLabel');
-            if (activeSegLabel) {
-                activeSegLabel.textContent = 'MAS Advertising (Done)';
-                activeSegLabel.classList.remove('segment-label-active');
-                activeSegLabel.classList.add('segment-label-done');
+            const sBody = document.getElementById('summaryBoxBody');
+            if (sBody) sBody.textContent = '3 checks complete';
+
+            // Mark all 3 steps as finished in Timeline, Check Rows, and Segments
+            for (let i = 0; i < 3; i++) {
+                const tIcon = document.getElementById('timelineIcon' + i);
+                const tSub  = document.getElementById('timelineSub' + i);
+                const cRow  = document.getElementById('checkRow' + i);
+                const cAct  = document.getElementById('checkActivity' + i);
+                const cPill = document.getElementById('checkStatusPill' + i);
+                const cText = document.getElementById('checkPillText' + i);
+                const cLive = document.getElementById('checkLiveBadge' + i);
+                const sBar  = document.getElementById('segmentBar' + i);
+                const sLbl  = document.getElementById('segmentLabel' + i);
+
+                if (tIcon) {
+                    tIcon.className = 'timeline-icon-box timeline-icon-done';
+                    tIcon.innerHTML = '<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect width="10" height="10" rx="5" fill="#5EDAC9"/></svg>';
+                }
+                if (tSub) {
+                    tSub.className = 'timeline-sub-done';
+                    tSub.textContent = stepsConfig[i].subDone;
+                }
+                if (cRow) {
+                    cRow.className = 'check-row-card check-row-done';
+                }
+                if (cAct) {
+                    cAct.className = 'activity-val';
+                    cAct.textContent = stepsConfig[i].activityDone;
+                }
+                if (cPill) {
+                    cPill.className = 'check-status-pill';
+                }
+                if (cText) {
+                    cText.textContent = 'Complete';
+                }
+                if (cLive) {
+                    cLive.style.display = 'none';
+                }
+                if (sBar) {
+                    sBar.className = 'segment-bar segment-bar-done';
+                }
+                if (sLbl) {
+                    sLbl.className = 'segment-label-done';
+                    sLbl.textContent = stepsConfig[i].labelDone;
+                }
             }
 
             const stageLbl = document.getElementById('scanningStageLabel');
             if (stageLbl) {
-                stageLbl.textContent = 'AI Compliance Checks Completed - Ready for Checker';
+                stageLbl.textContent = 'AI Compliance Scan Complete';
             }
 
             const statusText = document.getElementById('aiStatusText');
@@ -1925,16 +2164,10 @@ if (!$activeCheck && !empty($checks)) {
                 btn.style.boxShadow = '0 0 16px rgba(79, 87, 167, 0.8)';
                 btn.textContent = 'View Asset Details →';
             }
-
-            // Auto-redirect to asset details after 2.5 seconds so Maker can verify the completed notice
-            setTimeout(function() {
-                if (nextUrl) {
-                    window.location.href = nextUrl;
-                }
-            }, 2500);
         }
 
-        // Fire real AI evaluation immediately
+        // Fire real AI evaluation immediately via AJAX
+        const runAiUrl = window.location.href + (window.location.href.indexOf('?') !== -1 ? '&' : '?') + 'action=run_real_ai&version_id=<?= (int)$versionId ?>&asset_id=<?= (int)$assetId ?>';
         fetch(runAiUrl, { method: 'POST' })
             .then(function(res) { return res.json(); })
             .then(function(data) {
@@ -1946,12 +2179,6 @@ if (!$activeCheck && !empty($checks)) {
                     .then(function() { handleAiFinished({ success: true }); })
                     .catch(function() { handleAiFinished({ success: true }); });
             });
-                    if (nextUrl) {
-                        window.location.href = nextUrl;
-                    }
-                }, 1200);
-            }
-        }, 1000);
 
         // ESC to close modal
         window.addEventListener('keydown', function(e) {

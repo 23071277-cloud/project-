@@ -1070,8 +1070,8 @@ function pcs_url($target) {
         'approval-queue-admin.php'  => ['slugs' => ['approval-queue-admin', 'admin-approval-queue', 'approval-queue', 'admin-queue'], 'template' => 'approval-queue-admin.php'],
         'final-review-admin.php'    => ['slugs' => ['final-review-admin', 'admin-final-review', 'final-review', 'admin-review'], 'template' => 'final-review-admin.php'],
         'release-detail.php'        => ['slugs' => ['release-detail', 'release-detail-maker', 'final-audit', 'release-audit', 'released-detail'], 'template' => 'release-detail.php'],
-        'smart-maker-upload.php'    => ['slugs' => ['smart-maker-upload', 'maker-upload', 'smart-upload', 'upload-asset-maker', 'create-asset', 'ai-upload'], 'template' => 'smart-maker-upload.php'],
-        'ai-scoring-progress.php'   => ['slugs' => ['ai-scoring-progress', 'ai-progress', 'ai-scoring', 'ai-preflight-scan', 'ai-scanning', 'maker-ai-scoring', 'scoring-progress'], 'template' => 'ai-scoring-progress.php'],
+        'smart-maker-upload.php'    => ['slugs' => ['ai-upload', 'smart-maker-upload', 'maker-upload', 'smart-upload', 'upload-asset-maker', 'create-asset'], 'template' => 'smart-maker-upload.php'],
+        'ai-scoring-progress.php'   => ['slugs' => ['ai-scoring', 'ai-scoring-progress', 'ai-progress', 'ai-preflight-scan', 'ai-scanning', 'maker-ai-scoring', 'scoring-progress'], 'template' => 'ai-scoring-progress.php'],
         'ai-scoring-result.php'     => ['slugs' => ['ai-scoring-result', 'ai-result', 'ai-assessment', 'maker-ai-result', 'pre-submission-review'], 'template' => 'ai-scoring-result.php'],
         'access-denied.php'         => ['slugs' => ['access-denied', '403', 'unauthorized', 'forbidden', 'restricted'], 'template' => 'access-denied.php'],
     ];
@@ -1985,7 +1985,13 @@ function get_all_campaigns($filter = 'all') {
             $asset_statuses = ['draft'];
         }
 
-        if ($has_rejected || in_array('rejected', $asset_statuses, true)) {
+        if ($has_scoring || in_array('scoring', $asset_statuses, true)) {
+            $campaign_status = 'Scoring';
+            $campaign_status_slug = 'scoring';
+            $campaign_status_type = 'warning';
+            $filter_group = 'scoring';
+            $maker_task_summary = 'AI scoring in progress';
+        } elseif ($has_rejected || in_array('rejected', $asset_statuses, true)) {
             $campaign_status = 'Rejected';
             $campaign_status_slug = 'rejected';
             $campaign_status_type = 'danger';
@@ -1995,11 +2001,6 @@ function get_all_campaigns($filter = 'all') {
             $campaign_status_slug = 'in_review';
             $campaign_status_type = 'primary';
             $filter_group = 'in_review';
-        } elseif ($has_scoring || in_array('scoring', $asset_statuses, true)) {
-            $campaign_status = 'Scoring';
-            $campaign_status_slug = 'scoring';
-            $campaign_status_type = 'warning';
-            $filter_group = 'scoring';
         } elseif ($total_assets > 0 && $released_assets === $total_assets) {
             $campaign_status = 'Released';
             $campaign_status_slug = 'released';
@@ -2903,6 +2904,7 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
             pcs_server_meta($version_id, '_asset_id', $asset_id);
             pcs_server_meta($version_id, '_file_url', $real_file_url);
             pcs_server_meta($version_id, '_status', 'scoring');
+            pcs_server_meta($version_id, '_ai_completed', 0);
             pcs_server_meta($version_id, '_scoring_started_at', time());
             pcs_server_meta($asset_id, '_current_version_id', $version_id);
         } else {
@@ -2911,16 +2913,13 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
             update_post_meta($version_id, '_asset_id', $asset_id);
             update_post_meta($version_id, '_file_url', $real_file_url);
             update_post_meta($version_id, '_status', 'scoring');
+            update_post_meta($version_id, '_ai_completed', 0);
             update_post_meta($version_id, '_scoring_started_at', time());
             update_post_meta($asset_id, '_current_version_id', $version_id);
         }
 
-        // Đẩy thêm vào Action Scheduler Background Queue để đảm bảo tính dự phòng
-        if (function_exists('as_enqueue_async_action')) {
-            as_enqueue_async_action('pcs_background_ai_scoring_job', [
-                'version_id' => $version_id,
-                'asset_id'   => $asset_id
-            ]);
+        if (!empty($version_notes)) {
+            update_post_meta($version_id, '_version_notes', sanitize_text_field($version_notes));
         }
 
         // Lấy thông tin phiên bản trước đó nếu có
@@ -2928,129 +2927,24 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
         $prev_status = $prev_ver ? (get_post_meta($prev_ver->ID, '_status', true) ?: 'draft') : '';
         $is_prev_rejected = ($prev_status === 'rejected');
 
-        // Khởi tạo ngay lập tức 3 tiêu chí kiểm tra ban đầu (Non-blocking: hoàn tất trong 5ms để Maker chuyển thẳng sang ai-scoring-progress)
-        $criteria = ['foreign_logo', 'guideline', 'mas_rule'];
-        $default_criteria = [
-            'foreign_logo' => [
-                'score'        => ($ver_num > 1) ? 98 : 95, 
-                'quote'        => 'Rule FL-01: No unauthorized third-party marks, competitor bank logos (e.g., OCBC, UOB, HSBC, Citi, Maybank), or unverified payment badges are permitted on the artwork.', 
-                'finding'      => 'Exclusive brand ownership confirmed. No competitor or unauthorized third-party marks detected.',
-                'analysis'     => 'Fully compliant with Rule FL-01 & Standard Bank Brand Governance & Trademark Clearance Manual: High-resolution vector brand crest maintains 120% clear space perimeter with zero third-party infringement.',
-                'reason'       => 'AI optical scan: Primary DBS emblem verified in top-right quadrant with 120% clear exclusion zone. 0 unauthorized third-party marks or competitor bank logos detected.',
-                'doc'          => 'Standard Bank Brand Governance & Trademark Clearance Manual',
-                'section'      => 'Section 3.4 - Intellectual Property & Third-Party Marks',
-                'page'         => 8,
-                'rule_code'    => 'FL-01',
-                'page_context' => "STANDARD BANKING GROUP\nBRAND GOVERNANCE & TRADEMARK CLEARANCE MANUAL\nSection 3: Third-Party Marks and Intellectual Property Clearances\n\n3.4 Intellectual Property & Third-Party Marks\n{{Rule FL-01: No unauthorized third-party marks, competitor bank logos (e.g., OCBC, UOB, HSBC, Citi, Maybank), or unverified payment badges are permitted on the artwork. Any visual presence of non-affiliated financial marks represents a critical breach of brand exclusivity.}}"
-            ],
-            'guideline'    => [
-                'score'        => ($ver_num > 1) ? 94 : 88, 
-                'quote'        => 'Rule BG-01: Primary colors must adhere to Navy Blue (#0A192F) and Gold (#D4AF37). Neutral white/off-white accepted. Rule BG-02: Brand logo must maintain clear exclusion zone free from typography clutter.', 
-                'finding'      => 'Color palette harmony and typography hierarchy adhere strictly to campaign brand standards.',
-                'analysis'     => '100% compliant with Corporate Visual Identity Specification Guidelines: Color palette adheres to designated Navy Blue (#0A192F) and Gold (#D4AF37) with text contrast ratio of 5.2:1 (exceeding WCAG AA standards). Clear typography hierarchy preserved.',
-                'reason'       => 'Verified visual hierarchy: Brand color palette adheres to Navy Blue (#0A192F) and Gold (#D4AF37) accents with 5.2:1 contrast ratio. Exclusion boundary preserved.',
-                'doc'          => 'Corporate Visual Identity Specification Guidelines',
-                'section'      => 'Section 2.1 - Core Palette and Visual Exclusion Clearances',
-                'page'         => 5,
-                'rule_code'    => 'BG-01',
-                'page_context' => "CORPORATE VISUAL IDENTITY SPECIFICATION GUIDELINES\n\nSECTION 2: CHROMATIC PALETTE AND COLOR GOVERNANCE\n\n2.1 Core Palette Hierarchy\n{{Rule BG-01: Primary colors must adhere to Navy Blue (#0A192F) and Gold (#D4AF37). Neutral white/off-white accepted. Neon red, aggressive gradients, and non-approved fluorescent pigments are strictly prohibited across all customer-facing touchpoints.}}"
-            ],
-            'mas_rule'     => [
-                'score'        => ($ver_num > 1) ? 94 : 28, 
-                'quote'        => 'Rule MAS-01: Any financial advertisement featuring investment returns or yields must include the prominent risk disclosure: \'Past performance is not indicative of future performance. Investments are subject to market risks.\' (Singapore MAS §4.1b)', 
-                'finding'      => ($ver_num > 1) 
-                    ? 'Advertising copy incorporates full statutory risk disclosures conforming to Monetary Authority of Singapore regulations (MAS Section 5.2b).' 
-                    : 'Statutory disclaimer required by MAS Section 5.2b is missing or illegible in artwork footer.',
-                'analysis'     => ($ver_num > 1) 
-                    ? 'Fully compliant with Rule MAS-01 & MAS Guidelines on Standards of Conduct for Marketing of Financial Products: Statutory risk disclosure is prominently displayed in the footer bar at 8.5pt font legibility, meeting all MAS visual parity and placement standards.' 
-                    : 'Non-compliant with Rule MAS-01: Mandatory statutory risk disclosure missing in footer. Singapore financial regulations require prominent investment risk disclaimer.',
-                'reason'       => ($ver_num > 1) 
-                    ? 'Audited statutory disclosures: Mandatory Singapore MAS §4.1b risk disclosure is prominently displayed in footer with 8.5pt font legibility and compliant contrast against background.' 
-                    : 'Regulatory audit: Financial promotion highlights investment returns/benefits, but mandatory statutory risk warning required by Singapore MAS Notice (§4.1b) is missing or illegible in artwork footer.',
-                'doc'          => 'MAS Guidelines on Standards of Conduct for Marketing of Financial Products',
-                'section'      => 'Section 5.2(b) - Fair and Balanced Representation of Risks and Returns',
-                'page'         => 14,
-                'rule_code'    => 'MAS-01',
-                'page_context' => "MONETARY AUTHORITY OF SINGAPORE\nGUIDELINES ON STANDARDS OF CONDUCT FOR MARKETING OF FINANCIAL PRODUCTS\n\n5.2 Fair and Balanced Representation of Risks and Returns\n{{(b) Any statement regarding potential investment returns or capital gains must be prominently accompanied by a clear warning that past performance is not indicative of future results, and that principal value and yields will fluctuate with market conditions.}}"
-            ]
-        ];
-
-        foreach ($criteria as $criterion) {
-            $def      = $default_criteria[$criterion];
-            $score    = (int) $def['score'];
-            $quote    = $def['quote'];
-            $reason   = $def['reason'];
-            $finding  = $def['finding'];
-            $analysis = $def['analysis'];
-            $doc      = $def['doc'];
-            $section  = $def['section'];
-            $page     = (int) $def['page'];
-            $rule     = $def['rule_code'];
-            $page_ctx = $def['page_context'];
-
-            $verd = ($score >= 71) ? 'PASS' : (($score >= 31) ? 'NEEDS LOOK' : 'FAIL');
-            $rid = wp_insert_post([
-                'post_type'   => 'check_result',
-                'post_status' => 'publish',
-                'post_title'  => 'AI Check: ' . $criterion . ' (Ver #' . $version_id . ')',
-                'post_author' => 0
-            ]);
-
-            update_post_meta($rid, '_version_id', $version_id);
-            update_post_meta($rid, '_criterion', $criterion);
-            update_post_meta($rid, '_checker_type', 'ai');
-            update_post_meta($rid, '_source_quote', $quote);
-            update_post_meta($rid, '_reason', $reason);
-            update_post_meta($rid, '_score', $score);
-            update_post_meta($rid, '_verdict', $verd);
-            update_post_meta($rid, '_ai_score', $score);
-            update_post_meta($rid, '_ai_verdict', $verd);
-            update_post_meta($rid, '_finding', $finding);
-            update_post_meta($rid, '_analysis', $analysis);
-            update_post_meta($rid, '_regulatory_doc', $doc);
-            update_post_meta($rid, '_regulatory_section', $section);
-            update_post_meta($rid, '_page_number', $page);
-            update_post_meta($rid, '_page_context', $page_ctx);
-            update_post_meta($rid, '_rule', $rule);
-
-            if ($criterion === 'foreign_logo') {
-                update_post_meta($rid, '_marker_top', ($score <= 30) ? '24%' : '7%');
-                update_post_meta($rid, '_marker_left', ($score <= 30) ? '65%' : '68%');
-            } elseif ($criterion === 'guideline') {
-                update_post_meta($rid, '_marker_top', ($score <= 70) ? '42%' : '45%');
-                update_post_meta($rid, '_marker_left', ($score <= 70) ? '22%' : '16%');
-            } elseif ($criterion === 'mas_rule') {
-                update_post_meta($rid, '_marker_top', '91%');
-                update_post_meta($rid, '_marker_left', '8%');
-            }
-
-            if (function_exists('pcs_recompute_verdict')) {
-                pcs_recompute_verdict($rid);
-            }
-        }
-
-        if (!empty($version_notes)) {
-            update_post_meta($version_id, '_version_notes', sanitize_text_field($version_notes));
-        }
-
         $ctx = function_exists('pcs_resolve_context_names') ? pcs_resolve_context_names($campaign_id, $asset_id, $version_id) : [];
         $camp_name = $ctx['campaign_title'] ?? 'Campaign';
         $asset_name = $ctx['asset_title'] ?? 'Asset';
         $maker_display = $current_user['name'] ?? 'Maker';
 
-        // Phân biệt chính xác: Maker tự nộp phiên bản tối ưu hay là sửa theo yêu cầu Reject
+        // Ghi Audit Log phiên bản ở trạng thái scoring
         if ($ver_num > 1) {
             if ($is_prev_rejected) {
                 $audit_note = 'Maker ' . $maker_display . ' uploaded revision V' . $ver_num . ' addressing review feedback for asset "' . $asset_name . '"';
             } else {
-                $audit_note = 'Maker ' . $maker_display . ' uploaded V' . $ver_num . ' (Voluntary artwork revision & AI optimization) for asset "' . $asset_name . '"';
+                $audit_note = 'Maker ' . $maker_display . ' uploaded V' . $ver_num . ' (Voluntary artwork revision) for asset "' . $asset_name . '"';
             }
         } else {
             $audit_note = 'Maker ' . $maker_display . ' uploaded V1 for asset "' . $asset_name . '" via Maker Dashboard';
         }
 
         if (function_exists('pcs_log')) {
-            pcs_log('upload', $asset_id, $version_id, $prev_status, 'in_review', $audit_note);
+            pcs_log('upload', $asset_id, $version_id, $prev_status, 'scoring', $audit_note);
         }
 
         // Tự động đánh dấu đã xử lý/đã đọc các thông báo yêu cầu chỉnh sửa cũ của asset này
@@ -3068,31 +2962,6 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
             foreach ($old_asset_notifs as $oan) {
                 update_post_meta($oan->ID, '_is_read', '1');
             }
-        }
-
-        // Notification: Notify Campaign Owner & All Admins & Checkers
-        if (function_exists('pcs_notify_campaign_owner')) {
-            pcs_notify_campaign_owner(
-                $campaign_id,
-                'Asset Submitted: ' . $asset_name . ' (V' . $ver_num . ')',
-                $maker_display . ' submitted V' . $ver_num . ' for asset "' . $asset_name . '" in "' . $camp_name . '". AI Pre-flight completed, awaiting Checker verification.',
-                'in_review',
-                pcs_get_notification_link('detail-asset-admin.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id, 'version_id' => $version_id]),
-                $asset_id,
-                $version_id
-            );
-        }
-
-        if (function_exists('pcs_notify_all_admins')) {
-            pcs_notify_all_admins(
-                'New Asset Uploaded: ' . $asset_name . ' (V' . $ver_num . ')',
-                'Maker ' . $maker_display . ' uploaded V' . $ver_num . ' for asset "' . $asset_name . '" in campaign "' . $camp_name . '". Awaiting Checker compliance verification.',
-                'in_review',
-                pcs_get_notification_link('detail-asset-admin.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id, 'version_id' => $version_id]),
-                $campaign_id,
-                $asset_id,
-                $version_id
-            );
         }
 
         // Checker notification will be dispatched automatically once AI scoring completes (via pcs_transition_version_to_in_review)
@@ -3522,6 +3391,24 @@ function get_checker_kpis() {
         }
     }
 
+    // Đảm bảo số lượng scoring phản ánh trung thực toàn bộ asset versions đang chấm điểm AI
+    if (pcs_is_wp() && function_exists('get_posts')) {
+        $scoring_posts = get_posts([
+            'post_type'      => 'asset_version',
+            'post_status'    => ['publish', 'any'],
+            'posts_per_page' => -1,
+            'meta_query'     => [
+                [
+                    'key'   => '_status',
+                    'value' => 'scoring'
+                ]
+            ]
+        ]);
+        if (!empty($scoring_posts)) {
+            $counts['scoring'] = max($counts['scoring'], count($scoring_posts));
+        }
+    }
+
     return $counts;
 }
 }
@@ -3590,6 +3477,24 @@ function get_maker_kpis($makerId = 0) {
                 $counts['draft']++;
             }
             $counts['total']++;
+        }
+    }
+
+    // Đảm bảo số lượng scoring phản ánh trung thực toàn bộ asset versions đang chấm điểm AI
+    if (pcs_is_wp() && function_exists('get_posts')) {
+        $scoring_posts = get_posts([
+            'post_type'      => 'asset_version',
+            'post_status'    => ['publish', 'any'],
+            'posts_per_page' => -1,
+            'meta_query'     => [
+                [
+                    'key'   => '_status',
+                    'value' => 'scoring'
+                ]
+            ]
+        ]);
+        if (!empty($scoring_posts)) {
+            $counts['scoring'] = max($counts['scoring'], count($scoring_posts));
         }
     }
 
@@ -4342,6 +4247,24 @@ function get_admin_kpis() {
                 $counts['draft']++;
             }
             $counts['total']++;
+        }
+    }
+
+    // Đảm bảo số lượng scoring phản ánh trung thực toàn bộ asset versions đang chấm điểm AI
+    if (pcs_is_wp() && function_exists('get_posts')) {
+        $scoring_posts = get_posts([
+            'post_type'      => 'asset_version',
+            'post_status'    => ['publish', 'any'],
+            'posts_per_page' => -1,
+            'meta_query'     => [
+                [
+                    'key'   => '_status',
+                    'value' => 'scoring'
+                ]
+            ]
+        ]);
+        if (!empty($scoring_posts)) {
+            $counts['scoring'] = max($counts['scoring'], count($scoring_posts));
         }
     }
 
