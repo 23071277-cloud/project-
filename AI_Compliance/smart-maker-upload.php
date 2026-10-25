@@ -79,24 +79,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action']) && 
 
     if (function_exists('handle_upload_asset_version')) {
         $res = handle_upload_asset_version($targetCamp, $targetAsset, $uploadedFileName, $versionNotes);
-        if ($res) {
-            $uploadedVersionId = is_numeric($res) ? (int)$res : 0;
-            $scoringUrl = (function_exists('pcs_url') ? pcs_url('ai-scoring-progress.php') : 'ai-scoring-progress.php') . '?' . http_build_query([
+        $uploadedVersionId = (int)$res;
+        if ($uploadedVersionId > 0) {
+            $scoringBaseUrl = function_exists('pcs_url') ? pcs_url('ai-scoring-progress.php') : 'ai-scoring-progress.php';
+            $sep = (strpos($scoringBaseUrl, '?') !== false) ? '&' : '?';
+            $scoringUrl = $scoringBaseUrl . $sep . http_build_query([
                 'version_id'  => $uploadedVersionId,
                 'campaign_id' => $campIdPost,
                 'asset_id'    => $assetIdPost ?: (is_numeric($targetAsset) ? (int)$targetAsset : 0)
             ]);
 
-            // AJAX instant response
-            $isAjax = (isset($_POST['ajax_upload']) || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest'));
-            if ($isAjax) {
-                header('Content-Type: application/json');
-                echo json_encode([
-                    'success'     => true,
-                    'scoring_url' => $scoringUrl,
-                    'version_id'  => $uploadedVersionId
-                ]);
-                exit;
+            // Clean output buffers to guarantee immediate header redirection
+            while (ob_get_level()) {
+                ob_end_clean();
             }
 
             if (function_exists('wp_redirect') && !headers_sent()) {
@@ -107,17 +102,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action']) && 
                 exit;
             } else {
                 echo '<script>window.location.replace(' . json_encode($scoringUrl) . ');</script>';
+                echo '<noscript><meta http-equiv="refresh" content="0;url=' . esc_url($scoringUrl) . '"></noscript>';
                 exit;
             }
         } else {
-            $isAjax = (isset($_POST['ajax_upload']) || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest'));
-            if ($isAjax) {
-                header('Content-Type: application/json');
-                echo json_encode(['success' => false, 'error' => 'Upload failed']);
-                exit;
-            }
-            $feedbackAlert = 'Upload completed.';
-            $feedbackSuccess = true;
+            $feedbackAlert = 'Upload failed. Please check file and try again.';
+            $feedbackSuccess = false;
         }
     }
 }
@@ -1483,9 +1473,9 @@ endif;
     const form = document.getElementById('smartUploadForm');
     if (form) {
         form.addEventListener('submit', function(e) {
-            e.preventDefault();
             const fileInput = document.getElementById('realFileInput');
             if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+                e.preventDefault();
                 alert('Please select or drop an asset file (PNG, JPG, PDF) to run the AI compliance check.');
                 document.getElementById('dropZoneArea').scrollIntoView({ behavior: 'smooth' });
                 return false;
@@ -1498,29 +1488,8 @@ endif;
                 btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="animation: spin 1s infinite linear; display: inline-block;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> <span>Opening AI Progress...</span>';
             }
 
-            const formData = new FormData(form);
-            formData.append('ajax_upload', '1');
-
-            fetch(window.location.href, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(function(res) {
-                return res.json();
-            })
-            .then(function(data) {
-                if (data && data.scoring_url) {
-                    window.location.replace(data.scoring_url);
-                } else {
-                    form.submit();
-                }
-            })
-            .catch(function(err) {
-                form.submit();
-            });
+            // Standard native POST submission to instantly transfer asset and open ai-scoring-progress
+            return true;
         });
     }
 </script>

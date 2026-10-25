@@ -1070,8 +1070,8 @@ function pcs_url($target) {
         'approval-queue-admin.php'  => ['slugs' => ['approval-queue-admin', 'admin-approval-queue', 'approval-queue', 'admin-queue'], 'template' => 'approval-queue-admin.php'],
         'final-review-admin.php'    => ['slugs' => ['final-review-admin', 'admin-final-review', 'final-review', 'admin-review'], 'template' => 'final-review-admin.php'],
         'release-detail.php'        => ['slugs' => ['release-detail', 'release-detail-maker', 'final-audit', 'release-audit', 'released-detail'], 'template' => 'release-detail.php'],
-        'smart-maker-upload.php'    => ['slugs' => ['smart-maker-upload', 'maker-upload', 'smart-upload', 'upload-asset-maker', 'create-asset'], 'template' => 'smart-maker-upload.php'],
-        'ai-scoring-progress.php'   => ['slugs' => ['ai-scoring-progress', 'ai-scoring', 'ai-preflight-scan', 'ai-scanning', 'maker-ai-scoring'], 'template' => 'ai-scoring-progress.php'],
+        'smart-maker-upload.php'    => ['slugs' => ['smart-maker-upload', 'maker-upload', 'smart-upload', 'upload-asset-maker', 'create-asset', 'ai-upload'], 'template' => 'smart-maker-upload.php'],
+        'ai-scoring-progress.php'   => ['slugs' => ['ai-scoring-progress', 'ai-progress', 'ai-scoring', 'ai-preflight-scan', 'ai-scanning', 'maker-ai-scoring', 'scoring-progress'], 'template' => 'ai-scoring-progress.php'],
         'ai-scoring-result.php'     => ['slugs' => ['ai-scoring-result', 'ai-result', 'ai-assessment', 'maker-ai-result', 'pre-submission-review'], 'template' => 'ai-scoring-result.php'],
         'access-denied.php'         => ['slugs' => ['access-denied', '403', 'unauthorized', 'forbidden', 'restricted'], 'template' => 'access-denied.php'],
     ];
@@ -1088,7 +1088,7 @@ function pcs_url($target) {
             'meta_key'    => '_wp_page_template',
             'meta_value'  => $config['template'],
             'number'      => 1,
-            'post_status' => 'publish'
+            'post_status' => ['publish', 'private', 'draft']
         ]);
         if (!empty($pages)) {
             return get_permalink($pages[0]->ID);
@@ -1880,10 +1880,10 @@ function get_all_campaigns($filter = 'all') {
                 $file_url    = get_post_meta($current_ver_id, '_file_url', true);
                 $review_note = get_post_meta($current_ver_id, '_review_note', true);
 
-                // Auto-graduate from scoring to in_review if scoring started >= 12 seconds ago
+                // Khi AI chạy xong (được ghi nhận qua _ai_completed = 1), chuyển trạng thái sang in_review
                 if ($status === 'scoring') {
-                    $scoring_started = (int) get_post_meta($current_ver_id, '_scoring_started_at', true);
-                    if ($scoring_started > 0 && (time() - $scoring_started) >= 12) {
+                    $ai_done = (int) get_post_meta($current_ver_id, '_ai_completed', true);
+                    if ($ai_done === 1) {
                         if (function_exists('pcs_transition_version_to_in_review')) {
                             pcs_transition_version_to_in_review($current_ver_id, $aid);
                         } else {
@@ -3280,7 +3280,7 @@ function get_checker_review_queue($filter = 'all') {
         return [];
     }
 
-    // Auto-graduate any scoring versions that completed their 12s window
+    // Chuyển các bản ghi scoring đã hoàn tất AI thật sang in_review để Checker tiếp nhận
     $scoring_versions = get_posts([
         'post_type'      => 'asset_version',
         'post_status'    => 'any',
@@ -3289,8 +3289,8 @@ function get_checker_review_queue($filter = 'all') {
         'meta_value'     => 'scoring'
     ]);
     foreach ($scoring_versions as $sv) {
-        $s_time = (int) get_post_meta($sv->ID, '_scoring_started_at', true);
-        if ($s_time > 0 && (time() - $s_time) >= 12) {
+        $ai_done = (int) get_post_meta($sv->ID, '_ai_completed', true);
+        if ($ai_done === 1) {
             if (function_exists('pcs_transition_version_to_in_review')) {
                 pcs_transition_version_to_in_review($sv->ID);
             }
@@ -3502,8 +3502,8 @@ function get_checker_kpis() {
             if ($cur_ver_id) {
                 $st = get_post_meta($cur_ver_id, '_status', true) ?: 'draft';
                 if ($st === 'scoring') {
-                    $s_time = (int) get_post_meta($cur_ver_id, '_scoring_started_at', true);
-                    if ($s_time > 0 && (time() - $s_time) >= 12) {
+                    $ai_done = (int) get_post_meta($cur_ver_id, '_ai_completed', true);
+                    if ($ai_done === 1) {
                         if (function_exists('pcs_transition_version_to_in_review')) {
                             pcs_transition_version_to_in_review($cur_ver_id, $ast_post->ID);
                         }
@@ -3573,8 +3573,8 @@ function get_maker_kpis($makerId = 0) {
             if ($cur_ver_id) {
                 $st = get_post_meta($cur_ver_id, '_status', true) ?: 'draft';
                 if ($st === 'scoring') {
-                    $s_time = (int) get_post_meta($cur_ver_id, '_scoring_started_at', true);
-                    if ($s_time > 0 && (time() - $s_time) >= 12) {
+                    $ai_done = (int) get_post_meta($cur_ver_id, '_ai_completed', true);
+                    if ($ai_done === 1) {
                         if (function_exists('pcs_transition_version_to_in_review')) {
                             pcs_transition_version_to_in_review($cur_ver_id, $ast_post->ID);
                         }
@@ -3913,8 +3913,8 @@ function get_campaign_detail_asset_data($campaign_id = 0, $selected_asset_id = 0
                     $v_num = $v_index;
                     $status       = get_post_meta($vp->ID, '_status', true) ?: 'draft';
                     if ($status === 'scoring') {
-                        $s_time = (int) get_post_meta($vp->ID, '_scoring_started_at', true);
-                        if ($s_time > 0 && (time() - $s_time) >= 12) {
+                        $ai_done = (int) get_post_meta($vp->ID, '_ai_completed', true);
+                        if ($ai_done === 1) {
                             if (function_exists('pcs_transition_version_to_in_review')) {
                                 pcs_transition_version_to_in_review($vp->ID, $aid);
                             }
@@ -8259,6 +8259,23 @@ if (!function_exists('pcs_run_ai_scoring_for_version')) {
             return ['error' => 'Invalid version ID'];
         }
 
+        if (!function_exists('pcs_call_gemini_api')) {
+            $poc_paths = [
+                WP_PLUGIN_DIR . '/brand-compliance-ai/ai-compliance-poc.php',
+                dirname(__DIR__) . '/brand-compliance-ai/ai-compliance-poc.php',
+                dirname(__DIR__) . '/plugins/brand-compliance-ai/ai-compliance-poc.php',
+                __DIR__ . '/brand-compliance-ai/ai-compliance-poc.php',
+                __DIR__ . '/inc/ai-compliance-poc.php',
+                __DIR__ . '/ai-compliance-poc.php'
+            ];
+            foreach ($poc_paths as $p) {
+                if (file_exists($p)) {
+                    require_once $p;
+                    break;
+                }
+            }
+        }
+
         $file_url = get_post_meta($version_id, '_file_url', true) ?: get_post_meta($version_id, '_asset_file_url', true);
         if (empty($file_url)) {
             $attachment_id = get_post_thumbnail_id($version_id);
@@ -8341,6 +8358,21 @@ if (!function_exists('pcs_run_ai_scoring_for_version')) {
             update_post_meta($check_id, '_page_context',        $page_context);
             update_post_meta($check_id, '_evaluated_at',        current_time('mysql'));
 
+            if ($criterion === 'foreign_logo') {
+                update_post_meta($check_id, '_marker_top', ($score <= 30) ? '24%' : '7%');
+                update_post_meta($check_id, '_marker_left', ($score <= 30) ? '65%' : '68%');
+            } elseif ($criterion === 'guideline') {
+                update_post_meta($check_id, '_marker_top', ($score <= 70) ? '42%' : '45%');
+                update_post_meta($check_id, '_marker_left', ($score <= 70) ? '22%' : '16%');
+            } elseif ($criterion === 'mas_rule') {
+                update_post_meta($check_id, '_marker_top', '91%');
+                update_post_meta($check_id, '_marker_left', '8%');
+            }
+
+            if (function_exists('pcs_recompute_verdict')) {
+                pcs_recompute_verdict($check_id);
+            }
+
             $results[$criterion] = [
                 'check_id'           => $check_id,
                 'score'              => $score,
@@ -8357,6 +8389,17 @@ if (!function_exists('pcs_run_ai_scoring_for_version')) {
         }
 
         update_post_meta($version_id, '_version_status', 'in_review');
+        update_post_meta($version_id, '_ai_completed', 1);
+
+        if (function_exists('pcs_transition_version_to_in_review')) {
+            pcs_transition_version_to_in_review($version_id);
+        } else {
+            update_post_meta($version_id, '_status', 'in_review');
+            if (function_exists('pcs_server_meta')) {
+                pcs_server_meta($version_id, '_status', 'in_review');
+            }
+        }
+
         return $results;
     }
 }
