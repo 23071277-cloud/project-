@@ -58,8 +58,13 @@ function ai_compliance_setup_core_system() {
     }
 
     $poc_paths = [
+        dirname(get_template_directory()) . '/../brand-compliance-ai/ai-compliance-poc.php',
         dirname(get_template_directory()) . '/../ai-compliance-poc.php',
         dirname(get_template_directory()) . '/../pcs_call_gemini_api.php',
+        get_template_directory() . '/../brand-compliance-ai/ai-compliance-poc.php',
+        get_template_directory() . '/../ai-compliance-poc.php',
+        defined('ABSPATH') ? ABSPATH . 'wp-content/plugins/brand-compliance-ai/ai-compliance-poc.php' : '',
+        defined('ABSPATH') ? ABSPATH . 'wp-content/plugins/ai-compliance-poc.php' : '',
     ];
     foreach ($poc_paths as $poc) {
         if (!function_exists('pcs_call_gemini_api') && file_exists($poc)) {

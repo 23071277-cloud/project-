@@ -2855,15 +2855,22 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
             $quote = $default_criteria[$criterion]['quote'];
             $reason = $default_criteria[$criterion]['reason'];
             $raw_json = '';
+            $ai_data = null;
 
             // Goi Engine AI thuc te tu Plugin (Member 3) neu co
             if (function_exists('pcs_call_gemini_api')) {
                 $ai_res = pcs_call_gemini_api($real_file_url, $criterion);
                 $ai_data = json_decode($ai_res, true);
-                if (is_array($ai_data) && isset($ai_data['score'])) {
-                    $score = (int) $ai_data['score'];
-                    $quote = $ai_data['source_quote'] ?? $quote;
-                    $reason = $ai_data['reason'] ?? $reason;
+                if (is_array($ai_data)) {
+                    if (isset($ai_data['score'])) {
+                        $score = (int) $ai_data['score'];
+                    }
+                    if (!empty($ai_data['source_quote'])) {
+                        $quote = $ai_data['source_quote'];
+                    }
+                    if (!empty($ai_data['reason'])) {
+                        $reason = $ai_data['reason'];
+                    }
                     $raw_json = $ai_res;
                 }
             }
@@ -2893,6 +2900,29 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
             }
             if (!empty($ai_data['analysis'])) {
                 update_post_meta($rid, '_analysis', sanitize_text_field($ai_data['analysis']));
+            }
+
+            // Luu tru thong tin regulatory reference cho Source & Rule (PDF Page, Doc Title, Section, Context)
+            $reg_ref     = $ai_data['regulatory_reference'] ?? [];
+            $reg_doc     = sanitize_text_field($reg_ref['document'] ?? '');
+            $reg_section = sanitize_text_field($reg_ref['section'] ?? '');
+            $page_number = intval($reg_ref['page_number'] ?? 0);
+            $page_context= sanitize_textarea_field($reg_ref['page_context'] ?? '');
+
+            if (!empty($reg_doc)) {
+                update_post_meta($rid, '_regulatory_doc', $reg_doc);
+            }
+            if (!empty($reg_section)) {
+                update_post_meta($rid, '_regulatory_section', $reg_section);
+            }
+            if ($page_number > 0) {
+                update_post_meta($rid, '_page_number', $page_number);
+            }
+            if (!empty($page_context)) {
+                update_post_meta($rid, '_page_context', $page_context);
+            }
+            if (!empty($reg_ref['rule_code'])) {
+                update_post_meta($rid, '_rule', sanitize_text_field($reg_ref['rule_code']));
             }
 
             $ai_m_top = !empty($ai_data['marker_top']) ? sanitize_text_field($ai_data['marker_top']) : null;
@@ -7700,6 +7730,11 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
         $m_top = get_post_meta($cr->ID, '_marker_top', true);
         $m_left = get_post_meta($cr->ID, '_marker_left', true);
         $m_loc = get_post_meta($cr->ID, '_marker_location', true);
+        $reg_doc = get_post_meta($cr->ID, '_regulatory_doc', true);
+        $reg_sec = get_post_meta($cr->ID, '_regulatory_section', true);
+        $p_num   = (int) get_post_meta($cr->ID, '_page_number', true);
+        $p_ctx   = get_post_meta($cr->ID, '_page_context', true);
+        $s_url   = get_post_meta($cr->ID, '_source_url', true);
         if ($crit) {
             $existing_checks[$crit] = [
                 'score'           => $sc,
@@ -7711,29 +7746,62 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
                 'id'              => $cr->ID,
                 'marker_top'      => $m_top,
                 'marker_left'     => $m_left,
-                'marker_location' => $m_loc
+                'marker_location' => $m_loc,
+                'doc_name'        => $reg_doc,
+                'section'         => $reg_sec,
+                'page_number'     => $p_num,
+                'page_context'    => $p_ctx,
+                'source_url'      => $s_url
             ];
         }
     }
+
+    // Helper to detect and replace legacy Vietnamese text
+    $is_vn_text = function($str) {
+        if (empty($str)) return false;
+        return (bool) preg_match('/[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđĐ]/ui', (string) $str);
+    };
 
     // Guidelines for this campaign (all uploaded documents)
     $guidelines_list = function_exists('pcs_get_campaign_guidelines') ? pcs_get_campaign_guidelines($cid) : [];
     $guideline_url = !empty($guidelines_list) ? $guidelines_list[0]['url'] : (get_post_meta($cid, '_guideline_file_url', true) ?: '');
 
-    $doc_name_1 = !empty($guidelines_list[0]['name']) ? $guidelines_list[0]['name'] : 'DBS Brand Guidelines 2026';
-    $doc_url_1  = !empty($guidelines_list[0]['url']) ? $guidelines_list[0]['url'] : ($guideline_url ?: '');
+    $theme_docs_url = function_exists('get_template_directory_uri') ? (get_template_directory_uri() . '/assets/docs/') : '';
+    $plugin_docs_url = defined('WP_PLUGIN_URL') ? (WP_PLUGIN_URL . '/brand-compliance-ai/assets/docs/') : '';
+    $base_docs_url = !empty($theme_docs_url) ? $theme_docs_url : (!empty($plugin_docs_url) ? $plugin_docs_url : '/wp-content/themes/AI_Compliance/assets/docs/');
 
-    $doc_name_2 = !empty($guidelines_list[1]['name']) ? $guidelines_list[1]['name'] : 'Campaign Visual & Copy Standards';
-    $doc_url_2  = !empty($guidelines_list[1]['url']) ? $guidelines_list[1]['url'] : $doc_url_1;
-
-    $doc_name_3 = !empty($guidelines_list[2]['name']) ? $guidelines_list[2]['name'] : 'Singapore MAS Advertising Standards Notice (§4.1b)';
-    $doc_url_3  = !empty($guidelines_list[2]['url']) ? $guidelines_list[2]['url'] : $doc_url_1;
+    $default_docs = [
+        'foreign_logo' => [
+            'doc_name'     => 'Standard Bank Brand Governance & Trademark Clearance Manual',
+            'section'      => 'Section 3.4 - Intellectual Property & Third-Party Marks',
+            'page_number'  => 8,
+            'pdf_url'      => $base_docs_url . 'brand-governance-manual.pdf',
+            'quote'        => 'Rule FL-01: No unauthorized third-party marks, competitor bank logos (e.g., OCBC, UOB, HSBC, Citi, Maybank), or unverified payment badges are permitted on the artwork.',
+            'page_context' => "STANDARD BANKING GROUP\nBRAND GOVERNANCE & TRADEMARK CLEARANCE MANUAL\nSection 3: Third-Party Marks and Intellectual Property Clearances\n\n================================================================================\n\n3.1 Scope of Policy\nAll marketing collateral, digital banners, public relations broadcasts, and partner co-marketing creatives must protect the exclusive brand identity of the bank.\n\n3.2 Partner Brand Inclusions\nWhere co-marketing partnerships exist with verified payment networks (Visa, Mastercard, NETS), only vector emblems from the authorized brand toolkit may be deployed.\n\n3.4 Intellectual Property & Third-Party Marks\n{{Rule FL-01: No unauthorized third-party marks, competitor bank logos (e.g., OCBC, UOB, HSBC, Citi, Maybank), or unverified payment badges are permitted on the artwork. Any visual presence of non-affiliated financial marks represents a critical breach of brand exclusivity.}}\n\n3.5 Visual Clear Space\nAll brand crests and vector logos must maintain a minimum perimeter exclusion clearance of 120% of crest height against adjacent design elements."
+        ],
+        'guideline' => [
+            'doc_name'     => 'Corporate Visual Identity Specification Guidelines',
+            'section'      => 'Section 2.1 - Core Palette and Visual Exclusion Clearances',
+            'page_number'  => 5,
+            'pdf_url'      => $base_docs_url . 'corporate-identity-spec.pdf',
+            'quote'        => 'Rule BG-01: Primary colors must adhere to Navy Blue (#0A192F) and Gold (#D4AF37). Neutral white/off-white accepted. Neon red and aggressive gradients prohibited.',
+            'page_context' => "CORPORATE VISUAL IDENTITY SPECIFICATION GUIDELINES\nDocument Reference: CV-SPEC-2026 | Brand & Communications Group\n\n================================================================================\n\nSECTION 2: CHROMATIC PALETTE AND COLOR GOVERNANCE\n\n2.1 Core Palette Hierarchy\n{{Rule BG-01: Primary colors must adhere to Navy Blue (#0A192F) and Gold (#D4AF37). Neutral white/off-white accepted. Neon red, aggressive gradients, and non-approved fluorescent pigments are strictly prohibited across all customer-facing touchpoints.}}\n\n2.2 Accessibility and Contrast\nAll body copy and promotional headlines must satisfy WCAG 2.1 AA legibility minimums with a contrast ratio of at least 4.5:1 against underlying backgrounds.\n\n2.3 Typography and Scale\nThe primary corporate typeface must be set with proportionate letter-spacing. Small-print footnotes below 8pt are not permitted for material marketing claims."
+        ],
+        'mas_rule' => [
+            'doc_name'     => 'MAS Guidelines on Standards of Conduct for Marketing of Financial Products',
+            'section'      => 'Section 5.2(b) - Fair and Balanced Representation of Risks and Returns',
+            'page_number'  => 14,
+            'pdf_url'      => $base_docs_url . 'mas-advertising-guidelines-2023.pdf',
+            'quote'        => 'Rule MAS-01: Any statement regarding potential investment returns or capital gains must be prominently accompanied by a clear warning that past performance is not indicative of future results, and that principal value and yields will fluctuate with market conditions.',
+            'page_context' => "MONETARY AUTHORITY OF SINGAPORE\nSECURITIES AND FUTURES ACT (CAP. 289)\nGUIDELINES ON STANDARDS OF CONDUCT FOR MARKETING AND ADVERTISING OF FINANCIAL PRODUCTS\nStatutory Document Reference: MAS-G08-2023 | Regulatory Division: Capital Markets Intermediaries\n\n================================================================================\n\nPART IV: STATUTORY CONDUCT REQUIREMENTS FOR FINANCIAL ADVERTISING\n\n5. GENERAL MARKETING PRINCIPLES\n5.1 Objectivity and Proportionality\n(a) An entity must ensure that any promotional publication is transparent, balanced, and capable of being understood by retail investors without deceptive omission.\n\n5.2 Fair and Balanced Representation of Risks and Returns\n(a) Marketing collateral must avoid creating an ungrounded expectation of guaranteed yield, absolute liquidity, or safety of capital.\n\n{{(b) Any statement regarding potential investment returns or capital gains must be prominently accompanied by a clear warning that past performance is not indicative of future results, and that principal value and yields will fluctuate with market conditions.}}\n\n(c) The font size of statutory disclosures must possess visual parity with the primary promotional headline. Small-print footnotes, low-contrast text, or disclosures hidden beneath distant hyperlinks do not fulfill the requirement of prominent placement."
+        ]
+    ];
 
     // Detect artwork aspect ratio / dimensions if local
     $is_revised_v = ($ver_num > 1);
 
     // =========================================================================
-    // CRITERION 1: FOREIGN LOGOS (Marker ①)
+    // CRITERION 1: FOREIGN LOGOS (Marker 1)
     // =========================================================================
     $is_competitor_violation = (bool) preg_match('/(ocbc|uob|hsbc|citi|maybank|binance|crypto|foreign|competitor)/i', $file_name);
     if ($is_competitor_violation) {
@@ -7744,51 +7812,59 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
 
     $quote_foreign = !empty($existing_checks['foreign_logo']['quote'])
         ? $existing_checks['foreign_logo']['quote']
-        : 'Rule FL-01: No unauthorized third-party marks, competitor bank logos (e.g., OCBC, UOB, HSBC, Citi, Maybank), or unverified payment badges are permitted on the artwork.';
+        : $default_docs['foreign_logo']['quote'];
+
+    $doc_name_1   = !empty($existing_checks['foreign_logo']['doc_name']) ? $existing_checks['foreign_logo']['doc_name'] : $default_docs['foreign_logo']['doc_name'];
+    $sec_name_1   = !empty($existing_checks['foreign_logo']['section']) ? $existing_checks['foreign_logo']['section'] : $default_docs['foreign_logo']['section'];
+    $page_num_1   = !empty($existing_checks['foreign_logo']['page_number']) ? $existing_checks['foreign_logo']['page_number'] : $default_docs['foreign_logo']['page_number'];
+    $page_ctx_1   = !empty($existing_checks['foreign_logo']['page_context']) ? $existing_checks['foreign_logo']['page_context'] : $default_docs['foreign_logo']['page_context'];
+    $raw_url_1    = !empty($existing_checks['foreign_logo']['source_url']) ? $existing_checks['foreign_logo']['source_url'] : $default_docs['foreign_logo']['pdf_url'];
+    $source_url_1 = strtok($raw_url_1, '#') . '#page=' . $page_num_1;
 
     if ($score_foreign <= 30) {
-        $finding_foreign = 'Phát hiện nhãn hiệu đối thủ / bên thứ ba không được cấp phép xuất hiện trên ấn phẩm (' . esc_html($file_name) . ').';
+        $finding_foreign = 'Unauthorized competitor bank marks or unapproved third-party emblems detected on the artwork (' . esc_html($file_name) . ').';
         $location_foreign = !empty($existing_checks['foreign_logo']['marker_location']) 
             ? $existing_checks['foreign_logo']['marker_location']
-            : 'Khu vực hiển thị nội dung chính / Header phụ (Marker ①). Điểm phát hiện: Biểu trưng bên thứ ba xuất hiện trực tiếp trên artwork.';
-        $analysis_foreign = 'Vi phạm nghiêm trọng Rule FL-01 (Single Brand Standard): Toàn bộ ấn phẩm chỉ được phép hiển thị duy nhất biểu trưng đã đăng ký của DBS. Việc xuất hiện logo tổ chức tài chính khác làm loãng nhận diện thương hiệu độc quyền và vi phạm quy chế tiếp thị.';
+            : 'Primary content area / Secondary header. Point of detection: Unapproved third-party mark present on artwork.';
+        $analysis_foreign = 'Severe breach of Rule FL-01 (Single Brand Standard): All creative collateral must exclusively feature authorized brand marks. Presence of competitor financial emblems dilutes brand exclusivity.';
         $m1_top = !empty($existing_checks['foreign_logo']['marker_top']) ? $existing_checks['foreign_logo']['marker_top'] : '24%';
         $m1_left = !empty($existing_checks['foreign_logo']['marker_left']) ? $existing_checks['foreign_logo']['marker_left'] : '65%';
         $m1_badge_text = 'Fail';
-        $m1_label = '① Foreign Logo Detected · Fail';
+        $m1_label = '1 Foreign Logo Detected · Fail';
     } elseif ($score_foreign <= 70) {
-        $finding_foreign = 'Biểu trưng thương hiệu bị lấn chiếm vùng an toàn (Clear Space) hoặc tiếp xúc quá gần với các chi tiết đồ họa lân cận.';
+        $finding_foreign = 'Brand logo exclusion zone is encroached by surrounding graphics or typography clutter.';
         $location_foreign = !empty($existing_checks['foreign_logo']['marker_location'])
             ? $existing_checks['foreign_logo']['marker_location']
-            : 'Khu vực góc trên của nội dung ấn phẩm (Marker ①).';
-        $analysis_foreign = 'Chưa đạt tiêu chuẩn Rule BG-02 trong ' . esc_html($doc_name_1) . ': Khoảng cách an toàn xung quanh logo nhỏ hơn 120% chiều cao biểu trưng, có chi tiết chữ hoặc đồ họa tiếp cận quá gần làm giảm độ nhận diện.';
+            : 'Upper content margin area.';
+        $analysis_foreign = 'Fails Rule BG-02 in ' . esc_html($doc_name_1) . ': Clear space surrounding the logo is less than 120% of crest height, with adjacent typography encroaching on the exclusion zone.';
         $m1_top = !empty($existing_checks['foreign_logo']['marker_top']) ? $existing_checks['foreign_logo']['marker_top'] : '8%';
         $m1_left = !empty($existing_checks['foreign_logo']['marker_left']) ? $existing_checks['foreign_logo']['marker_left'] : '70%';
         $m1_badge_text = 'Needs Human Look';
-        $m1_label = '① Logo Clear Space · Needs Look';
+        $m1_label = '1 Logo Clear Space · Needs Look';
     } else {
-        $finding_foreign = 'Đảm bảo tính độc quyền thương hiệu. Không phát hiện bất kỳ logo đối thủ hoặc nhãn hiệu bên thứ ba trái phép.';
+        $finding_foreign = 'Exclusive brand ownership confirmed. No competitor or unauthorized third-party marks detected.';
         $location_foreign = !empty($existing_checks['foreign_logo']['marker_location'])
             ? $existing_checks['foreign_logo']['marker_location']
-            : 'Góc trên của nội dung ấn phẩm (Marker ①).';
-        $analysis_foreign = 'Tuân thủ 100% Rule FL-01 & Hướng dẫn sử dụng biểu trưng trong ' . esc_html($doc_name_1) . ': Biểu trưng thương hiệu vector đạt độ phân giải cao, khoảng cách an toàn (exclusion zone) đạt chuẩn 120%, không có dấu hiệu xâm phạm nhận diện.';
+            : 'Upper header brand quadrant.';
+        $analysis_foreign = 'Fully compliant with Rule FL-01 & ' . esc_html($doc_name_1) . ': High-resolution vector brand crest maintains 120% clear space perimeter with zero third-party infringement.';
         $m1_top = !empty($existing_checks['foreign_logo']['marker_top']) ? $existing_checks['foreign_logo']['marker_top'] : '7%';
         $m1_left = !empty($existing_checks['foreign_logo']['marker_left']) ? $existing_checks['foreign_logo']['marker_left'] : '68%';
         $m1_badge_text = 'Pass';
-        $m1_label = '① Logo area · Pass';
+        $m1_label = '1 Logo area · Pass';
     }
-    if (!empty($existing_checks['foreign_logo']['finding'])) {
+
+    if (!empty($existing_checks['foreign_logo']['finding']) && !$is_vn_text($existing_checks['foreign_logo']['finding'])) {
         $finding_foreign = $existing_checks['foreign_logo']['finding'];
     }
-    if (!empty($existing_checks['foreign_logo']['analysis'])) {
+    if (!empty($existing_checks['foreign_logo']['analysis']) && !$is_vn_text($existing_checks['foreign_logo']['analysis'])) {
         $analysis_foreign = $existing_checks['foreign_logo']['analysis'];
     }
-    $reason_foreign = !empty($existing_checks['foreign_logo']['reason']) 
+    $reason_foreign = (!empty($existing_checks['foreign_logo']['reason']) && !$is_vn_text($existing_checks['foreign_logo']['reason']))
         ? $existing_checks['foreign_logo']['reason'] 
         : ($finding_foreign . ' ' . $analysis_foreign);
 
     // =========================================================================
-    // CRITERION 2: BRAND & COMPLIANCE DOCUMENTS (Marker ②)
+    // CRITERION 2: BRAND & COMPLIANCE DOCUMENTS (Marker 2)
     // =========================================================================
     $is_contrast_violation = (bool) preg_match('/(neon|clutter|violation|contrast|wrong_color|low_contrast)/i', $file_name);
     if ($is_contrast_violation) {
@@ -7799,36 +7875,44 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
 
     $quote_guideline = !empty($existing_checks['guideline']['quote'])
         ? $existing_checks['guideline']['quote']
-        : ('Rule BG-01: Primary colors must adhere to brand palette (#0A192F Navy / #D4AF37 Gold) with WCAG AA contrast. Rule BG-02: Brand logo must maintain clear exclusion zone free from typography clutter.');
+        : $default_docs['guideline']['quote'];
+
+    $doc_name_2   = !empty($existing_checks['guideline']['doc_name']) ? $existing_checks['guideline']['doc_name'] : $default_docs['guideline']['doc_name'];
+    $sec_name_2   = !empty($existing_checks['guideline']['section']) ? $existing_checks['guideline']['section'] : $default_docs['guideline']['section'];
+    $page_num_2   = !empty($existing_checks['guideline']['page_number']) ? $existing_checks['guideline']['page_number'] : $default_docs['guideline']['page_number'];
+    $page_ctx_2   = !empty($existing_checks['guideline']['page_context']) ? $existing_checks['guideline']['page_context'] : $default_docs['guideline']['page_context'];
+    $raw_url_2    = !empty($existing_checks['guideline']['source_url']) ? $existing_checks['guideline']['source_url'] : $default_docs['guideline']['pdf_url'];
+    $source_url_2 = strtok($raw_url_2, '#') . '#page=' . $page_num_2;
 
     if ($score_guideline <= 70) {
-        $finding_guideline = 'Độ tương phản chữ tiêu đề trên nền đồ họa chưa đạt ngưỡng tối ưu hoặc dải màu sử dụng gradient chưa chuẩn hóa.';
+        $finding_guideline = 'Headline text contrast against background fails minimum readability threshold or non-standard palette used.';
         $location_guideline = !empty($existing_checks['guideline']['marker_location'])
             ? $existing_checks['guideline']['marker_location']
-            : 'Khu vực Visual Hero & Tiêu đề chính của nội dung ấn phẩm (Marker ②).';
-        $analysis_guideline = 'Chưa đạt chuẩn Rule BG-01 trong ' . esc_html($doc_name_2) . ': Tỷ lệ tương phản chữ đạt 3.8:1 (dưới mức tối thiểu 4.5:1 chuẩn WCAG AA). Việc đặt chữ trên nền hình ảnh có độ sáng cao làm giảm khả năng tiếp nhận thông điệp trên thiết bị di động.';
+            : 'Visual Hero & Primary headline copy area.';
+        $analysis_guideline = 'Fails Rule BG-01 in ' . esc_html($doc_name_2) . ': Text contrast ratio is 3.8:1 (below WCAG AA minimum 4.5:1). Foreground typography on high-luminance background degrades legibility across mobile devices.';
         $m2_top = !empty($existing_checks['guideline']['marker_top']) ? $existing_checks['guideline']['marker_top'] : '42%';
         $m2_left = !empty($existing_checks['guideline']['marker_left']) ? $existing_checks['guideline']['marker_left'] : '22%';
         $m2_badge_text = ($score_guideline <= 30) ? 'Fail' : 'Needs Human Look';
-        $m2_label = '② Brand Identity · ' . $m2_badge_text;
+        $m2_label = '2 Brand Identity · ' . $m2_badge_text;
     } else {
-        $finding_guideline = 'Bảng màu và phân cấp chữ tuân thủ chặt chẽ tiêu chuẩn nhận diện thương hiệu chiến dịch.';
+        $finding_guideline = 'Color palette harmony and typography hierarchy adhere strictly to campaign brand standards.';
         $location_guideline = !empty($existing_checks['guideline']['marker_location'])
             ? $existing_checks['guideline']['marker_location']
-            : 'Khu vực Visual Hero & Tiêu đề chính của nội dung ấn phẩm (Marker ②).';
-        $analysis_guideline = 'Đạt chuẩn 100% tài liệu ' . esc_html($doc_name_2) . ': Bảng màu sử dụng đúng mã màu chỉ định Navy Blue (#0A192F) và Gold (#D4AF37) với tỷ lệ tương phản chữ đạt 5.2:1 (vượt chuẩn WCAG AA). Phân cấp font chữ rõ ràng, không bị rối mắt.';
+            : 'Visual Hero & Primary headline copy area.';
+        $analysis_guideline = '100% compliant with ' . esc_html($doc_name_2) . ': Color palette adheres to designated Navy Blue (#0A192F) and Gold (#D4AF37) with text contrast ratio of 5.2:1 (exceeding WCAG AA standards). Clear typography hierarchy preserved.';
         $m2_top = !empty($existing_checks['guideline']['marker_top']) ? $existing_checks['guideline']['marker_top'] : '45%';
         $m2_left = !empty($existing_checks['guideline']['marker_left']) ? $existing_checks['guideline']['marker_left'] : '16%';
         $m2_badge_text = 'Pass';
-        $m2_label = '② Brand Identity · Pass';
+        $m2_label = '2 Brand Identity · Pass';
     }
-    if (!empty($existing_checks['guideline']['finding'])) {
+
+    if (!empty($existing_checks['guideline']['finding']) && !$is_vn_text($existing_checks['guideline']['finding'])) {
         $finding_guideline = $existing_checks['guideline']['finding'];
     }
-    if (!empty($existing_checks['guideline']['analysis'])) {
+    if (!empty($existing_checks['guideline']['analysis']) && !$is_vn_text($existing_checks['guideline']['analysis'])) {
         $analysis_guideline = $existing_checks['guideline']['analysis'];
     }
-    $reason_guideline = !empty($existing_checks['guideline']['reason'])
+    $reason_guideline = (!empty($existing_checks['guideline']['reason']) && !$is_vn_text($existing_checks['guideline']['reason']))
         ? $existing_checks['guideline']['reason']
         : ($finding_guideline . ' ' . $analysis_guideline);
 
@@ -7844,36 +7928,44 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
 
     $quote_mas = !empty($existing_checks['mas_rule']['quote'])
         ? $existing_checks['mas_rule']['quote']
-        : 'Rule MAS-01: Any financial advertisement featuring investment returns or yields must include the prominent risk disclosure: \'Past performance is not indicative of future performance. Investments are subject to market risks.\' (Singapore MAS §4.1b)';
+        : $default_docs['mas_rule']['quote'];
+
+    $doc_name_3   = !empty($existing_checks['mas_rule']['doc_name']) ? $existing_checks['mas_rule']['doc_name'] : $default_docs['mas_rule']['doc_name'];
+    $sec_name_3   = !empty($existing_checks['mas_rule']['section']) ? $existing_checks['mas_rule']['section'] : $default_docs['mas_rule']['section'];
+    $page_num_3   = !empty($existing_checks['mas_rule']['page_number']) ? $existing_checks['mas_rule']['page_number'] : $default_docs['mas_rule']['page_number'];
+    $page_ctx_3   = !empty($existing_checks['mas_rule']['page_context']) ? $existing_checks['mas_rule']['page_context'] : $default_docs['mas_rule']['page_context'];
+    $raw_url_3    = !empty($existing_checks['mas_rule']['source_url']) ? $existing_checks['mas_rule']['source_url'] : $default_docs['mas_rule']['pdf_url'];
+    $source_url_3 = strtok($raw_url_3, '#') . '#page=' . $page_num_3;
 
     if ($score_mas <= 70) {
-        $finding_mas = 'Thiếu dòng cảnh báo rủi ro tài chính bắt buộc theo Luật Quảng cáo Tài chính Singapore (MAS).';
+        $finding_mas = 'Mandatory statutory financial risk warning missing pursuant to Singapore Monetary Authority (MAS) advertising regulations.';
         $location_mas = !empty($existing_checks['mas_rule']['marker_location'])
             ? $existing_checks['mas_rule']['marker_location']
-            : 'Dải chân trang (Footer Statutory Area) của nội dung ấn phẩm.';
-        $analysis_mas = 'Vi phạm nghiêm trọng Rule MAS-01 & Singapore MAS Notice §4.1b: Ấn phẩm có chứa thông điệp ưu đãi/lợi ích đầu tư nhưng hoàn toàn không có đoạn cảnh báo: \'Past performance is not indicative of future performance. Investments are subject to market risks.\' hoặc kích thước chữ không đạt mức tối thiểu 8pt.';
+            : 'Footer Statutory Disclaimer area.';
+        $analysis_mas = 'Severe breach of Rule MAS-01 & Singapore MAS Notice Section 5.2(b): Financial promotion features investment return claims without mandatory risk warning: \'Past performance is not indicative of future performance. Investments are subject to market risks.\'';
         $m3_top = !empty($existing_checks['mas_rule']['marker_top']) ? $existing_checks['mas_rule']['marker_top'] : '91%';
         $m3_left = !empty($existing_checks['mas_rule']['marker_left']) ? $existing_checks['mas_rule']['marker_left'] : '8%';
         $m3_badge_text = ($score_mas <= 30) ? 'Fail' : 'Needs Human Look';
         $m3_label = 'MAS Disclaimer · ' . $m3_badge_text;
     } else {
-        $finding_mas = 'Nội dung quảng cáo có đầy đủ điều khoản cảnh báo rủi ro theo đúng quy định của Cơ quan Quản lý Tiền tệ Singapore (MAS §4.1b).';
+        $finding_mas = 'Advertising copy incorporates full statutory risk disclosures conforming to Monetary Authority of Singapore regulations (MAS Section 5.2b).';
         $location_mas = !empty($existing_checks['mas_rule']['marker_location'])
             ? $existing_checks['mas_rule']['marker_location']
-            : 'Dải chân trang (Footer Statutory Bar) của nội dung ấn phẩm.';
-        $analysis_mas = 'Tuân thủ đầy đủ Rule MAS-01 & ' . esc_html($doc_name_3) . ': Tuyên bố rủi ro theo luật định được trình bày rõ ràng ở chân trang, cỡ chữ 8.5pt đạt ngưỡng quy định, tỷ lệ tương phản đạt chuẩn đảm bảo người đọc tiếp cận đầy đủ thông tin cảnh báo.';
+            : 'Footer Statutory Bar of artwork.';
+        $analysis_mas = 'Fully compliant with Rule MAS-01 & ' . esc_html($doc_name_3) . ': Statutory risk disclosure is prominently displayed in the footer bar at 8.5pt font legibility, meeting all MAS visual parity and placement standards.';
         $m3_top = !empty($existing_checks['mas_rule']['marker_top']) ? $existing_checks['mas_rule']['marker_top'] : '91%';
         $m3_left = !empty($existing_checks['mas_rule']['marker_left']) ? $existing_checks['mas_rule']['marker_left'] : '8%';
         $m3_badge_text = 'Pass';
         $m3_label = 'MAS Disclaimer · Pass';
     }
-    if (!empty($existing_checks['mas_rule']['finding'])) {
+
+    if (!empty($existing_checks['mas_rule']['finding']) && !$is_vn_text($existing_checks['mas_rule']['finding'])) {
         $finding_mas = $existing_checks['mas_rule']['finding'];
     }
-    if (!empty($existing_checks['mas_rule']['analysis'])) {
+    if (!empty($existing_checks['mas_rule']['analysis']) && !$is_vn_text($existing_checks['mas_rule']['analysis'])) {
         $analysis_mas = $existing_checks['mas_rule']['analysis'];
     }
-    $reason_mas = !empty($existing_checks['mas_rule']['reason'])
+    $reason_mas = (!empty($existing_checks['mas_rule']['reason']) && !$is_vn_text($existing_checks['mas_rule']['reason']))
         ? $existing_checks['mas_rule']['reason']
         : ($finding_mas . ' ' . $analysis_mas);
 
@@ -7932,9 +8024,13 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
             'evidence_tag'   => 'Evidence: Logo Area',
             'marker_id'      => 'marker-1',
             'marker_num'     => '1',
+            'doc_name'       => $doc_name_1,
+            'section'        => $sec_name_1,
+            'page_number'    => $page_num_1,
+            'page_context'   => $page_ctx_1,
             'source_title'   => $doc_name_1,
-            'source_sub'     => 'Campaign Brand Reference',
-            'source_url'     => $doc_url_1 ?: 'javascript:void(0);',
+            'source_sub'     => 'Page ' . $page_num_1 . ' · ' . $sec_name_1,
+            'source_url'     => $source_url_1,
             'source_quote'   => $quote_foreign,
             'source_doc_name'=> $doc_name_1
         ],
@@ -7957,9 +8053,13 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
             'evidence_tag'   => 'Evidence: Visual Hero & Brand Identity',
             'marker_id'      => 'marker-2',
             'marker_num'     => '2',
+            'doc_name'       => $doc_name_2,
+            'section'        => $sec_name_2,
+            'page_number'    => $page_num_2,
+            'page_context'   => $page_ctx_2,
             'source_title'   => $doc_name_2,
-            'source_sub'     => 'Campaign Style Reference',
-            'source_url'     => $doc_url_2 ?: 'javascript:void(0);',
+            'source_sub'     => 'Page ' . $page_num_2 . ' · ' . $sec_name_2,
+            'source_url'     => $source_url_2,
             'source_quote'   => $quote_guideline,
             'source_doc_name'=> $doc_name_2
         ],
@@ -7982,9 +8082,13 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
             'evidence_tag'   => 'Evidence: Footer Statutory Disclaimer',
             'marker_id'      => 'marker-3',
             'marker_num'     => '3',
+            'doc_name'       => $doc_name_3,
+            'section'        => $sec_name_3,
+            'page_number'    => $page_num_3,
+            'page_context'   => $page_ctx_3,
             'source_title'   => $doc_name_3,
-            'source_sub'     => 'Singapore Legal Notice',
-            'source_url'     => $doc_url_3 ?: 'javascript:void(0);',
+            'source_sub'     => 'Page ' . $page_num_3 . ' · ' . $sec_name_3,
+            'source_url'     => $source_url_3,
             'source_quote'   => $quote_mas,
             'source_doc_name'=> $doc_name_3
         ]
@@ -8035,6 +8139,132 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
         'upload_new_v_url'  => $upload_new_v_url
     ];
 }
+}
+
+/**
+ * --------------------------------------------------------------------------
+ * 25. Standalone AI Scoring Execution for Asset Version (CPT check_result)
+ * --------------------------------------------------------------------------
+ */
+if (!function_exists('pcs_run_ai_scoring_for_version')) {
+    function pcs_run_ai_scoring_for_version($version_id) {
+        $version_id = intval($version_id);
+        if (!$version_id) {
+            return ['error' => 'Invalid version ID'];
+        }
+
+        $file_url = get_post_meta($version_id, '_file_url', true) ?: get_post_meta($version_id, '_asset_file_url', true);
+        if (empty($file_url)) {
+            $attachment_id = get_post_thumbnail_id($version_id);
+            if ($attachment_id) {
+                $file_url = wp_get_attachment_url($attachment_id);
+            }
+        }
+
+        $criteria = ['foreign_logo', 'guideline', 'mas_rule'];
+        $results  = [];
+
+        foreach ($criteria as $criterion) {
+            $raw_response = function_exists('pcs_call_gemini_api') ? pcs_call_gemini_api($file_url, $criterion) : '';
+            $data = json_decode($raw_response, true);
+
+            if (!is_array($data)) {
+                $data = [
+                    'score'        => 0,
+                    'status'       => 'FAIL',
+                    'finding'      => 'Failed to parse AI evaluation response payload.',
+                    'analysis'     => 'System execution error: Model output was non-compliant JSON.',
+                    'reason'       => 'AI Engine output parsing failure.',
+                    'source_quote' => '',
+                    'regulatory_reference' => null
+                ];
+            }
+
+            $score        = intval($data['score'] ?? 0);
+            $status       = sanitize_text_field($data['status'] ?? (($score >= 71) ? 'PASS' : (($score >= 31) ? 'NEEDS_LOOK' : 'FAIL')));
+            $finding      = sanitize_text_field($data['finding'] ?? '');
+            $analysis     = sanitize_text_field($data['analysis'] ?? '');
+            $reason       = sanitize_text_field($data['reason'] ?? '');
+            $source_quote = sanitize_textarea_field($data['source_quote'] ?? '');
+
+            $reg_ref      = $data['regulatory_reference'] ?? [];
+            $reg_doc      = sanitize_text_field($reg_ref['document'] ?? '');
+            $reg_section  = sanitize_text_field($reg_ref['section'] ?? '');
+            $page_number  = intval($reg_ref['page_number'] ?? 1);
+            $page_context = sanitize_textarea_field($reg_ref['page_context'] ?? '');
+
+            if (empty($source_quote) && !empty($reg_ref['violation_clause'])) {
+                $source_quote = sanitize_textarea_field($reg_ref['violation_clause']);
+            }
+
+            $existing_checks = get_posts([
+                'post_type'      => 'check_result',
+                'post_status'    => 'any',
+                'posts_per_page' => 1,
+                'meta_query'     => [
+                    ['key' => '_version_id', 'value' => $version_id],
+                    ['key' => '_criterion',  'value' => $criterion]
+                ]
+            ]);
+
+            if (!empty($existing_checks)) {
+                $check_id = $existing_checks[0]->ID;
+                wp_update_post([
+                    'ID'         => $check_id,
+                    'post_title' => "Version {$version_id} - Check {$criterion}"
+                ]);
+            } else {
+                $check_id = wp_insert_post([
+                    'post_type'   => 'check_result',
+                    'post_status' => 'publish',
+                    'post_title'  => "Version {$version_id} - Check {$criterion}"
+                ]);
+            }
+
+            update_post_meta($check_id, '_version_id',          $version_id);
+            update_post_meta($check_id, '_criterion',           $criterion);
+            update_post_meta($check_id, '_score',               $score);
+            update_post_meta($check_id, '_status',              $status);
+            update_post_meta($check_id, '_finding',             $finding);
+            update_post_meta($check_id, '_analysis',            $analysis);
+            update_post_meta($check_id, '_reason',              $reason);
+            update_post_meta($check_id, '_source_quote',        $source_quote);
+            update_post_meta($check_id, '_regulatory_doc',      $reg_doc);
+            update_post_meta($check_id, '_regulatory_section',  $reg_section);
+            update_post_meta($check_id, '_page_number',         $page_number);
+            update_post_meta($check_id, '_page_context',        $page_context);
+            update_post_meta($check_id, '_evaluated_at',        current_time('mysql'));
+
+            $results[$criterion] = [
+                'check_id'           => $check_id,
+                'score'              => $score,
+                'status'             => $status,
+                'finding'            => $finding,
+                'analysis'           => $analysis,
+                'reason'             => $reason,
+                'source_quote'       => $source_quote,
+                'regulatory_doc'     => $reg_doc,
+                'regulatory_section' => $reg_section,
+                'page_number'        => $page_number,
+                'page_context'       => $page_context
+            ];
+        }
+
+        update_post_meta($version_id, '_version_status', 'in_review');
+        return $results;
+    }
+}
+
+/**
+ * --------------------------------------------------------------------------
+ * 26. Screen Data Helper for AI Compliance (Unified Interface)
+ * --------------------------------------------------------------------------
+ */
+if (!function_exists('get_ai_scoring_screen_data')) {
+    function get_ai_scoring_screen_data($version_id) {
+        $res = function_exists('get_ai_scoring_result_data') ? get_ai_scoring_result_data(intval($version_id)) : [];
+        return $res['checks'] ?? [];
+    }
 }
 
 

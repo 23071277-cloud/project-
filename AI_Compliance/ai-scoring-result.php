@@ -211,6 +211,28 @@ if (!function_exists('pcs_render_score_status_icon')) {
         }
 
         /* Top Navbar Integration */
+        .mas-breach-box {
+            background: #fee2e2 !important;
+            border-left: 4px solid #e11d48;
+            padding: 8px 12px;
+            margin: 8px 0;
+            display: block;
+            border-radius: 0 4px 4px 0;
+            font-weight: 700;
+            color: #881337 !important;
+        }
+        .mas-breach-label {
+            display: inline-block;
+            font-size: 9.5px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            background: #be123c;
+            color: #ffffff;
+            padding: 2px 6px;
+            border-radius: 2px;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
         .wp-navbar-wrapper {
             width: 100%;
             background: #ffffff;
@@ -1748,34 +1770,40 @@ if (!function_exists('pcs_render_score_status_icon')) {
                 </div>
 
                 <div class="band-reason-col">
-                    <div class="band-section-subhead">Reason & Compliance Evaluation</div>
+                    <div class="band-section-subhead">Reason &amp; Compliance Evaluation</div>
 
                     <div class="compliance-breakdown-card">
                         <div class="compliance-breakdown-item">
-                            <span class="compliance-breakdown-label">Vấn đề phát hiện:</span>
-                            <span class="compliance-breakdown-val"><?= esc_html($chk1['finding'] ?? $chk1['reason'] ?? 'Đảm bảo tính độc quyền thương hiệu.') ?></span>
+                            <span class="compliance-breakdown-label">Finding:</span>
+                            <span class="compliance-breakdown-val"><?= esc_html($chk1['finding'] ?? $chk1['reason'] ?? 'Exclusive brand ownership verified. No unauthorized competitor emblems detected.') ?></span>
                         </div>
                         <div class="compliance-breakdown-item">
-                            <span class="compliance-breakdown-label">Đánh giá tuân thủ:</span>
-                            <span class="compliance-breakdown-val"><?= esc_html($chk1['analysis'] ?? $chk1['reason'] ?? 'Đạt tiêu chuẩn thương hiệu.') ?></span>
+                            <span class="compliance-breakdown-label">Compliance Analysis:</span>
+                            <span class="compliance-breakdown-val"><?= esc_html($chk1['analysis'] ?? $chk1['reason'] ?? 'Meets Rule FL-01 & Brand Identity Standards.') ?></span>
                         </div>
                     </div>
                 </div>
 
                 <div class="band-source-col">
-                    <div class="band-section-subhead">Source & Rule</div>
+                    <div class="band-section-subhead">Source &amp; Rule</div>
                     <div>
-                        <div class="source-name-title"><?= esc_html($chk1['source_title'] ?? 'Brand Guidelines 2026') ?></div>
-                        <div class="source-status-sub"><?= esc_html($chk1['source_sub'] ?? 'Reference available') ?></div>
+                        <div class="source-name-title"><?= esc_html($chk1['doc_name'] ?? $chk1['source_title'] ?? 'Standard Bank Brand Governance Manual') ?></div>
+                        <div class="source-status-sub" style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+                            <span style="background: #e2e8f0; color: #334155; padding: 1px 6px; border-radius: 3px; font-weight: 700; font-size: 11px;">Page <?= esc_html($chk1['page_number'] ?? 8) ?></span>
+                            <span style="color: #64748B; font-size: 11.5px;">· <?= esc_html($chk1['section'] ?? $chk1['source_sub'] ?? 'Section 3.4') ?></span>
+                        </div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
                         <button type="button" class="source-link-btn" onclick="openGuidelineQuickModal(
-                            '<?= esc_js($chk1['source_title'] ?? 'Foreign Logos Compliance Standard') ?>',
+                            '<?= esc_js($chk1['doc_name'] ?? $chk1['source_title'] ?? 'Standard Bank Brand Governance Manual') ?>',
                             '<?= esc_js($chk1['source_quote'] ?? '') ?>',
                             '<?= esc_js($chk1['reason'] ?? '') ?>',
                             '<?= esc_js($chk1['source_url'] ?? '') ?>',
-                            '<?= esc_js($chk1['source_doc_name'] ?? 'Brand Guidelines') ?>',
-                            '<?= (int)($chk1['score'] ?? 95) ?>'
+                            '<?= esc_js($chk1['doc_name'] ?? $chk1['source_doc_name'] ?? 'Brand Governance Manual') ?>',
+                            '<?= (int)($chk1['score'] ?? 95) ?>',
+                            '<?= esc_js($chk1['section'] ?? 'Section 3.4') ?>',
+                            <?= (int)($chk1['page_number'] ?? 8) ?>,
+                            <?= json_encode($chk1['page_context'] ?? '') ?>
                         )" style="background: none; border: none; cursor: pointer; padding: 0;">
                             <span>View source</span>
                             <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
@@ -1783,7 +1811,10 @@ if (!function_exists('pcs_render_score_status_icon')) {
                             </svg>
                         </button>
                         <?php if (!empty($chk1['source_url']) && $chk1['source_url'] !== 'javascript:void(0);'): ?>
-                            <a href="<?= esc_url($chk1['source_url']) ?>" target="_blank" title="Download Document" style="color: #64748B; font-size: 11px; text-decoration: underline;">(PDF)</a>
+                            <a href="<?= esc_url($chk1['source_url']) ?>" target="_blank" title="Open PDF Page" style="color: #0284c7; font-size: 11.5px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 3px;">
+                                <span>(PDF Page <?= esc_html($chk1['page_number'] ?? 8) ?>)</span>
+                                <span>↗</span>
+                            </a>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -1821,34 +1852,40 @@ if (!function_exists('pcs_render_score_status_icon')) {
                 </div>
 
                 <div class="band-reason-col">
-                    <div class="band-section-subhead">Reason & Compliance Evaluation</div>
+                    <div class="band-section-subhead">Reason &amp; Compliance Evaluation</div>
 
                     <div class="compliance-breakdown-card">
                         <div class="compliance-breakdown-item">
-                            <span class="compliance-breakdown-label">Vấn đề phát hiện:</span>
-                            <span class="compliance-breakdown-val"><?= esc_html($chk2['finding'] ?? $chk2['reason'] ?? 'Bảng màu và phân cấp chữ trên ấn phẩm.') ?></span>
+                            <span class="compliance-breakdown-label">Finding:</span>
+                            <span class="compliance-breakdown-val"><?= esc_html($chk2['finding'] ?? $chk2['reason'] ?? 'Visual chromatic palette and typography hierarchy.') ?></span>
                         </div>
                         <div class="compliance-breakdown-item">
-                            <span class="compliance-breakdown-label">Đánh giá tuân thủ:</span>
-                            <span class="compliance-breakdown-val"><?= esc_html($chk2['analysis'] ?? $chk2['reason'] ?? 'Đối soát cùng tài liệu chiến dịch.') ?></span>
+                            <span class="compliance-breakdown-label">Compliance Analysis:</span>
+                            <span class="compliance-breakdown-val"><?= esc_html($chk2['analysis'] ?? $chk2['reason'] ?? 'Audited against Corporate Visual Identity Specification Guidelines.') ?></span>
                         </div>
                     </div>
                 </div>
 
                 <div class="band-source-col">
-                    <div class="band-section-subhead">Source & Rule</div>
+                    <div class="band-section-subhead">Source &amp; Rule</div>
                     <div>
-                        <div class="source-name-title"><?= esc_html($chk2['source_title'] ?? 'Campaign Copy Standards') ?></div>
-                        <div class="source-status-sub"><?= esc_html($chk2['source_sub'] ?? 'Reference available') ?></div>
+                        <div class="source-name-title"><?= esc_html($chk2['doc_name'] ?? $chk2['source_title'] ?? 'Corporate Visual Identity Guidelines') ?></div>
+                        <div class="source-status-sub" style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+                            <span style="background: #e2e8f0; color: #334155; padding: 1px 6px; border-radius: 3px; font-weight: 700; font-size: 11px;">Page <?= esc_html($chk2['page_number'] ?? 5) ?></span>
+                            <span style="color: #64748B; font-size: 11.5px;">· <?= esc_html($chk2['section'] ?? $chk2['source_sub'] ?? 'Section 2.1') ?></span>
+                        </div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
                         <button type="button" class="source-link-btn" onclick="openGuidelineQuickModal(
-                            '<?= esc_js($chk2['source_title'] ?? 'Brand & Compliance Documents') ?>',
+                            '<?= esc_js($chk2['doc_name'] ?? $chk2['source_title'] ?? 'Corporate Visual Identity Guidelines') ?>',
                             '<?= esc_js($chk2['source_quote'] ?? '') ?>',
                             '<?= esc_js($chk2['reason'] ?? '') ?>',
                             '<?= esc_js($chk2['source_url'] ?? '') ?>',
-                            '<?= esc_js($chk2['source_doc_name'] ?? 'Campaign Copy Standards') ?>',
-                            '<?= (int)($chk2['score'] ?? 64) ?>'
+                            '<?= esc_js($chk2['doc_name'] ?? $chk2['source_doc_name'] ?? 'Corporate Visual Identity Guidelines') ?>',
+                            '<?= (int)($chk2['score'] ?? 64) ?>',
+                            '<?= esc_js($chk2['section'] ?? 'Section 2.1') ?>',
+                            <?= (int)($chk2['page_number'] ?? 5) ?>,
+                            <?= json_encode($chk2['page_context'] ?? '') ?>
                         )" style="background: none; border: none; cursor: pointer; padding: 0;">
                             <span>View source</span>
                             <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
@@ -1856,7 +1893,10 @@ if (!function_exists('pcs_render_score_status_icon')) {
                             </svg>
                         </button>
                         <?php if (!empty($chk2['source_url']) && $chk2['source_url'] !== 'javascript:void(0);'): ?>
-                            <a href="<?= esc_url($chk2['source_url']) ?>" target="_blank" title="Download Document" style="color: #64748B; font-size: 11px; text-decoration: underline;">(PDF)</a>
+                            <a href="<?= esc_url($chk2['source_url']) ?>" target="_blank" title="Open PDF Page" style="color: #0284c7; font-size: 11.5px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 3px;">
+                                <span>(PDF Page <?= esc_html($chk2['page_number'] ?? 5) ?>)</span>
+                                <span>↗</span>
+                            </a>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -1903,40 +1943,54 @@ if (!function_exists('pcs_render_score_status_icon')) {
                 </div>
 
                 <div class="band-reason-col">
-                    <div class="band-section-subhead">Reason & Compliance Evaluation</div>
+                    <div class="band-section-subhead">Reason &amp; Compliance Evaluation</div>
 
                     <div class="compliance-breakdown-card">
                         <div class="compliance-breakdown-item">
-                            <span class="compliance-breakdown-label">Vấn đề phát hiện:</span>
-                            <span class="compliance-breakdown-val"><?= esc_html($chk3['finding'] ?? $chk3['reason'] ?? 'Điều khoản cảnh báo rủi ro pháp lý MAS Singapore.') ?></span>
+                            <span class="compliance-breakdown-label">Finding:</span>
+                            <span class="compliance-breakdown-val"><?= esc_html($chk3['finding'] ?? $chk3['reason'] ?? 'Statutory risk disclosure and past-performance disclaimer.') ?></span>
                         </div>
                         <div class="compliance-breakdown-item">
-                            <span class="compliance-breakdown-label">Đánh giá tuân thủ:</span>
-                            <span class="compliance-breakdown-val"><?= esc_html($chk3['analysis'] ?? $chk3['reason'] ?? 'Đối soát theo Singapore MAS Notice §4.1b.') ?></span>
+                            <span class="compliance-breakdown-label">Compliance Analysis:</span>
+                            <span class="compliance-breakdown-val"><?= esc_html($chk3['analysis'] ?? $chk3['reason'] ?? 'Audited against MAS Guidelines on Standards of Conduct Section 5.2.') ?></span>
                         </div>
                     </div>
                 </div>
 
                 <div class="band-source-col">
-                    <div class="band-section-subhead">Source & Rule</div>
+                    <div class="band-section-subhead">Source &amp; Rule</div>
                     <div>
-                        <div class="source-name-title"><?= esc_html($chk3['source_title'] ?? 'MAS Advertising Rules') ?></div>
-                        <div class="source-status-sub"><?= esc_html($chk3['source_sub'] ?? 'Reference available') ?></div>
+                        <div class="source-name-title"><?= esc_html($chk3['doc_name'] ?? $chk3['source_title'] ?? 'MAS Advertising Guidelines 2023') ?></div>
+                        <div class="source-status-sub" style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+                            <span style="background: #e2e8f0; color: #334155; padding: 1px 6px; border-radius: 3px; font-weight: 700; font-size: 11px;">Page <?= esc_html($chk3['page_number'] ?? 14) ?></span>
+                            <span style="color: #64748B; font-size: 11.5px;">· <?= esc_html($chk3['section'] ?? $chk3['source_sub'] ?? 'Section 5.2(b)') ?></span>
+                        </div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
                         <button type="button" class="source-link-btn" onclick="openGuidelineQuickModal(
-                            '<?= esc_js($chk3['source_title'] ?? 'MAS Advertising Rules §4.1b') ?>',
+                            '<?= esc_js($chk3['doc_name'] ?? $chk3['source_title'] ?? 'MAS Advertising Guidelines 2023') ?>',
                             '<?= esc_js($chk3['source_quote'] ?? '') ?>',
                             '<?= esc_js($chk3['reason'] ?? '') ?>',
                             '<?= esc_js($chk3['source_url'] ?? '') ?>',
-                            '<?= esc_js($chk3['source_doc_name'] ?? 'MAS Advertising Rules') ?>',
-                            '<?= (int)($chk3['score'] ?? 25) ?>'
+                            '<?= esc_js($chk3['doc_name'] ?? $chk3['source_doc_name'] ?? 'MAS Advertising Guidelines 2023') ?>',
+                            '<?= (int)($chk3['score'] ?? 25) ?>',
+                            '<?= esc_js($chk3['section'] ?? 'Section 5.2(b)') ?>',
+                            <?= (int)($chk3['page_number'] ?? 14) ?>,
+                            <?= json_encode($chk3['page_context'] ?? '') ?>
                         )" style="background: none; border: none; cursor: pointer; padding: 0;">
                             <span>View source</span>
                             <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                                 <path d="M7.10208 5.25H0V4.08333H7.10208L3.83542 0.816667L4.66667 0L9.33333 4.66667L4.66667 9.33333L3.83542 8.51667L7.10208 5.25Z" fill="#4F57A7"/>
                             </svg>
                         </button>
+                        <?php if (!empty($chk3['source_url']) && $chk3['source_url'] !== 'javascript:void(0);'): ?>
+                            <a href="<?= esc_url($chk3['source_url']) ?>" target="_blank" title="Open PDF Page" style="color: #0284c7; font-size: 11.5px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 3px;">
+                                <span>(PDF Page <?= esc_html($chk3['page_number'] ?? 14) ?>)</span>
+                                <span>↗</span>
+                            </a>
+                        <?php endif; ?>
+                    </div>
+                </div>
                         <?php if (!empty($chk3['source_url']) && $chk3['source_url'] !== 'javascript:void(0);'): ?>
                             <a href="<?= esc_url($chk3['source_url']) ?>" target="_blank" title="Download Document" style="color: #64748B; font-size: 11px; text-decoration: underline;">(PDF)</a>
                         <?php endif; ?>
@@ -2188,16 +2242,19 @@ if (!function_exists('pcs_render_score_status_icon')) {
 
     <!-- Modal: Quick Rule/Guideline Info & Direct Quote Citation -->
     <div id="guidelineModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; padding: 20px;">
-        <div style="background: #ffffff; border-radius: 14px; max-width: 560px; width: 100%; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); overflow: hidden;">
-            <div style="padding: 20px 24px; border-bottom: 1px solid #E2E8F0; display: flex; justify-content: space-between; align-items: center;">
+        <div style="background: #ffffff; border-radius: 14px; max-width: 720px; width: 100%; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); overflow: hidden; display: flex; flex-direction: column; max-height: 90vh;">
+            <div style="padding: 18px 24px; border-bottom: 1px solid #E2E8F0; display: flex; justify-content: space-between; align-items: center; background: #F8FAFC;">
                 <div>
-                    <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #64748B;">Compliance Standard Citation</span>
-                    <h4 style="font-size: 16px; font-weight: 700; color: #161B2E; margin-top: 2px;" id="guidelineModalTitle">Compliance Standard</h4>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #64748B;">Compliance Standard Citation</span>
+                        <span id="guidelineModalPageIndicator" style="background: #0F172A; color: #F8FAFC; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;">Page 14 · Section 5.2(b)</span>
+                    </div>
+                    <h4 style="font-size: 16px; font-weight: 700; color: #161B2E; margin-top: 4px; margin-bottom: 0;" id="guidelineModalTitle">Compliance Standard</h4>
                 </div>
-                <button type="button" onclick="closeGuidelineModal()" style="font-size: 22px; color: #64748B; background: none; border: none; cursor: pointer; line-height: 1;">&times;</button>
+                <button type="button" onclick="closeGuidelineModal()" style="font-size: 24px; color: #64748B; background: none; border: none; cursor: pointer; line-height: 1;">&times;</button>
             </div>
             
-            <div style="padding: 24px; font-size: 13px; color: #464651; line-height: 22px; max-height: 70vh; overflow-y: auto;">
+            <div style="padding: 24px; font-size: 13px; color: #464651; line-height: 22px; overflow-y: auto; flex: 1;">
                 <div id="guidelineModalScoreBadge" style="margin-bottom: 14px;"></div>
 
                 <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #4F57A7; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
@@ -2215,13 +2272,37 @@ if (!function_exists('pcs_render_score_status_icon')) {
                 <div id="guidelineModalReason" style="padding: 12px 16px; background: #FFF1F2; border-radius: 8px; border: 1px solid #FECDD3; font-size: 12.5px; color: #9F1239; line-height: 20px;">
                     Evaluated against brand compliance standards.
                 </div>
+
+                <!-- Page Context & Statutory Text Highlight Container -->
+                <div id="guidelineModalContextSection" style="margin-top: 18px; display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #334155;">Document Page Text &amp; Violation Highlight:</span>
+                        <button type="button" id="guidelineJumpViolationBtn" onclick="jumpToModalViolation()" style="display: inline-flex; align-items: center; gap: 4px; background: #fee2e2; color: #991b1b; border: 1px solid #fecdd3; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">
+                            <span>Jump to Violation Focus</span>
+                            <span>↓</span>
+                        </button>
+                    </div>
+                    <div id="guidelineModalContextBox" style="background: #1e293b; color: #cbd5e1; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11.5px; line-height: 1.7; padding: 16px; border-radius: 8px; max-height: 220px; overflow-y: auto; white-space: pre-wrap; word-break: break-word;"></div>
+                </div>
+
+                <!-- Embedded PDF Viewer Preview -->
+                <div id="guidelineModalPdfSection" style="margin-top: 18px; display: none;">
+                    <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #334155; margin-bottom: 6px;">PDF Document Viewer:</div>
+                    <object id="guidelineModalPdfObj" data="" type="application/pdf" width="100%" height="320px" style="border-radius: 6px; border: 1px solid #cbd5e1;">
+                        <iframe id="guidelineModalPdfFrame" src="" width="100%" height="320px" style="border: none;">
+                            <p style="padding: 10px; font-size: 12px; color: #64748B;">PDF preview cannot be rendered inline. Please use the link below to open directly.</p>
+                        </iframe>
+                    </object>
+                </div>
             </div>
 
             <div style="padding: 14px 24px; background: #F8FAFC; border-top: 1px solid #E2E8F0; display: flex; justify-content: space-between; align-items: center;">
-                <a id="guidelineModalDocBtn" href="#" target="_blank" style="display: none; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #4F57A7; text-decoration: underline;">
-                    <span>View Guideline Document</span>
-                    <span>→</span>
-                </a>
+                <div style="display: flex; gap: 8px;">
+                    <a id="guidelineModalDocBtn" href="#" target="_blank" style="display: none; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #0284c7; text-decoration: none; background: #F0F9FF; border: 1px solid #BAE6FD; padding: 6px 12px; border-radius: 6px;">
+                        <span id="guidelineModalDocBtnLabel">Open (PDF Page)</span>
+                        <span>↗</span>
+                    </a>
+                </div>
                 <button type="button" onclick="closeGuidelineModal()" class="btn-upload-new-version" style="height: 36px; padding: 0 18px; margin-left: auto;">
                     Close
                 </button>
@@ -2445,7 +2526,7 @@ if (!function_exists('pcs_render_score_status_icon')) {
         }
 
         // Guideline Modal Handlers with Full Dynamic AI Quotes & Findings
-        function openGuidelineQuickModal(title, quote, reason, docUrl, docName, score) {
+        function openGuidelineQuickModal(title, quote, reason, docUrl, docName, score, section, pageNum, pageContext) {
             var m = document.getElementById('guidelineModal');
             var t = document.getElementById('guidelineModalTitle');
             var q = document.getElementById('guidelineModalQuote');
@@ -2453,11 +2534,24 @@ if (!function_exists('pcs_render_score_status_icon')) {
             var rt = document.getElementById('guidelineModalReasonTitle');
             var badge = document.getElementById('guidelineModalScoreBadge');
             var docBtn = document.getElementById('guidelineModalDocBtn');
+            var docBtnLabel = document.getElementById('guidelineModalDocBtnLabel');
+            var pageInd = document.getElementById('guidelineModalPageIndicator');
+            var ctxSec = document.getElementById('guidelineModalContextSection');
+            var ctxBox = document.getElementById('guidelineModalContextBox');
+            var pdfSec = document.getElementById('guidelineModalPdfSection');
+            var pdfObj = document.getElementById('guidelineModalPdfObj');
+            var pdfFrame = document.getElementById('guidelineModalPdfFrame');
 
             if (t) t.textContent = title || 'Compliance Standard';
             if (q) q.textContent = quote || 'Standard brand compliance guideline requirement.';
             if (r) r.textContent = reason || 'Evaluated against brand compliance standards.';
-            
+
+            var pNum = parseInt(pageNum, 10) || 1;
+            var secText = section || 'Regulatory Standard';
+            if (pageInd) {
+                pageInd.textContent = 'Page ' + pNum + ' · ' + secText;
+            }
+
             var sc = parseInt(score, 10);
             if (isNaN(sc)) sc = 50;
 
@@ -2477,15 +2571,39 @@ if (!function_exists('pcs_render_score_status_icon')) {
                 }
             }
 
+            // Context rendering with {{...}} highlight
+            if (pageContext && pageContext.trim().length > 0) {
+                var safeCtx = pageContext.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                var highlighted = safeCtx.replace(/\{\{([\s\S]*?)\}\}/g, '<span id="targetViolationNode" class="mas-breach-box"><span class="mas-breach-label">Regulatory Rule Focus / Breach</span>$1</span>');
+                if (ctxBox) ctxBox.innerHTML = highlighted;
+                if (ctxSec) ctxSec.style.display = 'block';
+            } else {
+                if (ctxSec) ctxSec.style.display = 'none';
+            }
+
             if (docBtn) {
                 if (docUrl && docUrl !== 'javascript:void(0);' && docUrl !== '#') {
                     docBtn.style.display = 'inline-flex';
                     docBtn.href = docUrl;
-                    docBtn.innerHTML = '<span>Open ' + (docName || 'Guideline PDF') + '</span> <span>→</span>';
+                    if (docBtnLabel) docBtnLabel.textContent = 'Open (PDF Page ' + pNum + ')';
+                    if (pdfObj) pdfObj.data = docUrl;
+                    if (pdfFrame) pdfFrame.src = docUrl;
+                    if (pdfSec) pdfSec.style.display = 'block';
                 } else {
                     docBtn.style.display = 'none';
+                    if (pdfSec) pdfSec.style.display = 'none';
                 }
             }
+
+            if (m) m.style.display = 'flex';
+        }
+
+        function jumpToModalViolation() {
+            var el = document.getElementById('targetViolationNode');
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
 
             if (m) m.style.display = 'flex';
         }
