@@ -322,24 +322,21 @@ $chk3 = $scoring_data['mas_rule']     ?? [];
             </div>
             <div class="source-rule-col">
                 <div>
-                    <div class="source-doc-name"><?= esc_html( $chk1['regulatory_doc'] ?? 'Brand Governance Manual' ) ?></div>
-                    <div class="source-rule-subline">
+                    <div class="source-doc-name"><?= esc_html( $chk1['regulatory_doc'] ?? 'Standard Bank Brand Governance & Trademark Clearance Manual' ) ?></div>
+                    <div style="margin-top: 6px;">
                         <span class="rule-tag">Page <?= esc_html( $chk1['page_number'] ?? 8 ) ?></span>
-                        <span>· <?= esc_html( $chk1['regulatory_section'] ?? 'Section 3.4' ) ?></span>
+                    </div>
+                    <div style="color: #64748B; font-size: 12px; line-height: 16px; margin-top: 4px;">
+                        <?= esc_html( $chk1['regulatory_section'] ?? 'Section 3.4 - Intellectual Property & Third-Party Marks' ) ?>
                     </div>
                 </div>
-                <div class="source-actions">
-                    <a href="<?= esc_url( $chk1['source_url'] ) ?>" target="_blank" class="btn-pdf-direct">
-                        (PDF) Page <?= esc_html( $chk1['page_number'] ?? 8 ) ?> ↗
-                    </a>
-                    <button type="button" class="btn-view-source" onclick="openGuidelineModal(
-                        '<?= esc_js( $chk1['regulatory_doc'] ?? 'Brand Governance Manual' ) ?>',
-                        '<?= esc_js( $chk1['regulatory_section'] ?? 'Section 3.4' ) ?>',
-                        <?= intval( $chk1['page_number'] ?? 8 ) ?>,
-                        '<?= esc_js( $chk1['source_quote'] ?? '' ) ?>',
-                        <?= json_encode( $chk1['page_context'] ?? '' ) ?>,
-                        '<?= esc_url( $chk1['source_url'] ) ?>'
-                    )">View Source</button>
+                <div class="source-actions" style="display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 12px;">
+                    <span style="color: #64748B; font-weight: 500;">View source:</span>
+                    <?php if ( ! empty( $chk1['source_url'] ) ): ?>
+                        <a href="<?= esc_url( $chk1['source_url'] ) ?>" target="_blank" style="color: #0284c7; font-weight: 600; text-decoration: none;">
+                            (PDF Page <?= esc_html( $chk1['page_number'] ?? 8 ) ?>) ↗
+                        </a>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -375,24 +372,21 @@ $chk3 = $scoring_data['mas_rule']     ?? [];
             </div>
             <div class="source-rule-col">
                 <div>
-                    <div class="source-doc-name"><?= esc_html( $chk2['regulatory_doc'] ?? 'Corporate Visual Identity Guidelines' ) ?></div>
-                    <div class="source-rule-subline">
+                    <div class="source-doc-name"><?= esc_html( $chk2['regulatory_doc'] ?? 'Corporate Visual Identity Specification Guidelines' ) ?></div>
+                    <div style="margin-top: 6px;">
                         <span class="rule-tag">Page <?= esc_html( $chk2['page_number'] ?? 5 ) ?></span>
-                        <span>· <?= esc_html( $chk2['regulatory_section'] ?? 'Section 2.1' ) ?></span>
+                    </div>
+                    <div style="color: #64748B; font-size: 12px; line-height: 16px; margin-top: 4px;">
+                        <?= esc_html( $chk2['regulatory_section'] ?? 'Section 2.1 - Core Palette and Visual Exclusion Clearances' ) ?>
                     </div>
                 </div>
-                <div class="source-actions">
-                    <a href="<?= esc_url( $chk2['source_url'] ) ?>" target="_blank" class="btn-pdf-direct">
-                        (PDF) Page <?= esc_html( $chk2['page_number'] ?? 5 ) ?> ↗
-                    </a>
-                    <button type="button" class="btn-view-source" onclick="openGuidelineModal(
-                        '<?= esc_js( $chk2['regulatory_doc'] ?? 'Corporate Visual Identity Guidelines' ) ?>',
-                        '<?= esc_js( $chk2['regulatory_section'] ?? 'Section 2.1' ) ?>',
-                        <?= intval( $chk2['page_number'] ?? 5 ) ?>,
-                        '<?= esc_js( $chk2['source_quote'] ?? '' ) ?>',
-                        <?= json_encode( $chk2['page_context'] ?? '' ) ?>,
-                        '<?= esc_url( $chk2['source_url'] ) ?>'
-                    )">View Source</button>
+                <div class="source-actions" style="display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 12px;">
+                    <span style="color: #64748B; font-weight: 500;">View source:</span>
+                    <?php if ( ! empty( $chk2['source_url'] ) ): ?>
+                        <a href="<?= esc_url( $chk2['source_url'] ) ?>" target="_blank" style="color: #0284c7; font-weight: 600; text-decoration: none;">
+                            (PDF Page <?= esc_html( $chk2['page_number'] ?? 5 ) ?>) ↗
+                        </a>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -428,24 +422,21 @@ $chk3 = $scoring_data['mas_rule']     ?? [];
             </div>
             <div class="source-rule-col">
                 <div>
-                    <div class="source-doc-name"><?= esc_html( $chk3['regulatory_doc'] ?? 'MAS Advertising Guidelines 2023' ) ?></div>
-                    <div class="source-rule-subline">
+                    <div class="source-doc-name"><?= esc_html( $chk3['regulatory_doc'] ?? 'MAS Guidelines on Standards of Conduct for Marketing of Financial Products' ) ?></div>
+                    <div style="margin-top: 6px;">
                         <span class="rule-tag">Page <?= esc_html( $chk3['page_number'] ?? 14 ) ?></span>
-                        <span>· <?= esc_html( $chk3['regulatory_section'] ?? 'Section 5.2(b)' ) ?></span>
+                    </div>
+                    <div style="color: #64748B; font-size: 12px; line-height: 16px; margin-top: 4px;">
+                        <?= esc_html( $chk3['regulatory_section'] ?? 'Section 5.2(b) - Fair and Balanced Representation of Risks and Returns' ) ?>
                     </div>
                 </div>
-                <div class="source-actions">
-                    <a href="<?= esc_url( $chk3['source_url'] ) ?>" target="_blank" class="btn-pdf-direct">
-                        (PDF) Page <?= esc_html( $chk3['page_number'] ?? 14 ) ?> ↗
-                    </a>
-                    <button type="button" class="btn-view-source" onclick="openGuidelineModal(
-                        '<?= esc_js( $chk3['regulatory_doc'] ?? 'MAS Advertising Guidelines 2023' ) ?>',
-                        '<?= esc_js( $chk3['regulatory_section'] ?? 'Section 5.2(b)' ) ?>',
-                        <?= intval( $chk3['page_number'] ?? 14 ) ?>,
-                        '<?= esc_js( $chk3['source_quote'] ?? '' ) ?>',
-                        <?= json_encode( $chk3['page_context'] ?? '' ) ?>,
-                        '<?= esc_url( $chk3['source_url'] ) ?>'
-                    )">View Source</button>
+                <div class="source-actions" style="display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 12px;">
+                    <span style="color: #64748B; font-weight: 500;">View source:</span>
+                    <?php if ( ! empty( $chk3['source_url'] ) ): ?>
+                        <a href="<?= esc_url( $chk3['source_url'] ) ?>" target="_blank" style="color: #0284c7; font-weight: 600; text-decoration: none;">
+                            (PDF Page <?= esc_html( $chk3['page_number'] ?? 14) ?>) ↗
+                        </a>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>

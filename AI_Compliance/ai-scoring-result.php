@@ -961,7 +961,7 @@ if (!function_exists('pcs_render_score_status_icon')) {
         .compliance-breakdown-item {
             display: flex;
             align-items: flex-start;
-            gap: 10px;
+            gap: 12px;
             font-size: 13px;
             line-height: 19px;
         }
@@ -973,8 +973,11 @@ if (!function_exists('pcs_render_score_status_icon')) {
             letter-spacing: 0.35px;
             color: #4F57A7;
             flex-shrink: 0;
-            min-width: 115px;
-            padding-top: 1px;
+            width: 90px;
+            min-width: 90px;
+            max-width: 90px;
+            line-height: 14px;
+            padding-top: 2px;
         }
 
         .compliance-breakdown-val {
@@ -982,6 +985,7 @@ if (!function_exists('pcs_render_score_status_icon')) {
             font-size: 13px;
             line-height: 19px;
             word-break: break-word;
+            flex: 1;
         }
 
         .band-evidence-box {
@@ -1778,7 +1782,7 @@ if (!function_exists('pcs_render_score_status_icon')) {
                             <span class="compliance-breakdown-val"><?= esc_html($chk1['finding'] ?? $chk1['reason'] ?? 'Exclusive brand ownership verified. No unauthorized competitor emblems detected.') ?></span>
                         </div>
                         <div class="compliance-breakdown-item">
-                            <span class="compliance-breakdown-label">Compliance Analysis:</span>
+                            <span class="compliance-breakdown-label">Compliance<br>Analysis:</span>
                             <span class="compliance-breakdown-val"><?= esc_html($chk1['analysis'] ?? $chk1['reason'] ?? 'Meets Rule FL-01 & Brand Identity Standards.') ?></span>
                         </div>
                     </div>
@@ -1787,31 +1791,18 @@ if (!function_exists('pcs_render_score_status_icon')) {
                 <div class="band-source-col">
                     <div class="band-section-subhead">Source &amp; Rule</div>
                     <div>
-                        <div class="source-name-title"><?= esc_html($chk1['doc_name'] ?? $chk1['source_title'] ?? 'Standard Bank Brand Governance Manual') ?></div>
-                        <div class="source-status-sub" style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
-                            <span style="background: #e2e8f0; color: #334155; padding: 1px 6px; border-radius: 3px; font-weight: 700; font-size: 11px;">Page <?= esc_html($chk1['page_number'] ?? 8) ?></span>
-                            <span style="color: #64748B; font-size: 11.5px;">· <?= esc_html($chk1['section'] ?? $chk1['source_sub'] ?? 'Section 3.4') ?></span>
+                        <div class="source-name-title"><?= esc_html($chk1['doc_name'] ?? $chk1['source_title'] ?? 'Standard Bank Brand Governance & Trademark Clearance Manual') ?></div>
+                        <div style="margin-top: 6px;">
+                            <span style="background: #e2e8f0; color: #1e293b; padding: 2px 7px; border-radius: 4px; font-weight: 700; font-size: 11px; display: inline-block;">Page <?= esc_html($chk1['page_number'] ?? 8) ?></span>
+                        </div>
+                        <div style="color: #64748B; font-size: 11.5px; line-height: 16px; margin-top: 4px;">
+                            <?= esc_html($chk1['section'] ?? $chk1['source_sub'] ?? 'Section 3.4 - Intellectual Property & Third-Party Marks') ?>
                         </div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
-                        <button type="button" class="source-link-btn" onclick="openGuidelineQuickModal(
-                            '<?= esc_js($chk1['doc_name'] ?? $chk1['source_title'] ?? 'Standard Bank Brand Governance Manual') ?>',
-                            '<?= esc_js($chk1['source_quote'] ?? '') ?>',
-                            '<?= esc_js($chk1['reason'] ?? '') ?>',
-                            '<?= esc_js($chk1['source_url'] ?? '') ?>',
-                            '<?= esc_js($chk1['doc_name'] ?? $chk1['source_doc_name'] ?? 'Brand Governance Manual') ?>',
-                            '<?= (int)($chk1['score'] ?? 95) ?>',
-                            '<?= esc_js($chk1['section'] ?? 'Section 3.4') ?>',
-                            <?= (int)($chk1['page_number'] ?? 8) ?>,
-                            <?= json_encode($chk1['page_context'] ?? '') ?>
-                        )" style="background: none; border: none; cursor: pointer; padding: 0;">
-                            <span>View source</span>
-                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                                <path d="M7.10208 5.25H0V4.08333H7.10208L3.83542 0.816667L4.66667 0L9.33333 4.66667L4.66667 9.33333L3.83542 8.51667L7.10208 5.25Z" fill="#4F57A7"/>
-                            </svg>
-                        </button>
+                    <div style="display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px;">
+                        <span style="color: #64748B; font-weight: 500;">View source</span>
                         <?php if (!empty($chk1['source_url']) && $chk1['source_url'] !== 'javascript:void(0);'): ?>
-                            <a href="<?= esc_url($chk1['source_url']) ?>" target="_blank" title="Open PDF Page" style="color: #0284c7; font-size: 11.5px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 3px;">
+                            <a href="<?= esc_url($chk1['source_url']) ?>" target="_blank" title="Open PDF Page" style="color: #0284c7; font-size: 12px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 3px;">
                                 <span>(PDF Page <?= esc_html($chk1['page_number'] ?? 8) ?>)</span>
                                 <span>↗</span>
                             </a>
@@ -1860,7 +1851,7 @@ if (!function_exists('pcs_render_score_status_icon')) {
                             <span class="compliance-breakdown-val"><?= esc_html($chk2['finding'] ?? $chk2['reason'] ?? 'Visual chromatic palette and typography hierarchy.') ?></span>
                         </div>
                         <div class="compliance-breakdown-item">
-                            <span class="compliance-breakdown-label">Compliance Analysis:</span>
+                            <span class="compliance-breakdown-label">Compliance<br>Analysis:</span>
                             <span class="compliance-breakdown-val"><?= esc_html($chk2['analysis'] ?? $chk2['reason'] ?? 'Audited against Corporate Visual Identity Specification Guidelines.') ?></span>
                         </div>
                     </div>
@@ -1869,31 +1860,18 @@ if (!function_exists('pcs_render_score_status_icon')) {
                 <div class="band-source-col">
                     <div class="band-section-subhead">Source &amp; Rule</div>
                     <div>
-                        <div class="source-name-title"><?= esc_html($chk2['doc_name'] ?? $chk2['source_title'] ?? 'Corporate Visual Identity Guidelines') ?></div>
-                        <div class="source-status-sub" style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
-                            <span style="background: #e2e8f0; color: #334155; padding: 1px 6px; border-radius: 3px; font-weight: 700; font-size: 11px;">Page <?= esc_html($chk2['page_number'] ?? 5) ?></span>
-                            <span style="color: #64748B; font-size: 11.5px;">· <?= esc_html($chk2['section'] ?? $chk2['source_sub'] ?? 'Section 2.1') ?></span>
+                        <div class="source-name-title"><?= esc_html($chk2['doc_name'] ?? $chk2['source_title'] ?? 'Corporate Visual Identity Specification Guidelines') ?></div>
+                        <div style="margin-top: 6px;">
+                            <span style="background: #e2e8f0; color: #1e293b; padding: 2px 7px; border-radius: 4px; font-weight: 700; font-size: 11px; display: inline-block;">Page <?= esc_html($chk2['page_number'] ?? 5) ?></span>
+                        </div>
+                        <div style="color: #64748B; font-size: 11.5px; line-height: 16px; margin-top: 4px;">
+                            <?= esc_html($chk2['section'] ?? $chk2['source_sub'] ?? 'Section 2.1 - Core Palette and Visual Exclusion Clearances') ?>
                         </div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
-                        <button type="button" class="source-link-btn" onclick="openGuidelineQuickModal(
-                            '<?= esc_js($chk2['doc_name'] ?? $chk2['source_title'] ?? 'Corporate Visual Identity Guidelines') ?>',
-                            '<?= esc_js($chk2['source_quote'] ?? '') ?>',
-                            '<?= esc_js($chk2['reason'] ?? '') ?>',
-                            '<?= esc_js($chk2['source_url'] ?? '') ?>',
-                            '<?= esc_js($chk2['doc_name'] ?? $chk2['source_doc_name'] ?? 'Corporate Visual Identity Guidelines') ?>',
-                            '<?= (int)($chk2['score'] ?? 64) ?>',
-                            '<?= esc_js($chk2['section'] ?? 'Section 2.1') ?>',
-                            <?= (int)($chk2['page_number'] ?? 5) ?>,
-                            <?= json_encode($chk2['page_context'] ?? '') ?>
-                        )" style="background: none; border: none; cursor: pointer; padding: 0;">
-                            <span>View source</span>
-                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                                <path d="M7.10208 5.25H0V4.08333H7.10208L3.83542 0.816667L4.66667 0L9.33333 4.66667L4.66667 9.33333L3.83542 8.51667L7.10208 5.25Z" fill="#4F57A7"/>
-                            </svg>
-                        </button>
+                    <div style="display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px;">
+                        <span style="color: #64748B; font-weight: 500;">View source</span>
                         <?php if (!empty($chk2['source_url']) && $chk2['source_url'] !== 'javascript:void(0);'): ?>
-                            <a href="<?= esc_url($chk2['source_url']) ?>" target="_blank" title="Open PDF Page" style="color: #0284c7; font-size: 11.5px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 3px;">
+                            <a href="<?= esc_url($chk2['source_url']) ?>" target="_blank" title="Open PDF Page" style="color: #0284c7; font-size: 12px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 3px;">
                                 <span>(PDF Page <?= esc_html($chk2['page_number'] ?? 5) ?>)</span>
                                 <span>↗</span>
                             </a>
@@ -1951,7 +1929,7 @@ if (!function_exists('pcs_render_score_status_icon')) {
                             <span class="compliance-breakdown-val"><?= esc_html($chk3['finding'] ?? $chk3['reason'] ?? 'Statutory risk disclosure and past-performance disclaimer.') ?></span>
                         </div>
                         <div class="compliance-breakdown-item">
-                            <span class="compliance-breakdown-label">Compliance Analysis:</span>
+                            <span class="compliance-breakdown-label">Compliance<br>Analysis:</span>
                             <span class="compliance-breakdown-val"><?= esc_html($chk3['analysis'] ?? $chk3['reason'] ?? 'Audited against MAS Guidelines on Standards of Conduct Section 5.2.') ?></span>
                         </div>
                     </div>
@@ -1960,42 +1938,25 @@ if (!function_exists('pcs_render_score_status_icon')) {
                 <div class="band-source-col">
                     <div class="band-section-subhead">Source &amp; Rule</div>
                     <div>
-                        <div class="source-name-title"><?= esc_html($chk3['doc_name'] ?? $chk3['source_title'] ?? 'MAS Advertising Guidelines 2023') ?></div>
-                        <div class="source-status-sub" style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
-                            <span style="background: #e2e8f0; color: #334155; padding: 1px 6px; border-radius: 3px; font-weight: 700; font-size: 11px;">Page <?= esc_html($chk3['page_number'] ?? 14) ?></span>
-                            <span style="color: #64748B; font-size: 11.5px;">· <?= esc_html($chk3['section'] ?? $chk3['source_sub'] ?? 'Section 5.2(b)') ?></span>
+                        <div class="source-name-title"><?= esc_html($chk3['doc_name'] ?? $chk3['source_title'] ?? 'MAS Guidelines on Standards of Conduct for Marketing of Financial Products') ?></div>
+                        <div style="margin-top: 6px;">
+                            <span style="background: #e2e8f0; color: #1e293b; padding: 2px 7px; border-radius: 4px; font-weight: 700; font-size: 11px; display: inline-block;">Page <?= esc_html($chk3['page_number'] ?? 14) ?></span>
+                        </div>
+                        <div style="color: #64748B; font-size: 11.5px; line-height: 16px; margin-top: 4px;">
+                            <?= esc_html($chk3['section'] ?? $chk3['source_sub'] ?? 'Section 5.2(b) - Fair and Balanced Representation of Risks and Returns') ?>
                         </div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
-                        <button type="button" class="source-link-btn" onclick="openGuidelineQuickModal(
-                            '<?= esc_js($chk3['doc_name'] ?? $chk3['source_title'] ?? 'MAS Advertising Guidelines 2023') ?>',
-                            '<?= esc_js($chk3['source_quote'] ?? '') ?>',
-                            '<?= esc_js($chk3['reason'] ?? '') ?>',
-                            '<?= esc_js($chk3['source_url'] ?? '') ?>',
-                            '<?= esc_js($chk3['doc_name'] ?? $chk3['source_doc_name'] ?? 'MAS Advertising Guidelines 2023') ?>',
-                            '<?= (int)($chk3['score'] ?? 25) ?>',
-                            '<?= esc_js($chk3['section'] ?? 'Section 5.2(b)') ?>',
-                            <?= (int)($chk3['page_number'] ?? 14) ?>,
-                            <?= json_encode($chk3['page_context'] ?? '') ?>
-                        )" style="background: none; border: none; cursor: pointer; padding: 0;">
-                            <span>View source</span>
-                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                                <path d="M7.10208 5.25H0V4.08333H7.10208L3.83542 0.816667L4.66667 0L9.33333 4.66667L4.66667 9.33333L3.83542 8.51667L7.10208 5.25Z" fill="#4F57A7"/>
-                            </svg>
-                        </button>
+                    <div style="display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px;">
+                        <span style="color: #64748B; font-weight: 500;">View source</span>
                         <?php if (!empty($chk3['source_url']) && $chk3['source_url'] !== 'javascript:void(0);'): ?>
-                            <a href="<?= esc_url($chk3['source_url']) ?>" target="_blank" title="Open PDF Page" style="color: #0284c7; font-size: 11.5px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 3px;">
+                            <a href="<?= esc_url($chk3['source_url']) ?>" target="_blank" title="Open PDF Page" style="color: #0284c7; font-size: 12px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 3px;">
                                 <span>(PDF Page <?= esc_html($chk3['page_number'] ?? 14) ?>)</span>
                                 <span>↗</span>
                             </a>
                         <?php endif; ?>
                     </div>
                 </div>
-                        <?php if (!empty($chk3['source_url']) && $chk3['source_url'] !== 'javascript:void(0);'): ?>
-                            <a href="<?= esc_url($chk3['source_url']) ?>" target="_blank" title="Download Document" style="color: #64748B; font-size: 11px; text-decoration: underline;">(PDF)</a>
-                        <?php endif; ?>
-                    </div>
-                </div>
+            </div>
             </div>
         </section>
 
@@ -2605,8 +2566,6 @@ if (!function_exists('pcs_render_score_status_icon')) {
             }
         }
 
-            if (m) m.style.display = 'flex';
-        }
         function closeGuidelineModal() {
             var m = document.getElementById('guidelineModal');
             if (m) m.style.display = 'none';

@@ -93,20 +93,34 @@ $uploadedTime = $version['uploaded_time'] ?? 'Uploaded just now';
 $fileName     = $version['file_name'] ?? 'asset-artwork.png';
 $fileExt      = $version['file_ext'] ?? 'PNG';
 
-// Đảm bảo cập nhật version sang in_review ngay khi AI hoàn tất để chuyển giao cho Checker
+// Đảm bảo cập nhật version sang in_review ngay lập tức và sinh kết quả AI nếu chưa có (chuyển giao chắc chắn cho Checker)
 if ($versionId > 0 && pcs_is_wp()) {
-    $curSt = get_post_meta($versionId, '_status', true);
-    if ($curSt === 'draft' || $curSt === 'scoring' || empty($curSt)) {
-        if (function_exists('pcs_server_meta')) {
-            pcs_server_meta($versionId, '_status', 'in_review');
-            if ($assetId > 0) {
-                pcs_server_meta($assetId, '_current_version_id', $versionId);
-            }
-        } else {
-            update_post_meta($versionId, '_status', 'in_review');
-            if ($assetId > 0) {
-                update_post_meta($assetId, '_current_version_id', $versionId);
-            }
+    if (function_exists('pcs_server_meta')) {
+        pcs_server_meta($versionId, '_status', 'in_review');
+        if ($assetId > 0) {
+            pcs_server_meta($assetId, '_current_version_id', $versionId);
+        }
+    } else {
+        update_post_meta($versionId, '_status', 'in_review');
+        if ($assetId > 0) {
+            update_post_meta($assetId, '_current_version_id', $versionId);
+        }
+    }
+
+    // Kiểm tra nếu chưa có bản ghi check_result trong CPT thì chạy AI scoring lưu database ngay lập tức
+    $existing_checks = get_posts([
+        'post_type'   => 'check_result',
+        'post_status' => ['publish', 'any'],
+        'numberposts' => 1,
+        'meta_key'    => '_version_id',
+        'meta_value'  => (string) $versionId
+    ]);
+
+    if (empty($existing_checks)) {
+        if (function_exists('pcs_run_ai_scoring_for_version')) {
+            pcs_run_ai_scoring_for_version($versionId);
+        } elseif (function_exists('pcs_execute_ai_scoring')) {
+            pcs_execute_ai_scoring($versionId, $assetId);
         }
     }
 }

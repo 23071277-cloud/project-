@@ -2823,6 +2823,14 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
             update_post_meta($asset_id, '_current_version_id', $version_id);
         }
 
+        // Đẩy thêm vào Action Scheduler Background Queue để đảm bảo tính dự phòng
+        if (function_exists('as_enqueue_async_action')) {
+            as_enqueue_async_action('pcs_background_ai_scoring_job', [
+                'version_id' => $version_id,
+                'asset_id'   => $asset_id
+            ]);
+        }
+
         // Lấy thông tin phiên bản trước đó nếu có
         $prev_ver = !empty($existing_vers) ? end($existing_vers) : null;
         $prev_status = $prev_ver ? (get_post_meta($prev_ver->ID, '_status', true) ?: 'draft') : '';
