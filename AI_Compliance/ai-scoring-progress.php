@@ -163,6 +163,15 @@ if ($versionId > 0 && pcs_is_wp()) {
     }
 }
 
+$isCompletedAlready = false;
+if ($versionId > 0 && pcs_is_wp()) {
+    $cur_vst = get_post_meta($versionId, '_status', true);
+    $ai_done = (int) get_post_meta($versionId, '_ai_completed', true);
+    if ($ai_done === 1 || $cur_vst === 'in_review') {
+        $isCompletedAlready = true;
+    }
+}
+
 // 3 bước kiểm tra tuần tự trong pipeline (khởi tạo động: bước 1 Processing, 2 & 3 Queued)
 $checks = [
     [
@@ -1450,6 +1459,18 @@ $fileUrl      = $version['file_url'] ?? '';
             <span class="context-item-muted" style="color: rgba(70, 70, 81, 0.85);"><?= esc_html($uploadedTime) ?></span>
         </div>
 
+        <!-- Small clear success notice line requested by user -->
+        <div id="aiCompleteNoticeLine" style="<?= $isCompletedAlready ? 'display: flex;' : 'display: none;' ?> margin-bottom: 24px; padding: 12px 18px; border-radius: 8px; background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46; font-size: 13.5px; font-weight: 700; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 1px 3px rgba(16, 185, 129, 0.1);">
+            <div style="display: inline-flex; align-items: center; gap: 10px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>AI compliance scan completed successfully. Ready for review.</span>
+            </div>
+            <a href="<?= esc_url($nextUrl) ?>" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 6px; background: #059669; color: #ffffff; text-decoration: none; font-size: 12.5px; font-weight: 600;">
+                <span>View Asset Details</span>
+                <span>→</span>
+            </a>
+        </div>
+
         <!-- 03. ASSET PROCESSING STAGE (70% / 30% SPLIT) -->
         <section class="processing-stage-grid">
             
@@ -1782,12 +1803,6 @@ $fileUrl      = $version['file_url'] ?? '';
                         <span>Return to Campaign</span>
                         <span>→</span>
                     </a>
-                </div>
-
-                <!-- Small clear success notice line requested by user -->
-                <div id="aiCompleteNoticeLine" style="display: none; margin-top: 12px; padding: 10px 14px; border-radius: 6px; background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46; font-size: 13px; font-weight: 700; align-items: center; justify-content: center; gap: 8px;">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    <span>AI compliance scan completed successfully. Ready for review.</span>
                 </div>
             </div>
         </section>

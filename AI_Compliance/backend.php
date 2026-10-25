@@ -36,19 +36,6 @@ if (pcs_is_wp()) {
     }
 }
 
-// =========================================================================
-// REALTIME CROSS-ROLE DATA SYNC HEARTBEAT & SYNC VERSIONING
-// =========================================================================
-if (isset($_GET['action']) && $_GET['action'] === 'pcs_sync_heartbeat') {
-    if (ob_get_length()) ob_clean();
-    header('Content-Type: application/json; charset=utf-8');
-    header('Cache-Control: no-cache, no-store, must-revalidate');
-    $last_ts = function_exists('get_option') ? (int) get_option('pcs_last_sync_ts', 0) : 0;
-    if ($last_ts <= 0) $last_ts = time();
-    echo json_encode(['last_sync' => $last_ts, 'time' => time(), 'status' => 'ok']);
-    exit;
-}
-
 // Synchronous notification read on arrival (when user clicks any notification link)
 if (!empty($_REQUEST['notif_read'])) {
     $nr_id = (int) $_REQUEST['notif_read'];
@@ -179,7 +166,7 @@ if (function_exists('add_action')) {
 
 if (!function_exists('pcs_bump_sync_version')) {
     function pcs_bump_sync_version() {
-        $ts = time();
+        $ts = (float) round(microtime(true) * 1000);
         if (function_exists('update_option')) {
             update_option('pcs_last_sync_ts', $ts, false);
         }
@@ -188,10 +175,10 @@ if (!function_exists('pcs_bump_sync_version')) {
 if (!function_exists('pcs_get_sync_version')) {
     function pcs_get_sync_version() {
         if (function_exists('get_option')) {
-            $ts = (int) get_option('pcs_last_sync_ts', 0);
+            $ts = (float) get_option('pcs_last_sync_ts', 0);
             if ($ts > 0) return $ts;
         }
-        return time();
+        return (float) round(microtime(true) * 1000);
     }
 }
 
@@ -2806,7 +2793,7 @@ function pcs_transition_version_to_in_review($version_id, $asset_id = 0) {
 }
 }
 
-if (!has_action('pcs_background_ai_scoring_job')) {
+if (function_exists('has_action') && !has_action('pcs_background_ai_scoring_job') && function_exists('add_action')) {
     add_action('pcs_background_ai_scoring_job', function($version_id, $asset_id) {
         if (function_exists('pcs_transition_version_to_in_review')) {
             pcs_transition_version_to_in_review($version_id, $asset_id);
@@ -8338,6 +8325,74 @@ if (!function_exists('get_ai_scoring_screen_data')) {
         return $res['checks'] ?? [];
     }
 }
+
+/**
+ * --------------------------------------------------------------------------
+ * 27. Cross-Role Realtime Sync Heartbeat Handler (Live Data Sync Without Reload)
+ * --------------------------------------------------------------------------
+ */
+if (!function_exists('pcs_handle_sync_heartbeat')) {
+    function pcs_handle_sync_heartbeat() {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+
+        $last_ts = function_exists('get_option') ? (float) get_option('pcs_last_sync_ts', 0) : 0;
+        if ($last_ts <= 0) {
+            $last_ts = round(microtime(true) * 1000);
+        }
+
+        $currentUser = function_exists('get_current_user_profile') ? get_current_user_profile() : null;
+        $role = strtoupper($currentUser['role'] ?? 'MAKER');
+        $uid  = (int) ($currentUser['id'] ?? 0);
+
+        // Retrieve real-time KPI counts for active role
+        $kpis = [];
+        if ($role === 'ADMIN') {
+            $kpis = function_exists('get_admin_kpis') ? get_admin_kpis() : [];
+        } elseif ($role === 'CHECKER') {
+            $kpis = function_exists('get_checker_kpis') ? get_checker_kpis() : [];
+        } else {
+            $kpis = function_exists('get_maker_kpis') ? get_maker_kpis($uid) : [];
+        }
+
+        $unread_notifs = ($uid > 0 && function_exists('pcs_get_unread_notifications_count')) 
+            ? pcs_get_unread_notifications_count($uid) 
+            : 0;
+
+        echo json_encode([
+            'status'        => 'ok',
+            'last_sync'     => $last_ts,
+            'time'          => time(),
+            'role'          => $role,
+            'kpis'          => [
+                'draft'     => (int) ($kpis['draft'] ?? 0),
+                'scoring'   => (int) ($kpis['scoring'] ?? 0),
+                'in_review' => (int) ($kpis['in_review'] ?? 0),
+                'rejected'  => (int) ($kpis['rejected'] ?? 0),
+                'approved'  => (int) ($kpis['approved'] ?? ($kpis['awaiting_release'] ?? 0)),
+                'released'  => (int) ($kpis['released'] ?? 0),
+                'total'     => (int) ($kpis['total'] ?? 0),
+            ],
+            'unread_notifs' => $unread_notifs
+        ]);
+        exit;
+    }
+}
+
+if ((isset($_GET['action']) && $_GET['action'] === 'pcs_sync_heartbeat') ||
+    (isset($_POST['action']) && $_POST['action'] === 'pcs_sync_heartbeat')) {
+    pcs_handle_sync_heartbeat();
+}
+
+if (function_exists('add_action')) {
+    add_action('wp_ajax_pcs_sync_heartbeat', 'pcs_handle_sync_heartbeat');
+    add_action('wp_ajax_nopriv_pcs_sync_heartbeat', 'pcs_handle_sync_heartbeat');
+}
+
 
 
 

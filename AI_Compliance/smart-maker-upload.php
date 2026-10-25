@@ -80,6 +80,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action']) && 
     if (function_exists('handle_upload_asset_version')) {
         $res = handle_upload_asset_version($targetCamp, $targetAsset, $uploadedFileName, $versionNotes);
         $uploadedVersionId = (int)$res;
+        if (function_exists('pcs_bump_sync_version')) {
+            pcs_bump_sync_version();
+        }
         if ($uploadedVersionId > 0) {
             $scoringBaseUrl = function_exists('pcs_url') ? pcs_url('ai-scoring-progress.php') : 'ai-scoring-progress.php';
             $sep = (strpos($scoringBaseUrl, '?') !== false) ? '&' : '?';

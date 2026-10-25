@@ -1619,29 +1619,125 @@ window.addEventListener('click', function(e) {
 <!-- Realtime Cross-Role Data Sync Client -->
 <script id="pcs-realtime-sync-script">
 (function() {
-    var lastKnownSync = <?= (int) (function_exists('pcs_get_sync_version') ? pcs_get_sync_version() : time()) ?>;
+    var lastKnownSync = <?= (float) (function_exists('pcs_get_sync_version') ? pcs_get_sync_version() : round(microtime(true) * 1000)) ?>;
     var isChecking = false;
     var lastCheckTime = Date.now();
+    var isScoringPage = window.location.pathname.indexOf('ai-scoring') !== -1;
 
-    function checkSyncState(forceReload) {
-        if (isChecking) return;
+    function pulseElement(el) {
+        if (!el) return;
+        el.style.transition = 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease';
+        el.style.transform = 'scale(1.18)';
+        el.style.boxShadow = '0 0 12px rgba(79, 87, 167, 0.4)';
+        setTimeout(function() {
+            el.style.transform = 'scale(1)';
+            el.style.boxShadow = '';
+        }, 350);
+    }
+
+    function updateKpiBox(selector, newVal) {
+        if (typeof newVal === 'undefined' || newVal === null) return;
+        var el = document.querySelector(selector);
+        if (el) {
+            var curVal = parseInt(el.textContent.trim(), 10);
+            if (!isNaN(curVal) && curVal !== newVal) {
+                el.textContent = newVal;
+                pulseElement(el);
+            } else if (isNaN(curVal)) {
+                el.textContent = newVal;
+            }
+        }
+    }
+
+    function updateKpisInPlace(kpis) {
+        if (!kpis) return;
+        updateKpiBox('.kpi-icon-box.status-draft', kpis.draft);
+        updateKpiBox('.kpi-icon-box.status-scoring', kpis.scoring);
+        updateKpiBox('.kpi-icon-box.status-in-review', kpis.in_review);
+        updateKpiBox('.kpi-icon-box.status-rejected', kpis.rejected);
+        updateKpiBox('.kpi-icon-box.status-approved', kpis.approved);
+        updateKpiBox('.kpi-icon-box.status-released', kpis.released);
+    }
+
+    function refreshPageContentInPlace() {
+        if (isScoringPage) return; // Do not reload DOM while scoring is actively scanning
+
         var activeEl = document.activeElement;
         var isEditing = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable);
-        if (isEditing && !forceReload) return;
+        var isModalOpen = !!document.querySelector('.modal-overlay[style*="display: flex"], .modal-overlay.active, .modal-window:not([style*="display: none"])');
+        if (isEditing || isModalOpen) return;
 
+        var fetchUrl = window.location.href;
+        fetch(fetchUrl, { cache: 'no-store' })
+            .then(function(res) { return res.text(); })
+            .then(function(html) {
+                var parser = new DOMParser();
+                var doc = parser.parseFromString(html, 'text/html');
+
+                // 1. Update KPI section if present
+                var newKpi = doc.querySelector('.kpi-metrics-bar');
+                var curKpi = document.querySelector('.kpi-metrics-bar');
+                if (newKpi && curKpi) {
+                    curKpi.innerHTML = newKpi.innerHTML;
+                }
+
+                // 2. Update workspace main grid & queue tables smoothly
+                var newMain = doc.querySelector('main');
+                var curMain = document.querySelector('main');
+                if (newMain && curMain) {
+                    var wasCheckerExpanded = curMain.querySelector('.workspace-grid') && curMain.querySelector('.workspace-grid').classList.contains('campaigns-expanded');
+                    curMain.innerHTML = newMain.innerHTML;
+                    if (wasCheckerExpanded) {
+                        var newGrid = curMain.querySelector('.workspace-grid');
+                        if (newGrid) newGrid.classList.add('campaigns-expanded');
+                    }
+                }
+
+                // 3. Update top navbar notification badge if changed
+                var newNotifBadge = doc.querySelector('#unavNotifBadge');
+                var curNotifBadge = document.querySelector('#unavNotifBadge');
+                if (newNotifBadge && curNotifBadge) {
+                    curNotifBadge.textContent = newNotifBadge.textContent;
+                    curNotifBadge.style.display = newNotifBadge.style.display;
+                }
+            })
+            .catch(function(err) {});
+    }
+
+    function checkSyncState(forceUpdate) {
+        if (isChecking) return;
         isChecking = true;
+
         var checkUrl = window.location.pathname + '?action=pcs_sync_heartbeat&t=' + Date.now();
         fetch(checkUrl, { cache: 'no-store' })
             .then(function(res) { return res.json(); })
             .then(function(data) {
                 isChecking = false;
                 lastCheckTime = Date.now();
-                if (data && data.last_sync && data.last_sync > lastKnownSync) {
+                if (!data) return;
+
+                // Live KPI update directly from heartbeat without page reload
+                if (data.kpis) {
+                    updateKpisInPlace(data.kpis);
+                }
+
+                // Unread notifications badge live update
+                if (typeof data.unread_notifs !== 'undefined') {
+                    var curBadge = document.getElementById('unavNotifBadge');
+                    if (curBadge) {
+                        if (data.unread_notifs > 0) {
+                            curBadge.textContent = data.unread_notifs > 99 ? '99+' : data.unread_notifs;
+                            curBadge.style.display = 'inline-flex';
+                        } else {
+                            curBadge.style.display = 'none';
+                        }
+                    }
+                }
+
+                // If cross-role sync version has bumped (e.g. Maker uploaded or AI completed)
+                if (data.last_sync && data.last_sync > lastKnownSync) {
                     lastKnownSync = data.last_sync;
-                    showSyncToast();
-                    setTimeout(function() {
-                        window.location.reload();
-                    }, 500);
+                    refreshPageContentInPlace();
                 }
             })
             .catch(function() {
@@ -1649,32 +1745,28 @@ window.addEventListener('click', function(e) {
             });
     }
 
-    function showSyncToast() {
-        if (document.getElementById('pcs-sync-toast')) return;
-        var toast = document.createElement('div');
-        toast.id = 'pcs-sync-toast';
-        toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#18224B;color:#ffffff;padding:10px 18px;border-radius:8px;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:0 10px 25px rgba(0,0,0,0.15);z-index:999999;transition:all 0.3s ease;';
-        toast.innerHTML = '<span style="width:8px;height:8px;background:#10B981;border-radius:50%;display:inline-block;"></span> Updating live data...';
-        document.body.appendChild(toast);
-    }
-
     // 1. Tự động kiểm tra ngay khi chuyển đổi tab / role (tab active trở lại)
     document.addEventListener('visibilitychange', function() {
         if (document.visibilityState === 'visible') {
-            checkSyncState(false);
+            checkSyncState(true);
         }
     });
 
     // 2. Kiểm tra khi cửa sổ nhận focus
     window.addEventListener('focus', function() {
-        if (Date.now() - lastCheckTime > 3000) {
+        if (Date.now() - lastCheckTime > 1500) {
             checkSyncState(false);
         }
     });
 
-    // 3. Heartbeat ngầm định kỳ mỗi 12 giây
+    // 3. Heartbeat ngầm định kỳ mỗi 2.5 giây (Realtime cross-role sync without reload)
     setInterval(function() {
         checkSyncState(false);
-    }, 12000);
+    }, 2500);
+
+    // Initial check shortly after page load
+    setTimeout(function() {
+        checkSyncState(false);
+    }, 800);
 })();
 </script>
