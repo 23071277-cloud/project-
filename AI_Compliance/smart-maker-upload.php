@@ -1495,7 +1495,7 @@ endif;
             if (btn) {
                 btn.style.pointerEvents = 'none';
                 btn.style.opacity = '0.85';
-                btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="animation: spin 1s infinite linear; display: inline-block;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> <span>Uploading & Initializing AI Check...</span>';
+                btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="animation: spin 1s infinite linear; display: inline-block;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> <span>Opening AI Progress...</span>';
             }
 
             const formData = new FormData(form);

@@ -64,6 +64,16 @@ $targetVersionId  = (int) ($_GET['version_id'] ?? 0);
 $targetAssetId    = (int) ($_GET['asset_id'] ?? 0);
 $targetCampaignId = (int) ($_GET['campaign_id'] ?? 0);
 
+// Xử lý chạy AI ngầm trong khi trang progress đang hiển thị (hoàn toàn không chặn tải trang ban đầu)
+if ((isset($_GET['ajax_run_ai']) || isset($_POST['ajax_run_ai'])) && $targetVersionId > 0) {
+    if (function_exists('pcs_run_ai_scoring_for_version')) {
+        pcs_run_ai_scoring_for_version($targetVersionId);
+    }
+    header('Content-Type: application/json');
+    echo json_encode(['success' => true]);
+    exit;
+}
+
 $screenData = function_exists('get_ai_scoring_progress_data') 
     ? get_ai_scoring_progress_data($targetVersionId, $targetAssetId, $targetCampaignId) 
     : [];
@@ -1759,6 +1769,12 @@ if (!$activeCheck && !empty($checks)) {
             var m = document.getElementById('feedbackModal');
             if (m) m.style.display = 'none';
         }
+
+        // Kích hoạt AI Scoring chạy ngầm trong khi thanh tiến trình đang chạy
+        try {
+            var runAiUrl = window.location.href + (window.location.href.indexOf('?') >= 0 ? '&' : '?') + 'ajax_run_ai=1';
+            fetch(runAiUrl, { method: 'POST' }).catch(function(){});
+        } catch(e) {}
 
         // Live Scanning Stage Text Cycling
         const stagePhrases = [

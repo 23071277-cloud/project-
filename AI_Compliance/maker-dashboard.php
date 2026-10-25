@@ -1689,104 +1689,7 @@ unset($camp);
                                         </td>
                                     </tr>
 
-                                    <!-- ASSET LINE ITEMS DROPDOWN -->
-                                    <tr id="details-row-<?= $camp['id'] ?>" class="details-row-container" data-camp-id="<?= $camp['id'] ?>" style="<?= $camp['expanded'] ? '' : 'display: none;' ?>">
-                                        <td colspan="5" style="padding: 0 0 16px 0;">
-                                            <div class="expanded-details-container">
-                                                <div class="details-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                                                    <span class="details-title">ASSET LINE ITEMS</span>
-                                                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                                        <?php 
-                                                        $gList = !empty($camp['guideline_files']) ? $camp['guideline_files'] : (!empty($camp['guidelines']) ? $camp['guidelines'] : []);
-                                                        if (empty($gList) && !empty($camp['guideline_file_url'])) {
-                                                            $gList = [['id' => 1, 'name' => basename($camp['guideline_file_url']), 'url' => $camp['guideline_file_url']]];
-                                                        }
-                                                        ?>
-                                                        <?php if (!empty($gList)): ?>
-                                                            <?php foreach ($gList as $gFile): ?>
-                                                                <a href="<?= esc_url($gFile['url']) ?>" target="_blank" class="guideline-tag" style="background: #EEF2FF; color: #4F56A6; border: 1px solid #C7D2FE; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; font-weight: 600;" title="<?= esc_attr($gFile['name']) ?>">
-                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                                                                    <span><?= esc_html($gFile['name']) ?></span>
-                                                                </a>
-                                                            <?php endforeach; ?>
-                                                        <?php else: ?>
-                                                            <span class="guideline-tag">Guidelines · 0 files</span>
-                                                        <?php endif; ?>
-                                                        <button type="button" class="btn-table-action" style="padding: 4px 10px; font-size: 11.5px; border-radius: 6px;" onclick="openUploadGuidelineModal(<?= $camp['id'] ?>, '<?= esc_js($camp['name']) ?>', <?= esc_attr(json_encode($gList)) ?>)">
-                                                            Manage Guidelines
-                                                        </button>
-                                                        <a href="<?= esc_url(pcs_url('detail-asset-maker.php') . '?campaign_id=' . $camp['id']) ?>" class="btn-table-action" style="padding: 4px 10px; font-size: 11.5px; border-radius: 6px; background: #4E56A6; color: white; text-decoration: none;">
-                                                            View Campaign Details →
-                                                        </a>
-                                                    </div>
-                                                </div>
 
-                                                <?php if (!empty($camp['assets'])): ?>
-                                                    <?php foreach ($camp['assets'] as $asset): ?>
-                                                        <div class="asset-item-row" style="flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 16px; border-bottom: 1px solid #F1F5F9;">
-                                                            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-                                                                <div class="asset-item-left" style="display: flex; align-items: center; gap: 10px;">
-                                                                    <a href="<?= esc_url(pcs_url('detail-asset-maker.php') . '?campaign_id=' . (int)$camp['id'] . '&asset_id=' . (int)$asset['id']) ?>" class="asset-name" style="font-weight: 700; color: #1E293B; text-decoration: none;" onmouseover="this.style.color='#4F56A6'" onmouseout="this.style.color='#1E293B'" title="View Asset Detail">
-                                                                        <?= htmlspecialchars($asset['name']) ?>
-                                                                    </a>
-                                                                    <span class="status-pill-small <?= $asset['badge_type'] ?>"><?= htmlspecialchars($asset['version_raw'] ?? $asset['version']) ?></span>
-                                                                    <?= function_exists('pcs_format_status_badge') ? pcs_format_status_badge($asset['status']) : '' ?>
-                                                                    <span class="asset-next-step" style="font-size: 12px; color: #64748B;"><?= htmlspecialchars($asset['next_step']) ?></span>
-                                                                </div>
-                                                                <div class="asset-actions" style="display: flex; align-items: center; gap: 8px;">
-                                                                    <?php if ($asset['status'] === 'rejected'): ?>
-                                                                        <a href="<?= esc_url(pcs_url('smart-maker-upload.php') . '?campaign_id=' . (int)$camp['id'] . '&asset_id=' . (int)$asset['id'] . '&mode=new_version') ?>" class="btn-asset-solid" style="background: #4F56A6; color: #FFF; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center;">
-                                                                            Upload V<?= (int)$asset['current_version_num'] + 1 ?>
-                                                                        </a>
-                                                                    <?php elseif ($asset['status'] === 'draft'): ?>
-                                                                        <a href="<?= esc_url(pcs_url('smart-maker-upload.php') . '?campaign_id=' . (int)$camp['id'] . '&asset_id=' . (int)$asset['id'] . '&mode=new_version') ?>" class="btn-asset-solid" style="text-decoration: none; display: inline-flex; align-items: center;">
-                                                                            Upload Artwork
-                                                                        </a>
-                                                                    <?php endif; ?>
-
-                                                                    <button type="button" class="btn-asset-outline" onclick="openEditAssetModal(<?= (int)$asset['id'] ?>, '<?= esc_js($asset['name']) ?>', '<?= esc_js($asset['type'] ?? $asset['format'] ?? 'Digital Banner') ?>', '<?= esc_js($camp['name']) ?>')" style="display: inline-flex; align-items: center; gap: 4px;">
-                                                                        <span>Edit</span>
-                                                                    </button>
-
-                                                                    <?php if (!empty($asset['file_url'])): ?>
-                                                                        <a href="<?= esc_url($asset['file_url']) ?>" target="_blank" class="btn-asset-outline" style="text-decoration: none; display: inline-flex; align-items: center;">View File</a>
-                                                                    <?php endif; ?>
-
-                                                                    <?php if (!empty($asset['id']) && (int)($asset['current_version_num'] ?? 1) > 1): ?>
-                                                                        <?php 
-                                                                        $mCompUrl = (function_exists('pcs_url') ? pcs_url('compare-version.php') : 'compare-version.php') . '?' . http_build_query([
-                                                                            'asset_id'    => (int)$asset['id'],
-                                                                            'campaign_id' => (int)$camp['id'],
-                                                                            'from'        => 'maker'
-                                                                        ]);
-                                                                        ?>
-                                                                        <a href="<?= esc_url($mCompUrl) ?>" class="btn-asset-outline" style="text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
-                                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
-                                                                            <span>Compare</span>
-                                                                        </a>
-                                                                    <?php endif; ?>
-                                                                </div>
-                                                            </div>
-
-                                                            <?php if ($asset['status'] === 'rejected' && !empty($asset['review_note'])): ?>
-                                                                <div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #991B1B; display: flex; align-items: flex-start; gap: 8px;">
-                                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#991B1B" stroke-width="2" style="flex-shrink: 0; margin-top: 2px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                                                                    <div>
-                                                                        <strong style="color: #7F1D1D;">Checker Feedback:</strong> <?= htmlspecialchars($asset['review_note']) ?>
-                                                                    </div>
-                                                                </div>
-                                                            <?php endif; ?>
-                                                        </div>
-                                                    <?php endforeach; ?>
-                                                <?php else: ?>
-                                                    <div style="padding: 24px; text-align: center; color: #64748B; font-size: 13px;">
-                                                        No assets uploaded yet under this campaign. 
-                                                        <a href="<?= esc_url(pcs_url('smart-maker-upload.php') . '?campaign_id=' . $camp['id'] . '&mode=new_asset') ?>" style="color: #4F56A6; font-weight: 700; text-decoration: underline; margin-left: 6px;">+ Upload First Asset</a>
-                                                    </div>
-                                                <?php endif; ?>
-                                            </div>
-                                        </td>
-                                    </tr>
 
                                 <?php endforeach; ?>
                             <?php else: ?>
@@ -1881,16 +1784,6 @@ unset($camp);
             }
         });
 
-        // 2. Toggle Asset Line Items
-        function toggleDetails(rowId, btn) {
-            const row = document.getElementById('details-row-' + rowId);
-            if (row) {
-                const isHidden = row.style.display === 'none';
-                row.style.display = isHidden ? '' : 'none';
-                btn.innerText = isHidden ? 'Close' : 'Open';
-            }
-        }
-
         // 3. Filter Pills (All / Action Required / Awaiting Review)
         function filterCampaigns(group, btn) {
             document.querySelectorAll('.filter-pills .pill-btn').forEach(b => b.classList.remove('active'));
@@ -1898,8 +1791,6 @@ unset($camp);
 
             const rows = document.querySelectorAll('.campaign-row');
             rows.forEach(r => {
-                const campId = r.getAttribute('data-camp-id');
-                const detailsRow = document.getElementById('details-row-' + campId);
                 const hasAction = r.getAttribute('data-action-required') === '1';
                 const hasAwaiting = r.getAttribute('data-awaiting-review') === '1';
 
@@ -1912,14 +1803,7 @@ unset($camp);
                     show = hasAwaiting;
                 }
 
-                if (show) {
-                    r.style.display = '';
-                } else {
-                    r.style.display = 'none';
-                    if (detailsRow) {
-                        detailsRow.style.display = 'none';
-                    }
-                }
+                r.style.display = show ? '' : 'none';
             });
         }
 
