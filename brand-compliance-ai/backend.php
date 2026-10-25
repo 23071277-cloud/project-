@@ -1,7 +1,8 @@
 <?php
 /**
- * Plugin Name: AI Compliance Backend & Database Layer
+ * Module: AI Compliance Backend & Database Layer
  * Description: Cầu nối lưu trữ kết quả chấm điểm AI vào CPT check_result, trích xuất dữ liệu trang luật (regulatory_reference) và chuẩn bị dữ liệu hiển thị cho màn hình Maker-Checker.
+ * Part of: Brand Compliance AI Platform
  * Version: 2.5.0
  * Author: Brand Compliance AI Team
  */

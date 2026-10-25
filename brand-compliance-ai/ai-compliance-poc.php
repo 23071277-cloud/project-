@@ -1,13 +1,11 @@
 <?php
 /**
- * Plugin Name: AI Compliance Real Engine - Member 3
- * Plugin URI: https://example.com/ai-compliance-poc
+ * Module: AI Compliance Real Engine - Member 3
  * Description: Engine kiểm tra vi phạm quy chuẩn MAS Singapore & Brand Guidelines, hỗ trợ cả Google Gemini Vision API thực tế và Heuristic Mock Engine dự phòng đạt chuẩn quốc tế.
+ * Part of: Brand Compliance AI Platform
  * Version: 2.5.0
  * Author: Member 3 (Brand Compliance AI Team)
- * Author URI: https://example.com
  * License: GPL-2.0+
- * Text Domain: ai-compliance-poc
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
