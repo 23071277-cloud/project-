@@ -74,6 +74,30 @@ if ((isset($_GET['ajax_run_ai']) || isset($_POST['ajax_run_ai'])) && $targetVers
     exit;
 }
 
+// Xử lý hoàn tất AI scoring và chuyển trạng thái sang in_review (đồng bộ chắc chắn cho Checker)
+if ((isset($_GET['action']) && $_GET['action'] === 'complete_scoring') || 
+    (isset($_POST['action']) && $_POST['action'] === 'complete_scoring')) {
+    $vId = (int)($_REQUEST['version_id'] ?? $targetVersionId);
+    $aId = (int)($_REQUEST['asset_id'] ?? $targetAssetId);
+    if ($vId > 0 && function_exists('pcs_transition_version_to_in_review')) {
+        pcs_transition_version_to_in_review($vId, $aId);
+    } elseif ($vId > 0 && pcs_is_wp()) {
+        update_post_meta($vId, '_status', 'in_review');
+        if (function_exists('pcs_server_meta')) {
+            pcs_server_meta($vId, '_status', 'in_review');
+        }
+        if ($aId > 0) {
+            update_post_meta($aId, '_current_version_id', $vId);
+            if (function_exists('pcs_server_meta')) {
+                pcs_server_meta($aId, '_current_version_id', $vId);
+            }
+        }
+    }
+    header('Content-Type: application/json');
+    echo json_encode(['success' => true, 'status' => 'in_review']);
+    exit;
+}
+
 $screenData = function_exists('get_ai_scoring_progress_data') 
     ? get_ai_scoring_progress_data($targetVersionId, $targetAssetId, $targetCampaignId) 
     : [];
@@ -103,17 +127,19 @@ $uploadedTime = $version['uploaded_time'] ?? 'Uploaded just now';
 $fileName     = $version['file_name'] ?? 'asset-artwork.png';
 $fileExt      = $version['file_ext'] ?? 'PNG';
 
-// Đảm bảo cập nhật version sang in_review ngay lập tức và sinh kết quả AI nếu chưa có (chuyển giao chắc chắn cho Checker)
+// Trong quá trình AI đang quét chấm điểm, phiên bản duy trì trạng thái 'scoring' (không nhảy sang 'in_review')
 if ($versionId > 0 && pcs_is_wp()) {
-    if (function_exists('pcs_server_meta')) {
-        pcs_server_meta($versionId, '_status', 'in_review');
-        if ($assetId > 0) {
-            pcs_server_meta($assetId, '_current_version_id', $versionId);
+    $cur_st = get_post_meta($versionId, '_status', true);
+    if (empty($cur_st) || $cur_st === 'draft') {
+        update_post_meta($versionId, '_status', 'scoring');
+        if (function_exists('pcs_server_meta')) {
+            pcs_server_meta($versionId, '_status', 'scoring');
         }
-    } else {
-        update_post_meta($versionId, '_status', 'in_review');
-        if ($assetId > 0) {
-            update_post_meta($assetId, '_current_version_id', $versionId);
+    }
+    if ($assetId > 0) {
+        update_post_meta($assetId, '_current_version_id', $versionId);
+        if (function_exists('pcs_server_meta')) {
+            pcs_server_meta($assetId, '_current_version_id', $versionId);
         }
     }
 
@@ -1692,10 +1718,10 @@ if (!$activeCheck && !empty($checks)) {
                         <svg class="pulse-dot" width="14" height="14" viewBox="0 0 12 12" fill="none">
                             <path d="M0 12V10.5H2.0625L1.7625 10.2375C1.1125 9.6625 0.65625 9.00625 0.39375 8.26875C0.13125 7.53125 0 6.7875 0 6.0375C0 4.65 0.415625 3.41562 1.24688 2.33437C2.07812 1.25312 3.1625 0.5375 4.5 0.1875V1.7625C3.6 2.0875 2.875 2.64062 2.325 3.42188C1.775 4.20312 1.5 5.075 1.5 6.0375C1.5 6.6 1.60625 7.14687 1.81875 7.67812C2.03125 8.20938 2.3625 8.7 2.8125 9.15L3 9.3375V7.5H4.5V12H0ZM7.5 11.8125V10.2375C8.4 9.9125 9.125 9.35938 9.675 8.57812C10.225 7.79688 10.5 6.925 10.5 5.9625C10.5 5.4 10.3937 4.85313 10.1812 4.32188C9.96875 3.79063 9.6375 3.3 9.1875 2.85L9 2.6625V4.5H7.5V0H12V1.5H9.9375L10.2375 1.7625C10.85 2.375 11.2969 3.04063 11.5781 3.75938C11.8594 4.47813 12 5.2125 12 5.9625C12 7.35 11.5844 8.58437 10.7531 9.66562C9.92188 10.7469 8.8375 11.4625 7.5 11.8125Z" fill="#4F57A7"/>
                         </svg>
-                        <span>Submitting to Checker in ~<strong id="timerCountdown">4</strong> seconds</span>
+                        <span>Submitting to Checker in ~<strong id="timerCountdown">8</strong> seconds</span>
                     </div>
 
-                    <a href="<?= esc_url($nextUrl) ?>" class="btn-view-results-quick" id="btnViewResults">
+                    <a href="<?= esc_url($nextUrl) ?>" class="btn-view-results-quick" id="btnViewResults" onclick="if (typeof triggerCompleteScoring === 'function') triggerCompleteScoring();">
                         <span>Return to Campaign</span>
                         <span>→</span>
                     </a>
@@ -1795,10 +1821,18 @@ if (!$activeCheck && !empty($checks)) {
         }, 3200);
 
         // Countdown Timer & Dynamic Progression (Auto-redirect on finish)
-        let remainingSeconds = 4;
+        let remainingSeconds = 8;
+        const totalDuration = 8;
         const countdownEl = document.getElementById('timerCountdown');
         const progressBar = document.getElementById('mainProgressBar');
         const nextUrl = "<?= esc_js($nextUrl) ?>";
+        const completeUrl = window.location.href + (window.location.href.indexOf('?') !== -1 ? '&' : '?') + 'action=complete_scoring&version_id=<?= (int)$versionId ?>&asset_id=<?= (int)$assetId ?>';
+
+        function triggerCompleteScoring() {
+            try {
+                fetch(completeUrl, { method: 'POST', keepalive: true });
+            } catch (e) {}
+        }
 
         const countdownInterval = setInterval(function() {
             remainingSeconds--;
@@ -1808,13 +1842,16 @@ if (!$activeCheck && !empty($checks)) {
 
             // Animate progress bar slightly as timer proceeds
             if (progressBar && remainingSeconds >= 0) {
-                const calculatedPercent = 66.66 + ((4 - remainingSeconds) / 4) * 33.34;
+                const calculatedPercent = 66.66 + ((totalDuration - remainingSeconds) / totalDuration) * 33.34;
                 progressBar.style.width = Math.min(100, calculatedPercent) + '%';
             }
 
             if (remainingSeconds <= 0) {
                 clearInterval(countdownInterval);
                 
+                // Chuyển đổi trạng thái sang in_review trong database
+                triggerCompleteScoring();
+
                 // Update UI state to completed
                 var pLabel = document.getElementById('progressStateLabel');
                 if (pLabel) pLabel.textContent = 'Completed';
@@ -1838,18 +1875,28 @@ if (!$activeCheck && !empty($checks)) {
                     activeSegLabel.classList.add('segment-label-done');
                 }
 
+                var stageLbl = document.getElementById('scanningStageLabel');
+                if (stageLbl) {
+                    stageLbl.textContent = 'AI Compliance Checks Completed - Ready for Checker';
+                }
+
+                var countdownRow = document.querySelector('.nextstate-timer-group');
+                if (countdownRow) {
+                    countdownRow.innerHTML = '<span style="color: #059669; font-weight: 700;">AI scoring completed! Ready for review</span>';
+                }
+
                 var btn = document.getElementById('btnViewResults');
                 if (btn) {
                     btn.style.boxShadow = '0 0 16px rgba(79, 87, 167, 0.8)';
-                    btn.textContent = 'Redirecting to Results...';
+                    btn.textContent = 'AI Scoring Completed! Transitioning...';
                 }
 
-                // Tự động chuyển hướng sang trang kết quả
+                // Tự động chuyển hướng sang trang kết quả sau 1.2s để Maker nhìn rõ trạng thái hoàn tất
                 setTimeout(function() {
                     if (nextUrl) {
                         window.location.href = nextUrl;
                     }
-                }, 400);
+                }, 1200);
             }
         }, 1000);
 

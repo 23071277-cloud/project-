@@ -1879,6 +1879,22 @@ function get_all_campaigns($filter = 'all') {
                 $status      = get_post_meta($current_ver_id, '_status', true) ?: 'draft';
                 $file_url    = get_post_meta($current_ver_id, '_file_url', true);
                 $review_note = get_post_meta($current_ver_id, '_review_note', true);
+
+                // Auto-graduate from scoring to in_review if scoring started >= 12 seconds ago
+                if ($status === 'scoring') {
+                    $scoring_started = (int) get_post_meta($current_ver_id, '_scoring_started_at', true);
+                    if ($scoring_started > 0 && (time() - $scoring_started) >= 12) {
+                        if (function_exists('pcs_transition_version_to_in_review')) {
+                            pcs_transition_version_to_in_review($current_ver_id, $aid);
+                        } else {
+                            update_post_meta($current_ver_id, '_status', 'in_review');
+                            if (function_exists('pcs_server_meta')) {
+                                pcs_server_meta($current_ver_id, '_status', 'in_review');
+                            }
+                        }
+                        $status = 'in_review';
+                    }
+                }
             }
 
             $uploader_id = $current_ver_id ? (int) get_post_meta($current_ver_id, '_uploaded_by', true) : 0;
@@ -2724,6 +2740,80 @@ function handle_delete_campaign_guideline($campaign_id, $target_url_or_id) {
 }
 
 /**
+ * Chuyển trạng thái phiên bản từ 'scoring' sang 'in_review' khi AI hoàn tất chấm điểm
+ * Cập nhật CPT database, thông báo cho Checker và đồng bộ hệ thống
+ */
+if (!function_exists('pcs_transition_version_to_in_review')) {
+function pcs_transition_version_to_in_review($version_id, $asset_id = 0) {
+    $version_id = (int) $version_id;
+    if ($version_id <= 0 || !pcs_is_wp()) return false;
+
+    $current_st = get_post_meta($version_id, '_status', true);
+    if ($current_st === 'in_review') {
+        return true;
+    }
+
+    if (!$asset_id) {
+        $asset_id = (int) get_post_meta($version_id, '_asset_id', true);
+    }
+
+    update_post_meta($version_id, '_status', 'in_review');
+    if (function_exists('pcs_server_meta')) {
+        pcs_server_meta($version_id, '_status', 'in_review');
+    }
+
+    if ($asset_id > 0) {
+        update_post_meta($asset_id, '_current_version_id', $version_id);
+        if (function_exists('pcs_server_meta')) {
+            pcs_server_meta($asset_id, '_current_version_id', $version_id);
+        }
+    }
+
+    // Thông báo cho Checker khi AI quét xong và phiên bản sẵn sàng để duyệt
+    $campaign_id = $asset_id > 0 ? (int) get_post_meta($asset_id, '_campaign_id', true) : 0;
+    $maker_id    = (int) get_post_meta($version_id, '_uploaded_by', true);
+    $ver_num     = (int) get_post_meta($version_id, '_version_number', true) ?: 1;
+    $asset_name  = $asset_id > 0 ? get_the_title($asset_id) : 'Asset';
+    $camp_name   = $campaign_id > 0 ? get_the_title($campaign_id) : 'Campaign';
+
+    $team = function_exists('pcs_get_campaign_team_user_ids') ? pcs_get_campaign_team_user_ids($campaign_id) : [];
+    $checkers = $team['checker_ids'] ?? [];
+    if (empty($checkers) && function_exists('pcs_get_system_users_by_role')) {
+        $ck_users = pcs_get_system_users_by_role('CHECKER');
+        $checkers = wp_list_pluck($ck_users, 'id');
+    }
+    foreach ($checkers as $chk_id) {
+        if ($chk_id != $maker_id && function_exists('pcs_send_notification')) {
+            pcs_send_notification(
+                $chk_id,
+                'Asset Ready for Review: ' . $asset_name . ' (V' . $ver_num . ')',
+                'AI scoring completed. Asset "' . $asset_name . '" (V' . $ver_num . ') in campaign "' . $camp_name . '" is ready for review.',
+                'review_ready',
+                pcs_get_notification_link('detail-asset-checker.php', ['version_id' => $version_id, 'campaign_id' => $campaign_id, 'asset_id' => $asset_id]),
+                $campaign_id,
+                $asset_id,
+                $version_id
+            );
+        }
+    }
+
+    if (function_exists('pcs_bump_sync_version')) {
+        pcs_bump_sync_version();
+    }
+
+    return true;
+}
+}
+
+if (!has_action('pcs_background_ai_scoring_job')) {
+    add_action('pcs_background_ai_scoring_job', function($version_id, $asset_id) {
+        if (function_exists('pcs_transition_version_to_in_review')) {
+            pcs_transition_version_to_in_review($version_id, $asset_id);
+        }
+    }, 10, 2);
+}
+
+/**
  * Xử lý tải lên Asset Version mới (Maker Upload)
  */
 if (!function_exists('handle_upload_asset_version')) {
@@ -2812,14 +2902,16 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
             pcs_server_meta($version_id, '_uploaded_by', $maker_id);
             pcs_server_meta($version_id, '_asset_id', $asset_id);
             pcs_server_meta($version_id, '_file_url', $real_file_url);
-            pcs_server_meta($version_id, '_status', 'in_review');
+            pcs_server_meta($version_id, '_status', 'scoring');
+            pcs_server_meta($version_id, '_scoring_started_at', time());
             pcs_server_meta($asset_id, '_current_version_id', $version_id);
         } else {
             update_post_meta($version_id, '_version_number', $ver_num);
             update_post_meta($version_id, '_uploaded_by', $maker_id);
             update_post_meta($version_id, '_asset_id', $asset_id);
             update_post_meta($version_id, '_file_url', $real_file_url);
-            update_post_meta($version_id, '_status', 'in_review');
+            update_post_meta($version_id, '_status', 'scoring');
+            update_post_meta($version_id, '_scoring_started_at', time());
             update_post_meta($asset_id, '_current_version_id', $version_id);
         }
 
@@ -3003,27 +3095,7 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
             );
         }
 
-        // Notify assigned checkers
-        $team = function_exists('pcs_get_campaign_team_user_ids') ? pcs_get_campaign_team_user_ids($campaign_id) : [];
-        $checkers = $team['checker_ids'] ?? [];
-        if (empty($checkers) && function_exists('pcs_get_system_users_by_role')) {
-            $ck_users = pcs_get_system_users_by_role('CHECKER');
-            $checkers = wp_list_pluck($ck_users, 'id');
-        }
-        foreach ($checkers as $chk_id) {
-            if ($chk_id != $maker_id && function_exists('pcs_send_notification')) {
-                pcs_send_notification(
-                    $chk_id,
-                    'Asset Ready for Review: ' . $asset_name . ' (V' . $ver_num . ')',
-                    'Maker ' . $maker_display . ' submitted V' . $ver_num . ' of "' . $asset_name . '" in campaign "' . $camp_name . '". Please inspect and sign off.',
-                    'review_ready',
-                    pcs_get_notification_link('detail-asset-checker.php', ['version_id' => $version_id, 'campaign_id' => $campaign_id, 'asset_id' => $asset_id]),
-                    $campaign_id,
-                    $asset_id,
-                    $version_id
-                );
-            }
-        }
+        // Checker notification will be dispatched automatically once AI scoring completes (via pcs_transition_version_to_in_review)
 
         if (function_exists('pcs_bump_sync_version')) {
             pcs_bump_sync_version();
@@ -3206,6 +3278,23 @@ if (!function_exists('get_checker_review_queue')) {
 function get_checker_review_queue($filter = 'all') {
     if (!pcs_is_wp() || !function_exists('get_posts')) {
         return [];
+    }
+
+    // Auto-graduate any scoring versions that completed their 12s window
+    $scoring_versions = get_posts([
+        'post_type'      => 'asset_version',
+        'post_status'    => 'any',
+        'posts_per_page' => -1,
+        'meta_key'       => '_status',
+        'meta_value'     => 'scoring'
+    ]);
+    foreach ($scoring_versions as $sv) {
+        $s_time = (int) get_post_meta($sv->ID, '_scoring_started_at', true);
+        if ($s_time > 0 && (time() - $s_time) >= 12) {
+            if (function_exists('pcs_transition_version_to_in_review')) {
+                pcs_transition_version_to_in_review($sv->ID);
+            }
+        }
     }
 
     $versions = get_posts([
@@ -3412,6 +3501,15 @@ function get_checker_kpis() {
             $st = 'draft';
             if ($cur_ver_id) {
                 $st = get_post_meta($cur_ver_id, '_status', true) ?: 'draft';
+                if ($st === 'scoring') {
+                    $s_time = (int) get_post_meta($cur_ver_id, '_scoring_started_at', true);
+                    if ($s_time > 0 && (time() - $s_time) >= 12) {
+                        if (function_exists('pcs_transition_version_to_in_review')) {
+                            pcs_transition_version_to_in_review($cur_ver_id, $ast_post->ID);
+                        }
+                        $st = 'in_review';
+                    }
+                }
             }
             $st = str_replace([' ', '-'], '_', strtolower(trim($st)));
             if ($st === 'awaiting_release' || $st === 'awaiting') $st = 'approved';
@@ -3474,6 +3572,15 @@ function get_maker_kpis($makerId = 0) {
             $st = 'draft';
             if ($cur_ver_id) {
                 $st = get_post_meta($cur_ver_id, '_status', true) ?: 'draft';
+                if ($st === 'scoring') {
+                    $s_time = (int) get_post_meta($cur_ver_id, '_scoring_started_at', true);
+                    if ($s_time > 0 && (time() - $s_time) >= 12) {
+                        if (function_exists('pcs_transition_version_to_in_review')) {
+                            pcs_transition_version_to_in_review($cur_ver_id, $ast_post->ID);
+                        }
+                        $st = 'in_review';
+                    }
+                }
             }
             $st = str_replace([' ', '-'], '_', strtolower(trim($st)));
             if ($st === 'awaiting_release' || $st === 'awaiting') $st = 'approved';
@@ -3805,6 +3912,15 @@ function get_campaign_detail_asset_data($campaign_id = 0, $selected_asset_id = 0
                 if ($vp->ID === $current_ver_id) {
                     $v_num = $v_index;
                     $status       = get_post_meta($vp->ID, '_status', true) ?: 'draft';
+                    if ($status === 'scoring') {
+                        $s_time = (int) get_post_meta($vp->ID, '_scoring_started_at', true);
+                        if ($s_time > 0 && (time() - $s_time) >= 12) {
+                            if (function_exists('pcs_transition_version_to_in_review')) {
+                                pcs_transition_version_to_in_review($vp->ID, $aid);
+                            }
+                            $status = 'in_review';
+                        }
+                    }
                     $file_url     = get_post_meta($vp->ID, '_file_url', true) ?: '';
                     $review_note  = get_post_meta($vp->ID, '_review_note', true) ?: '';
                     $uploaded_by  = (int) get_post_meta($vp->ID, '_uploaded_by', true) ?: (int) $vp->post_author;
