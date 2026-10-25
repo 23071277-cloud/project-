@@ -53,9 +53,13 @@ function pcs_execute_ai_scoring( $version_id, $asset_id ) {
     $model_version = 'gemini-1.5-flash'; 
     $prompt_version = 'v1.2';            
 
-    // Yêu cầu file hàm gọi API (đảm bảo file được nạp nếu chưa có)
+    // Yêu cầu file hàm gọi API (đảm bảo nạp AI Engine chuẩn v2.5.0)
     if ( ! function_exists('pcs_call_gemini_api') ) {
-        require_once plugin_dir_path( __FILE__ ) . 'pcs_call_gemini_api.php';
+        if ( file_exists( plugin_dir_path( __FILE__ ) . 'brand-compliance-ai/ai-compliance-poc.php' ) ) {
+            require_once plugin_dir_path( __FILE__ ) . 'brand-compliance-ai/ai-compliance-poc.php';
+        } elseif ( file_exists( plugin_dir_path( __FILE__ ) . 'ai-compliance-poc.php' ) ) {
+            require_once plugin_dir_path( __FILE__ ) . 'ai-compliance-poc.php';
+        }
     }
 
     foreach ($criteria as $criterion) {      
@@ -66,7 +70,7 @@ function pcs_execute_ai_scoring( $version_id, $asset_id ) {
         
         // Trích xuất dữ liệu trả về từ JSON (có fallback dự phòng nếu lỗi)
         $real_ai_score = isset($ai_data['score']) ? (int) $ai_data['score'] : 0;
-                $quote = isset($ai_data['source_quote']) ? $ai_data['source_quote'] : '';    
+        $quote = isset($ai_data['source_quote']) ? $ai_data['source_quote'] : '';    
         
         $raw_json = $ai_response;  // Lưu nguyên JSON gốc để tracking
         
@@ -78,6 +82,8 @@ function pcs_execute_ai_scoring( $version_id, $asset_id ) {
             'post_author' => 0, // 0 = Hệ thống/AI chấm
         ]);
 
+        $verd = ($real_ai_score >= 71) ? 'PASS' : (($real_ai_score >= 31) ? 'NEEDS LOOK' : 'FAIL');
+
         update_post_meta( $result_id, '_version_id', $version_id );
         update_post_meta( $result_id, '_criterion', $criterion );
         update_post_meta( $result_id, '_checker_type', 'ai' );
@@ -85,10 +91,41 @@ function pcs_execute_ai_scoring( $version_id, $asset_id ) {
         update_post_meta( $result_id, '_prompt_version', $prompt_version );
         update_post_meta( $result_id, '_model_version', $model_version );
         update_post_meta( $result_id, '_raw_json', wp_slash($raw_json) );
+        update_post_meta( $result_id, '_verdict', $verd );
+        update_post_meta( $result_id, '_ai_score', $real_ai_score );
+        update_post_meta( $result_id, '_ai_verdict', $verd );
         
         // Lưu quote TRƯỚC score để kích hoạt logic chống ảo giác của Hook pcs_recompute_verdict
         update_post_meta( $result_id, '_source_quote', $quote );
         update_post_meta( $result_id, '_score', $real_ai_score );
+
+        // Lưu thông tin chi tiết phục vụ hiển thị Tiếng Anh và trích dẫn số trang PDF
+        if (!empty($ai_data['finding'])) {
+            update_post_meta( $result_id, '_finding', sanitize_text_field($ai_data['finding']) );
+        }
+        if (!empty($ai_data['analysis'])) {
+            update_post_meta( $result_id, '_analysis', sanitize_text_field($ai_data['analysis']) );
+        }
+        if (!empty($ai_data['reason'])) {
+            update_post_meta( $result_id, '_reason', sanitize_text_field($ai_data['reason']) );
+        }
+
+        $reg_ref = $ai_data['regulatory_reference'] ?? [];
+        if (!empty($reg_ref['document'])) {
+            update_post_meta( $result_id, '_regulatory_doc', sanitize_text_field($reg_ref['document']) );
+        }
+        if (!empty($reg_ref['section'])) {
+            update_post_meta( $result_id, '_regulatory_section', sanitize_text_field($reg_ref['section']) );
+        }
+        if (!empty($reg_ref['page_number'])) {
+            update_post_meta( $result_id, '_page_number', intval($reg_ref['page_number']) );
+        }
+        if (!empty($reg_ref['page_context'])) {
+            update_post_meta( $result_id, '_page_context', sanitize_textarea_field($reg_ref['page_context']) );
+        }
+        if (!empty($reg_ref['rule_code'])) {
+            update_post_meta( $result_id, '_rule', sanitize_text_field($reg_ref['rule_code']) );
+        }
     }
 
     // CHUYỂN VÒNG ĐỜI SANG 'in_review' ĐỂ CHECKER VÀO DUYỆT
