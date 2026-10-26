@@ -122,6 +122,17 @@ function ai_compliance_template_router($template) {
         }
     }
 
+    // Nếu request chứa final-review (final-review, final-review-admin), phục vụ trực tiếp final-review-admin.php
+    if (strpos($req_uri, 'final-review') !== false) {
+        $fr_file = get_template_directory() . '/final-review-admin.php';
+        if (!file_exists($fr_file)) {
+            $fr_file = __DIR__ . '/final-review-admin.php';
+        }
+        if (file_exists($fr_file)) {
+            return $fr_file;
+        }
+    }
+
     $denied_file = get_template_directory() . '/access-denied.php';
     if (!file_exists($denied_file)) {
         $denied_file = __DIR__ . '/access-denied.php';

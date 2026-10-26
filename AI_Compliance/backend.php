@@ -998,7 +998,7 @@ function pcs_get_unread_notifications_count($user_id) {
     $user_id = (int) $user_id;
     if ($user_id <= 0) return 0;
 
-    $notifs = pcs_get_user_notifications($user_id, 100);
+    $notifs = pcs_get_user_notifications($user_id, 50);
     $unread = 0;
     foreach ($notifs as $n) {
         if (empty($n['is_read'])) {
@@ -1022,6 +1022,9 @@ function pcs_mark_notification_read($notif_id, $user_id = 0) {
         update_post_meta($nid, '_is_read', '1');
         if ($user_id > 0) {
             update_post_meta($nid, '_read_by_' . $user_id, '1');
+        }
+        if (function_exists('pcs_bump_sync_version')) {
+            pcs_bump_sync_version();
         }
         return true;
     } else {
@@ -1067,6 +1070,9 @@ function pcs_mark_all_notifications_read($user_id) {
         foreach ($posts as $pid) {
             update_post_meta($pid, '_is_read', '1');
             update_post_meta($pid, '_read_by_' . $user_id, '1');
+        }
+        if (function_exists('pcs_bump_sync_version')) {
+            pcs_bump_sync_version();
         }
         return true;
     } else {
@@ -1127,7 +1133,7 @@ function pcs_url($target) {
         'audit-log.php'              => ['slugs' => ['audit-log', 'audit-history', 'compliance-audit-log', 'audit'], 'template' => 'audit-log.php'],
         'compare-version.php'       => ['slugs' => ['compare-version', 'compare-versions', 'compare', 'version-compare'], 'template' => 'compare-version.php'],
         'approval-queue-admin.php'  => ['slugs' => ['approval-queue-admin', 'admin-approval-queue', 'approval-queue', 'admin-queue'], 'template' => 'approval-queue-admin.php'],
-        'final-review-admin.php'    => ['slugs' => ['final-review-admin', 'admin-final-review', 'final-review', 'admin-review'], 'template' => 'final-review-admin.php'],
+        'final-review-admin.php'    => ['slugs' => ['final-review', 'final-review-admin', 'admin-final-review', 'admin-review'], 'template' => 'final-review-admin.php'],
         'release-detail.php'        => ['slugs' => ['release-detail', 'release-detail-maker', 'final-audit', 'release-audit', 'released-detail'], 'template' => 'release-detail.php'],
         'smart-maker-upload.php'    => ['slugs' => ['ai-upload', 'smart-maker-upload', 'maker-upload', 'smart-upload', 'upload-asset-maker', 'create-asset'], 'template' => 'smart-maker-upload.php'],
         'ai-scoring-progress.php'   => ['slugs' => ['ai-scoring', 'ai-scoring-progress', 'ai-progress', 'ai-preflight-scan', 'ai-scanning', 'maker-ai-scoring', 'scoring-progress'], 'template' => 'ai-scoring-progress.php'],
@@ -2890,6 +2896,19 @@ function pcs_transition_version_to_in_review($version_id, $asset_id = 0) {
         }
     }
 
+    // Đồng thời thông báo cho Admin khi AI chấm xong để Admin cập nhật realtime không cần reload
+    if (function_exists('pcs_notify_all_admins')) {
+        pcs_notify_all_admins(
+            'Asset Ready for Review: ' . $asset_name . ' (V' . $ver_num . ')',
+            'AI scoring completed. Asset "' . $asset_name . '" (V' . $ver_num . ') in campaign "' . $camp_name . '" is now in review.',
+            'review_ready',
+            pcs_get_notification_link('detail-asset-admin.php', ['version_id' => $version_id, 'campaign_id' => $campaign_id, 'asset_id' => $asset_id]),
+            $campaign_id,
+            $asset_id,
+            $version_id
+        );
+    }
+
     if (function_exists('pcs_bump_sync_version')) {
         pcs_bump_sync_version();
     }
@@ -3056,7 +3075,20 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
             }
         }
 
-        // Checker notification will be dispatched automatically once AI scoring completes (via pcs_transition_version_to_in_review)
+        // Thông báo cho Admin khi Maker tải lên asset/version mới để Admin cập nhật realtime
+        if (function_exists('pcs_notify_all_admins')) {
+            $u_title = ($ver_num > 1) ? ('Artwork Revision V' . $ver_num . ' Uploaded: ' . $asset_name) : ('New Asset Uploaded: ' . $asset_name);
+            $u_msg = 'Maker ' . $maker_display . ' uploaded ' . ($ver_num > 1 ? ('revision V' . $ver_num) : 'V1') . ' for asset "' . $asset_name . '" in campaign "' . $camp_name . '". AI pre-flight scanning active.';
+            pcs_notify_all_admins(
+                $u_title,
+                $u_msg,
+                'upload',
+                pcs_get_notification_link('detail-asset-admin.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id, 'version_id' => $version_id]),
+                $campaign_id,
+                $asset_id,
+                $version_id
+            );
+        }
 
         if (function_exists('pcs_bump_sync_version')) {
             pcs_bump_sync_version();
@@ -4297,6 +4329,9 @@ if (!function_exists('get_admin_kpis')) {
 function get_admin_kpis() {
     $counts = [
         'draft'            => 0,
+        'progress'         => 0,
+        'in_progress'      => 0,
+        'completed'        => 0,
         'scoring'          => 0,
         'in_review'        => 0,
         'rejected'         => 0,
@@ -4306,23 +4341,31 @@ function get_admin_kpis() {
         'total'            => 0
     ];
 
-    // Source of truth: Aggregate by Asset status across all campaigns
+    // Source of truth: Aggregate by Campaign 3-state lifecycle for Admin Overview (Draft, In Progress, Completed)
     if (function_exists('get_all_campaigns')) {
         $campaigns = get_all_campaigns('all');
         foreach ($campaigns as $camp) {
+            $c_st = strtolower(trim($camp['status_slug'] ?? $camp['filter_group'] ?? 'draft'));
+            if ($c_st === 'draft') {
+                $counts['draft']++;
+            } elseif ($c_st === 'completed' || $c_st === 'complete') {
+                $counts['completed']++;
+            } else {
+                $counts['progress']++;
+                $counts['in_progress']++;
+            }
+            $counts['total']++;
+
             if (!empty($camp['assets'])) {
                 foreach ($camp['assets'] as $ast) {
                     $st = str_replace([' ', '-'], '_', strtolower(trim($ast['status'] ?? 'draft')));
                     if ($st === 'awaiting_release' || $st === 'awaiting') $st = 'approved';
                     if (isset($counts[$st])) {
                         $counts[$st]++;
-                    } else {
-                        $counts['draft']++;
                     }
                     if ($st === 'approved') {
                         $counts['awaiting_release']++;
                     }
-                    $counts['total']++;
                 }
             }
         }
@@ -4338,13 +4381,13 @@ function get_admin_kpis() {
         foreach ($all_camps as $c_post) {
             $st = get_post_meta($c_post->ID, '_status', true) ?: ($c_post->post_status === 'draft' ? 'draft' : 'draft');
             $st = str_replace([' ', '-'], '_', strtolower(trim($st)));
-            if ($st === 'approved' || $st === 'awaiting_release' || $st === 'awaiting') {
-                $counts['awaiting_release']++;
-                $counts['approved']++;
-            } elseif (isset($counts[$st])) {
-                $counts[$st]++;
-            } else {
+            if ($st === 'completed' || $st === 'complete' || $st === 'approved' || $st === 'released') {
+                $counts['completed']++;
+            } elseif ($st === 'draft') {
                 $counts['draft']++;
+            } else {
+                $counts['progress']++;
+                $counts['in_progress']++;
             }
             $counts['total']++;
         }
@@ -8483,13 +8526,15 @@ if (!function_exists('pcs_handle_sync_heartbeat')) {
             'time'          => time(),
             'role'          => $role,
             'kpis'          => [
-                'draft'     => (int) ($kpis['draft'] ?? 0),
-                'scoring'   => (int) ($kpis['scoring'] ?? 0),
-                'in_review' => (int) ($kpis['in_review'] ?? 0),
-                'rejected'  => (int) ($kpis['rejected'] ?? 0),
-                'approved'  => (int) ($kpis['approved'] ?? ($kpis['awaiting_release'] ?? 0)),
-                'released'  => (int) ($kpis['released'] ?? 0),
-                'total'     => (int) ($kpis['total'] ?? 0),
+                'draft'       => (int) ($kpis['draft'] ?? 0),
+                'progress'    => (int) ($kpis['progress'] ?? ($kpis['in_progress'] ?? 0)),
+                'completed'   => (int) ($kpis['completed'] ?? 0),
+                'scoring'     => (int) ($kpis['scoring'] ?? 0),
+                'in_review'   => (int) ($kpis['in_review'] ?? 0),
+                'rejected'    => (int) ($kpis['rejected'] ?? 0),
+                'approved'    => (int) ($kpis['approved'] ?? ($kpis['awaiting_release'] ?? 0)),
+                'released'    => (int) ($kpis['released'] ?? 0),
+                'total'       => (int) ($kpis['total'] ?? 0),
             ],
             'unread_notifs' => $unread_notifs
         ]);

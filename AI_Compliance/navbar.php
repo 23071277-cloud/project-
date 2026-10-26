@@ -1652,6 +1652,8 @@ window.addEventListener('click', function(e) {
     function updateKpisInPlace(kpis) {
         if (!kpis) return;
         updateKpiBox('.kpi-icon-box.status-draft', kpis.draft);
+        updateKpiBox('.kpi-icon-box.status-progress', kpis.progress || kpis.in_progress || kpis.scoring);
+        updateKpiBox('.kpi-icon-box.status-completed', kpis.completed || kpis.approved);
         updateKpiBox('.kpi-icon-box.status-scoring', kpis.scoring);
         updateKpiBox('.kpi-icon-box.status-in-review', kpis.in_review);
         updateKpiBox('.kpi-icon-box.status-rejected', kpis.rejected);
@@ -1693,12 +1695,60 @@ window.addEventListener('click', function(e) {
                     }
                 }
 
-                // 3. Update top navbar notification badge if changed
+                // 3. Update top navbar notification badge & dropdown list in place
+                var newNotifList = doc.querySelector('#unavNotifList');
+                var curNotifList = document.querySelector('#unavNotifList');
+                if (newNotifList && curNotifList) {
+                    curNotifList.innerHTML = newNotifList.innerHTML;
+                    var activeBtn = document.querySelector('.unav-notif-tab.active');
+                    if (activeBtn) {
+                        filterNotifTab(activeNotifTab, activeBtn);
+                    }
+                }
+
+                var newCountAll = doc.querySelector('#notifTabCountAll');
+                var curCountAll = document.querySelector('#notifTabCountAll');
+                if (newCountAll && curCountAll) {
+                    curCountAll.textContent = newCountAll.textContent;
+                    totalNotifCount = parseInt(newCountAll.textContent, 10) || totalNotifCount;
+                }
+
+                var newCountUnread = doc.querySelector('#notifTabCountUnread');
+                var curCountUnread = document.querySelector('#notifTabCountUnread');
+                if (newCountUnread && curCountUnread) {
+                    curCountUnread.textContent = newCountUnread.textContent;
+                    currentUnreadCount = parseInt(newCountUnread.textContent, 10) || 0;
+                }
+
+                var newCountRead = doc.querySelector('#notifTabCountRead');
+                var curCountRead = document.querySelector('#notifTabCountRead');
+                if (newCountRead && curCountRead) {
+                    curCountRead.textContent = newCountRead.textContent;
+                }
+
                 var newNotifBadge = doc.querySelector('#unavNotifBadge');
                 var curNotifBadge = document.querySelector('#unavNotifBadge');
                 if (newNotifBadge && curNotifBadge) {
                     curNotifBadge.textContent = newNotifBadge.textContent;
                     curNotifBadge.style.display = newNotifBadge.style.display;
+                    if (newNotifBadge.classList.contains('is-hidden')) {
+                        curNotifBadge.classList.add('is-hidden');
+                    } else {
+                        curNotifBadge.classList.remove('is-hidden');
+                    }
+                }
+
+                var newNotifPill = doc.querySelector('#unavNotifPill');
+                var curNotifPill = document.querySelector('#unavNotifPill');
+                if (newNotifPill && curNotifPill) {
+                    curNotifPill.textContent = newNotifPill.textContent;
+                    curNotifPill.style.display = newNotifPill.style.display;
+                }
+
+                var newMarkAllBtn = doc.querySelector('#unavMarkAllBtn');
+                var curMarkAllBtn = document.querySelector('#unavMarkAllBtn');
+                if (newMarkAllBtn && curMarkAllBtn) {
+                    curMarkAllBtn.style.display = newMarkAllBtn.style.display;
                 }
             })
             .catch(function(err) {});
@@ -1721,15 +1771,16 @@ window.addEventListener('click', function(e) {
                     updateKpisInPlace(data.kpis);
                 }
 
-                // Unread notifications badge live update
+                // Unread notifications badge live update across all roles
                 if (typeof data.unread_notifs !== 'undefined') {
-                    var curBadge = document.getElementById('unavNotifBadge');
-                    if (curBadge) {
-                        if (data.unread_notifs > 0) {
-                            curBadge.textContent = data.unread_notifs > 99 ? '99+' : data.unread_notifs;
-                            curBadge.style.display = 'inline-flex';
+                    var srvUnread = parseInt(data.unread_notifs, 10);
+                    if (!isNaN(srvUnread)) {
+                        if (srvUnread !== currentUnreadCount) {
+                            currentUnreadCount = srvUnread;
+                            updateNotifBadges(0);
+                            refreshPageContentInPlace();
                         } else {
-                            curBadge.style.display = 'none';
+                            updateNotifBadges(0);
                         }
                     }
                 }

@@ -144,12 +144,14 @@ $queue = function_exists('get_admin_release_queue') ? get_admin_release_queue('a
 $recentlyReleased = function_exists('get_admin_recently_released') ? get_admin_recently_released(3) : [];
 $auditLogs = function_exists('get_admin_audit_logs') ? get_admin_audit_logs(15) : [];
 
-$draftCount    = (int) ($kpis['draft'] ?? 0);
-$scoringCount  = (int) ($kpis['scoring'] ?? 0);
-$inReviewCount = (int) ($kpis['in_review'] ?? 0);
-$rejectedCount = (int) ($kpis['rejected'] ?? 0);
-$approvedCount = (int) ($kpis['approved'] ?? ($kpis['awaiting_release'] ?? 0));
-$releasedCount = (int) ($kpis['released'] ?? 0);
+$draftCount      = (int) ($kpis['draft'] ?? 0);
+$progressCount   = (int) ($kpis['progress'] ?? ($kpis['in_progress'] ?? 0));
+$completedCount  = (int) ($kpis['completed'] ?? 0);
+$scoringCount    = (int) ($kpis['scoring'] ?? 0);
+$inReviewCount   = (int) ($kpis['in_review'] ?? 0);
+$rejectedCount   = (int) ($kpis['rejected'] ?? 0);
+$approvedCount   = (int) ($kpis['approved'] ?? ($kpis['awaiting_release'] ?? 0));
+$releasedCount   = (int) ($kpis['released'] ?? 0);
 $awaitingReleaseCount = $approvedCount;
 $totalCampaigns       = count($campaigns);
 $totalQueue           = count($queue);
@@ -698,7 +700,8 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             color: #475569;
             border: 1px solid #CBD5E1;
         }
-        .kpi-icon-box.status-scoring {
+        .kpi-icon-box.status-scoring,
+        .kpi-icon-box.status-progress {
             background-color: #FFFBEB;
             color: #D97706;
             border: 1px solid #FCD34D;
@@ -713,7 +716,8 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             color: #DC2626;
             border: 1px solid #FECACA;
         }
-        .kpi-icon-box.status-approved, .kpi-icon-box.status-awaiting {
+        .kpi-icon-box.status-approved, .kpi-icon-box.status-awaiting,
+        .kpi-icon-box.status-completed {
             background-color: #ECFDF5;
             color: #059669;
             border: 1px solid #A7F3D0;
@@ -730,10 +734,12 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             line-height: 1.3;
         }
         .kpi-label.status-draft { color: #475569; }
-        .kpi-label.status-scoring { color: #D97706; }
+        .kpi-label.status-scoring,
+        .kpi-label.status-progress { color: #D97706; }
         .kpi-label.status-in-review { color: #373E8C; }
         .kpi-label.status-rejected { color: #DC2626; }
-        .kpi-label.status-approved, .kpi-label.status-awaiting { color: #059669; }
+        .kpi-label.status-approved, .kpi-label.status-awaiting,
+        .kpi-label.status-completed { color: #059669; }
         .kpi-label.status-released { color: #7C3AED; }
 
         @media (max-width: 1024px) {
@@ -1982,31 +1988,19 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                 </div>
             </div>
 
-            <!-- Section 2: Core Lifecycle Metric Cards: Draft -> Scoring -> In Review -> Rejected -> Approved -> Released -->
+            <!-- Section 2: Core 3-State Campaign Metric Cards: Draft -> In Progress -> Completed -->
             <section class="kpi-metrics-bar">
-                <div class="kpi-card">
+                <div class="kpi-card" data-kpi-filter="draft">
                     <div class="kpi-icon-box status-draft"><?= $draftCount ?></div>
                     <div class="kpi-label status-draft">Draft</div>
                 </div>
-                <div class="kpi-card">
-                    <div class="kpi-icon-box status-scoring"><?= $scoringCount ?></div>
-                    <div class="kpi-label status-scoring">Scoring</div>
+                <div class="kpi-card" data-kpi-filter="progress">
+                    <div class="kpi-icon-box status-progress"><?= $progressCount ?></div>
+                    <div class="kpi-label status-progress">In Progress</div>
                 </div>
-                <div class="kpi-card">
-                    <div class="kpi-icon-box status-in-review"><?= $inReviewCount ?></div>
-                    <div class="kpi-label status-in-review">In Review</div>
-                </div>
-                <div class="kpi-card">
-                    <div class="kpi-icon-box status-rejected"><?= $rejectedCount ?></div>
-                    <div class="kpi-label status-rejected">Rejected</div>
-                </div>
-                <div class="kpi-card">
-                    <div class="kpi-icon-box status-approved"><?= $approvedCount ?></div>
-                    <div class="kpi-label status-approved">Approved</div>
-                </div>
-                <div class="kpi-card">
-                    <div class="kpi-icon-box status-released"><?= $releasedCount ?></div>
-                    <div class="kpi-label status-released">Released</div>
+                <div class="kpi-card" data-kpi-filter="completed">
+                    <div class="kpi-icon-box status-completed"><?= $completedCount ?></div>
+                    <div class="kpi-label status-completed">Completed</div>
                 </div>
             </section>
 
@@ -2225,26 +2219,17 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                                                                     <span style="width: 88px; height: 32px; display: inline-block; flex-shrink: 0;"></span>
                                                                                 <?php endif; ?>
 
-                                                                                <?php if ($asset['status'] === 'approved'): 
+                                                                                <?php 
+                                                                                    $assetCurVerId = (int)($asset['current_version_id'] ?? $asset['version_id'] ?? 0);
                                                                                     $assetFinalReviewUrl = (function_exists('pcs_url') ? pcs_url('final-review-admin.php') : 'final-review-admin.php') . '?' . http_build_query([
-                                                                                        'version_id'  => (int)($asset['current_version_id'] ?? 0),
+                                                                                        'version_id'  => $assetCurVerId,
                                                                                         'asset_id'    => (int)($asset['id'] ?? 0),
                                                                                         'campaign_id' => (int)($camp['id'] ?? 0)
                                                                                     ]);
                                                                                 ?>
-                                                                                    <a href="<?= esc_url($assetFinalReviewUrl) ?>" class="btn-open-review-primary" title="Open Final Review" style="width: 104px; height: 32px; box-sizing: border-box; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 11.5px; border-radius: 6px; white-space: nowrap; flex-shrink: 0;">
-                                                                                        <span>Review &rarr;</span>
-                                                                                    </a>
-                                                                                <?php elseif ($asset['status'] === 'released'): ?>
-                                                                                    <button type="button" class="btn-view-release js-trigger-release-modal" style="width: 104px; height: 32px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 11.5px; border-radius: 6px; white-space: nowrap; flex-shrink: 0;"
-                                                                                            data-asset-name="<?= htmlspecialchars($asset['name']) ?>"
-                                                                                            data-campaign-name="<?= htmlspecialchars($camp['name']) ?>"
-                                                                                            data-version-label="<?= htmlspecialchars($asset['version_raw']) ?>">
-                                                                                        <span>View Release</span>
-                                                                                    </button>
-                                                                                <?php else: ?>
-                                                                                    <span style="width: 104px; height: 32px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; font-size: 11.5px; color: #94A3B8; flex-shrink: 0;">Pending Review</span>
-                                                                                <?php endif; ?>
+                                                                                <a href="<?= esc_url($assetFinalReviewUrl) ?>" class="btn-open-review-primary" title="Open Final Review" style="width: 104px; height: 32px; box-sizing: border-box; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 11.5px; border-radius: 6px; white-space: nowrap; flex-shrink: 0;">
+                                                                                    <span>Review &rarr;</span>
+                                                                                </a>
                                                                             </div>
                                                                         </td>
                                                                     </tr>
@@ -2984,12 +2969,17 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                 card.style.cursor = 'pointer';
                 card.setAttribute('title', 'Click to filter campaigns by this status');
                 card.addEventListener('click', function() {
-                    const labelElem = this.querySelector('.kpi-label');
-                    if (!labelElem) return;
-                    const labelText = labelElem.textContent.trim().toLowerCase().replace(/\s+/g, '_');
-                    const targetPill = document.querySelector(`.pill-tab[data-filter="${labelText}"]`);
+                    let targetFilter = this.getAttribute('data-kpi-filter');
+                    if (!targetFilter) {
+                        const labelElem = this.querySelector('.kpi-label');
+                        if (labelElem) {
+                            targetFilter = labelElem.textContent.trim().toLowerCase().replace(/\s+/g, '_');
+                        }
+                    }
+                    if (targetFilter === 'in_progress') targetFilter = 'progress';
+                    const targetPill = document.querySelector(`.pill-tab[data-filter="${targetFilter}"]`);
                     if (targetPill) {
-                        applyCampaignFilter(labelText);
+                        applyCampaignFilter(targetFilter);
                         const campSec = document.getElementById('campaigns-section');
                         if (campSec) {
                             campSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
