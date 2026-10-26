@@ -1248,13 +1248,16 @@ function filterNotifTab(tab, btnEl) {
     activeNotifTab = tab;
     var tabs = document.querySelectorAll('.unav-notif-tab');
     tabs.forEach(function(t) { t.classList.remove('active'); });
+    if (!btnEl) {
+        btnEl = document.querySelector('.unav-notif-tab[data-tab="' + tab + '"]');
+    }
     if (btnEl) btnEl.classList.add('active');
 
     var items = document.querySelectorAll('.unav-notif-item-wrap');
     var visibleCount = 0;
 
     items.forEach(function(it) {
-        var status = it.getAttribute('data-status') || 'read';
+        var status = it.getAttribute('data-status') || (it.classList.contains('is-unread') ? 'unread' : 'read');
         var match = false;
         if (tab === 'all') match = true;
         else if (tab === 'unread' && status === 'unread') match = true;
@@ -1286,50 +1289,70 @@ function filterNotifTab(tab, btnEl) {
     }
 }
 
-function updateNotifBadges(unreadDelta) {
-    if (typeof unreadDelta === 'number') {
-        currentUnreadCount = Math.max(0, currentUnreadCount - unreadDelta);
-    }
-    
-    // Update Bell Badge
+function recalculateNotifCounts() {
+    var items = document.querySelectorAll('.unav-notif-item-wrap');
+    var unread = 0;
+    var read = 0;
+    var total = items.length;
+
+    items.forEach(function(it) {
+        var st = it.getAttribute('data-status') || (it.classList.contains('is-unread') ? 'unread' : 'read');
+        if (st === 'unread') {
+            unread++;
+        } else {
+            read++;
+        }
+    });
+
+    currentUnreadCount = unread;
+    totalNotifCount = total;
+
+    // 1. Update Bell Badge (neu = 0 thi an hoan toan display: none)
     var badge = document.getElementById('unavNotifBadge');
     if (badge) {
-        if (currentUnreadCount > 0) {
+        if (unread > 0) {
             badge.classList.remove('is-hidden');
-            badge.style.setProperty('display', 'inline-flex', 'important');
-            badge.textContent = currentUnreadCount > 99 ? '99+' : currentUnreadCount;
+            badge.style.display = 'inline-flex';
+            badge.textContent = unread > 99 ? '99+' : unread;
         } else {
             badge.classList.add('is-hidden');
-            badge.style.setProperty('display', 'none', 'important');
+            badge.style.display = 'none';
         }
     }
 
-    // Update Header Pill
+    // 2. Update Header Pill
     var pill = document.getElementById('unavNotifPill');
     if (pill) {
-        if (currentUnreadCount > 0) {
+        if (unread > 0) {
             pill.style.display = 'inline-block';
-            pill.textContent = currentUnreadCount + ' new';
+            pill.textContent = unread + ' new';
         } else {
             pill.style.display = 'none';
         }
     }
 
-    // Update Header Mark All Button
+    // 3. Update Header Mark All Button
     var markBtn = document.getElementById('unavMarkAllBtn');
     if (markBtn) {
-        markBtn.style.display = (currentUnreadCount > 0) ? 'inline-block' : 'none';
+        markBtn.style.display = (unread > 0) ? 'inline-block' : 'none';
     }
 
-    // Update Tab Badges
+    // 4. Update Tab Badges
+    var tabAll = document.getElementById('notifTabCountAll');
+    if (tabAll) tabAll.textContent = total;
+
     var tabUnread = document.getElementById('notifTabCountUnread');
-    if (tabUnread) tabUnread.textContent = currentUnreadCount;
+    if (tabUnread) tabUnread.textContent = unread;
 
     var tabRead = document.getElementById('notifTabCountRead');
-    if (tabRead) {
-        var readCount = Math.max(0, totalNotifCount - currentUnreadCount);
-        tabRead.textContent = readCount;
+    if (tabRead) tabRead.textContent = read;
+}
+
+function updateNotifBadges(unreadDelta) {
+    if (typeof unreadDelta === 'number' && unreadDelta !== 0) {
+        currentUnreadCount = Math.max(0, currentUnreadCount - unreadDelta);
     }
+    recalculateNotifCounts();
 }
 
 function markItemReadLocally(wrap) {
@@ -1410,7 +1433,10 @@ function handleNotificationClick(e, notifId, targetUrl, el) {
 
     if (wasUnread) {
         markItemReadLocally(wrap);
-        updateNotifBadges(1);
+        recalculateNotifCounts();
+        if (activeNotifTab === 'unread') {
+            filterNotifTab('unread');
+        }
         if (notifId) {
             pcsSaveReadIdToStorage(notifId);
         }
@@ -1454,7 +1480,11 @@ function quickMarkNotifRead(e, notifId, btnEl) {
     if (!wrap) return;
 
     markItemReadLocally(wrap);
-    updateNotifBadges(1);
+    recalculateNotifCounts();
+    if (activeNotifTab === 'unread') {
+        filterNotifTab('unread');
+    }
+
     if (notifId) {
         pcsSaveReadIdToStorage(notifId);
     }
@@ -1469,19 +1499,7 @@ function quickMarkNotifRead(e, notifId, btnEl) {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: params.toString()
-        }).then(function(r) { return r.json(); })
-          .then(function(data) {
-              if (data && typeof data.unread_count !== 'undefined') {
-                  currentUnreadCount = data.unread_count;
-                  updateNotifBadges(0);
-              }
-          }).catch(function(err) {});
-    }
-
-    if (activeNotifTab === 'unread') {
-        wrap.style.setProperty('display', 'none', 'important');
-        var currentActiveBtn = document.querySelector('.unav-notif-tab.active');
-        filterNotifTab('unread', currentActiveBtn);
+        }).catch(function(err) {});
     }
 }
 
@@ -1494,8 +1512,10 @@ function markAllNotificationsRead(userId) {
         markItemReadLocally(w);
     });
 
-    currentUnreadCount = 0;
-    updateNotifBadges();
+    recalculateNotifCounts();
+    if (activeNotifTab === 'unread') {
+        filterNotifTab('unread');
+    }
     pcsSaveAllReadIdsToStorage();
 
     var params = new URLSearchParams();
@@ -1507,11 +1527,6 @@ function markAllNotificationsRead(userId) {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: params.toString()
     }).catch(function(err) {});
-
-    if (activeNotifTab === 'unread') {
-        var currentActiveBtn = document.querySelector('.unav-notif-tab.active');
-        filterNotifTab('unread', currentActiveBtn);
-    }
 }
 
 // Dong bo ngay lap tuc voi localStorage de chong giat so thong bao (bounce-back) khi F5 hoac edge-cache
@@ -1669,7 +1684,10 @@ window.addEventListener('click', function(e) {
         var isModalOpen = !!document.querySelector('.modal-overlay[style*="display: flex"], .modal-overlay.active, .modal-window:not([style*="display: none"])');
         if (isEditing || isModalOpen) return;
 
-        var fetchUrl = window.location.href;
+        var baseHref = window.location.href.split('#')[0];
+        var sep = baseHref.indexOf('?') !== -1 ? '&' : '?';
+        var fetchUrl = baseHref + sep + 'pcs_live_sync=' + Date.now();
+
         fetch(fetchUrl, { cache: 'no-store' })
             .then(function(res) { return res.text(); })
             .then(function(html) {
@@ -1700,55 +1718,8 @@ window.addEventListener('click', function(e) {
                 var curNotifList = document.querySelector('#unavNotifList');
                 if (newNotifList && curNotifList) {
                     curNotifList.innerHTML = newNotifList.innerHTML;
-                    var activeBtn = document.querySelector('.unav-notif-tab.active');
-                    if (activeBtn) {
-                        filterNotifTab(activeNotifTab, activeBtn);
-                    }
-                }
-
-                var newCountAll = doc.querySelector('#notifTabCountAll');
-                var curCountAll = document.querySelector('#notifTabCountAll');
-                if (newCountAll && curCountAll) {
-                    curCountAll.textContent = newCountAll.textContent;
-                    totalNotifCount = parseInt(newCountAll.textContent, 10) || totalNotifCount;
-                }
-
-                var newCountUnread = doc.querySelector('#notifTabCountUnread');
-                var curCountUnread = document.querySelector('#notifTabCountUnread');
-                if (newCountUnread && curCountUnread) {
-                    curCountUnread.textContent = newCountUnread.textContent;
-                    currentUnreadCount = parseInt(newCountUnread.textContent, 10) || 0;
-                }
-
-                var newCountRead = doc.querySelector('#notifTabCountRead');
-                var curCountRead = document.querySelector('#notifTabCountRead');
-                if (newCountRead && curCountRead) {
-                    curCountRead.textContent = newCountRead.textContent;
-                }
-
-                var newNotifBadge = doc.querySelector('#unavNotifBadge');
-                var curNotifBadge = document.querySelector('#unavNotifBadge');
-                if (newNotifBadge && curNotifBadge) {
-                    curNotifBadge.textContent = newNotifBadge.textContent;
-                    curNotifBadge.style.display = newNotifBadge.style.display;
-                    if (newNotifBadge.classList.contains('is-hidden')) {
-                        curNotifBadge.classList.add('is-hidden');
-                    } else {
-                        curNotifBadge.classList.remove('is-hidden');
-                    }
-                }
-
-                var newNotifPill = doc.querySelector('#unavNotifPill');
-                var curNotifPill = document.querySelector('#unavNotifPill');
-                if (newNotifPill && curNotifPill) {
-                    curNotifPill.textContent = newNotifPill.textContent;
-                    curNotifPill.style.display = newNotifPill.style.display;
-                }
-
-                var newMarkAllBtn = doc.querySelector('#unavMarkAllBtn');
-                var curMarkAllBtn = document.querySelector('#unavMarkAllBtn');
-                if (newMarkAllBtn && curMarkAllBtn) {
-                    curMarkAllBtn.style.display = newMarkAllBtn.style.display;
+                    filterNotifTab(activeNotifTab);
+                    recalculateNotifCounts();
                 }
             })
             .catch(function(err) {});
@@ -1758,7 +1729,8 @@ window.addEventListener('click', function(e) {
         if (isChecking) return;
         isChecking = true;
 
-        var checkUrl = window.location.pathname + '?action=pcs_sync_heartbeat&t=' + Date.now();
+        var sep = window.location.pathname.indexOf('?') !== -1 ? '&' : '?';
+        var checkUrl = window.location.pathname + sep + 'action=pcs_sync_heartbeat&user_id=' + unavUserId + '&t=' + Date.now();
         fetch(checkUrl, { cache: 'no-store' })
             .then(function(res) { return res.json(); })
             .then(function(data) {
@@ -1772,22 +1744,12 @@ window.addEventListener('click', function(e) {
                 }
 
                 // Unread notifications badge live update across all roles
-                if (typeof data.unread_notifs !== 'undefined') {
-                    var srvUnread = parseInt(data.unread_notifs, 10);
-                    if (!isNaN(srvUnread)) {
-                        if (srvUnread !== currentUnreadCount) {
-                            currentUnreadCount = srvUnread;
-                            updateNotifBadges(0);
-                            refreshPageContentInPlace();
-                        } else {
-                            updateNotifBadges(0);
-                        }
-                    }
-                }
+                var srvUnread = (typeof data.unread_notifs !== 'undefined') ? parseInt(data.unread_notifs, 10) : null;
+                var hasNewNotifs = (srvUnread !== null && !isNaN(srvUnread) && srvUnread !== currentUnreadCount);
+                var hasSyncBump = (data.last_sync && data.last_sync > lastKnownSync);
 
-                // If cross-role sync version has bumped (e.g. Maker uploaded or AI completed)
-                if (data.last_sync && data.last_sync > lastKnownSync) {
-                    lastKnownSync = data.last_sync;
+                if (hasNewNotifs || hasSyncBump) {
+                    if (data.last_sync) lastKnownSync = data.last_sync;
                     refreshPageContentInPlace();
                 }
             })

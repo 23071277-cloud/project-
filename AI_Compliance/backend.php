@@ -841,6 +841,7 @@ function pcs_get_user_notifications($user_id, $limit = 50, $unread_only = false)
         }
 
         $posts = get_posts($args);
+        $seen_events = [];
         foreach ($posts as $p) {
             $nid = $p->ID;
             $type = get_post_meta($nid, '_type', true) ?: 'info';
@@ -849,6 +850,15 @@ function pcs_get_user_notifications($user_id, $limit = 50, $unread_only = false)
             $cid = (int) get_post_meta($nid, '_campaign_id', true);
             $aid = (int) get_post_meta($nid, '_asset_id', true);
             $vid = (int) get_post_meta($nid, '_version_id', true);
+
+            // Deduplication: Loai bo cac thong bao trung lap cho cung 1 su kien (vi du: 1 asset release duoc gui cho nhieu role)
+            if ($vid > 0 && !empty($type)) {
+                $dedup_key = $vid . '_' . $type;
+                if (isset($seen_events[$dedup_key])) {
+                    continue;
+                }
+                $seen_events[$dedup_key] = true;
+            }
 
             // =========================================================================
             // CHUAN HOA THONG BAO CHO ADMIN: Khong bo sot thong bao nao!
@@ -4777,7 +4787,7 @@ function handle_admin_release($version_id, $release_notes = '') {
             );
         }
 
-        // Notification: Notify Campaign Owner (Central Hub) + Maker + Checkers
+        // Notification: Chi gui duy nhat 1 thong bao cho moi thanh vien lien quan (Owner, Maker, Checkers, Admin)
         $campaign_id = (int) get_post_meta($asset_id, '_campaign_id', true);
         $uploader_id = (int) get_post_meta($version_id, '_uploaded_by', true);
         $ctx = function_exists('pcs_resolve_context_names') ? pcs_resolve_context_names($campaign_id, $asset_id, $version_id) : [];
@@ -4785,41 +4795,42 @@ function handle_admin_release($version_id, $release_notes = '') {
         $asset_name = $ctx['asset_title'] ?? 'Asset';
         $admin_name = $current_user['name'] ?? 'Admin';
 
-        if (function_exists('pcs_notify_campaign_owner')) {
-            pcs_notify_campaign_owner(
-                $campaign_id,
-                'Production Released: ' . $asset_name . ' (V' . $v_num . ')',
-                'Admin ' . $admin_name . ' has officially RELEASED "' . $asset_name . '" (V' . $v_num . ') in campaign "' . $camp_name . '" to production. Immutable MAS compliance record locked.',
-                'released',
-                pcs_get_notification_link('detail-asset-admin.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id, 'version_id' => $version_id]),
-                $asset_id,
-                $version_id
-            );
-        }
-
-        if ($uploader_id > 0 && function_exists('pcs_send_notification')) {
-            pcs_send_notification(
-                $uploader_id,
-                'Asset Released: ' . $asset_name . ' (V' . $v_num . ')',
-                'Congratulations! Admin ' . $admin_name . ' released "' . $asset_name . '" (V' . $v_num . ') to production channels.',
-                'released',
-                pcs_get_notification_link('detail-asset-maker.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id]),
-                $campaign_id,
-                $asset_id,
-                $version_id
-            );
-        }
-
+        $owner_id = (int) get_post_meta($campaign_id, '_owner_id', true) ?: (int) get_post_field('post_author', $campaign_id);
         $team = function_exists('pcs_get_campaign_team_user_ids') ? pcs_get_campaign_team_user_ids($campaign_id) : [];
         $checkers = $team['checker_ids'] ?? [];
+
+        $recipients = [];
+        if ($uploader_id > 0) $recipients[] = $uploader_id;
+        if ($owner_id > 0) $recipients[] = $owner_id;
         foreach ($checkers as $chk_id) {
+            if ($chk_id > 0) $recipients[] = (int) $chk_id;
+        }
+        if ($admin_id > 0) $recipients[] = (int) $admin_id;
+        $recipients = array_values(array_unique(array_filter($recipients)));
+
+        $rel_title = 'Asset Released: ' . $asset_name . ' (V' . $v_num . ')';
+        $rel_msg   = 'Congratulations! Admin ' . $admin_name . ' released "' . $asset_name . '" (V' . $v_num . ') successfully to production channels.';
+
+        foreach ($recipients as $recip_uid) {
+            $is_recip_admin = pcs_is_admin_user($recip_uid);
+            $recip_user = get_userdata($recip_uid);
+            $is_recip_checker = $recip_user && in_array('checker', (array)$recip_user->roles, true);
+
+            if ($is_recip_admin) {
+                $rel_link = pcs_get_notification_link('detail-asset-admin.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id, 'version_id' => $version_id]);
+            } elseif ($is_recip_checker) {
+                $rel_link = pcs_get_notification_link('detail-asset-checker.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id, 'version_id' => $version_id]);
+            } else {
+                $rel_link = pcs_get_notification_link('detail-asset-maker.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id]);
+            }
+
             if (function_exists('pcs_send_notification')) {
                 pcs_send_notification(
-                    $chk_id,
-                    'Production Released: ' . $asset_name . ' (V' . $v_num . ')',
-                    'Admin ' . $admin_name . ' released "' . $asset_name . '" (V' . $v_num . ') in campaign "' . $camp_name . '" to production.',
+                    $recip_uid,
+                    $rel_title,
+                    $rel_msg,
                     'released',
-                    pcs_get_notification_link('detail-asset-checker.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id, 'version_id' => $version_id]),
+                    $rel_link,
                     $campaign_id,
                     $asset_id,
                     $version_id
@@ -8534,6 +8545,10 @@ if (!function_exists('pcs_handle_sync_heartbeat')) {
         while (ob_get_level()) {
             ob_end_clean();
         }
+        if (function_exists('nocache_headers')) {
+            nocache_headers();
+        }
+        header('Pantheon-Do-Not-Cache: true');
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0');
         header('Pragma: no-cache');
@@ -8543,9 +8558,20 @@ if (!function_exists('pcs_handle_sync_heartbeat')) {
             $last_ts = round(microtime(true) * 1000);
         }
 
+        $req_uid = !empty($_REQUEST['user_id']) ? (int) $_REQUEST['user_id'] : 0;
         $currentUser = function_exists('get_current_user_profile') ? get_current_user_profile() : null;
-        $role = strtoupper($currentUser['role'] ?? 'MAKER');
-        $uid  = (int) ($currentUser['id'] ?? 0);
+        $uid = ($req_uid > 0) ? $req_uid : (int) ($currentUser['id'] ?? 0);
+
+        if ($req_uid > 0 && function_exists('get_userdata')) {
+            $u_obj = get_userdata($req_uid);
+            if ($u_obj) {
+                $role = pcs_is_admin_user($req_uid) ? 'ADMIN' : (in_array('checker', (array)$u_obj->roles, true) ? 'CHECKER' : 'MAKER');
+            } else {
+                $role = strtoupper($currentUser['role'] ?? 'MAKER');
+            }
+        } else {
+            $role = strtoupper($currentUser['role'] ?? 'MAKER');
+        }
 
         // Retrieve real-time KPI counts for active role
         $kpis = [];
