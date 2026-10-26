@@ -474,6 +474,78 @@ function pcs_parse_deadline_timestamp($raw) {
 }
 
 /**
+ * Lấy chuỗi raw deadline của Campaign từ database, tự động đồng bộ 2 khóa _campaign_deadline và _deadline
+ */
+if (!function_exists('pcs_get_campaign_deadline_raw')) {
+function pcs_get_campaign_deadline_raw($cid) {
+    $cid = absint($cid);
+    if (!$cid || !pcs_is_wp()) return '';
+    
+    $dl_camp = get_post_meta($cid, '_campaign_deadline', true);
+    $dl_gen  = get_post_meta($cid, '_deadline', true);
+
+    if (empty($dl_camp) && empty($dl_gen)) {
+        return '';
+    }
+    if (!empty($dl_camp) && empty($dl_gen)) {
+        return trim((string)$dl_camp);
+    }
+    if (empty($dl_camp) && !empty($dl_gen)) {
+        return trim((string)$dl_gen);
+    }
+
+    $s_camp = trim((string)$dl_camp);
+    $s_gen  = trim((string)$dl_gen);
+
+    if ($s_camp === $s_gen) {
+        return $s_camp;
+    }
+
+    // Nếu 2 giá trị khác nhau: ưu tiên giá trị được cập nhật qua modal update_campaign (_deadline)
+    // Đồng thời đồng bộ ngược lại _campaign_deadline để nhất quán toàn hệ thống
+    $chosen = $s_gen ?: $s_camp;
+    if ($s_camp !== $chosen) {
+        update_post_meta($cid, '_campaign_deadline', $chosen);
+        if (function_exists('pcs_server_meta')) {
+            pcs_server_meta($cid, '_campaign_deadline', $chosen);
+        }
+    }
+    return $chosen;
+}
+}
+
+/**
+ * Trả về thông tin đầy đủ về deadline của campaign: raw, display (d M Y), và ISO (YYYY-MM-DD)
+ */
+if (!function_exists('pcs_get_campaign_deadline_info')) {
+function pcs_get_campaign_deadline_info($cid) {
+    $raw = pcs_get_campaign_deadline_raw($cid);
+    $display = 'No deadline';
+    $iso = '';
+
+    if (!empty($raw)) {
+        $ts = function_exists('pcs_parse_deadline_timestamp') ? pcs_parse_deadline_timestamp($raw) : false;
+        if (!$ts) {
+            $ts = strtotime($raw);
+        }
+        if ($ts) {
+            $display = date('d M Y', $ts);
+            $iso = date('Y-m-d', $ts);
+        } else {
+            $display = $raw;
+            $iso = $raw;
+        }
+    }
+
+    return [
+        'raw'     => $raw,
+        'display' => $display,
+        'iso'     => $iso
+    ];
+}
+}
+
+/**
  * Lấy tiêu đề ngữ cảnh chiến dịch, asset, version phục vụ nội dung thông báo
  */
 if (!function_exists('pcs_resolve_context_names')) {
@@ -1569,6 +1641,10 @@ function pcs_format_status_badge($status) {
     $s = str_replace([' ', '-'], '_', $raw);
     if ($s === 'awaiting_release' || $s === 'awaiting') {
         $s = 'approved';
+    } elseif ($s === 'complete') {
+        $s = 'completed';
+    } elseif ($s === 'in_progress') {
+        $s = 'progress';
     }
 
     $config = [
@@ -1577,6 +1653,18 @@ function pcs_format_status_badge($status) {
             'color'  => '#475569',
             'bg'     => '#F1F5F9',
             'border' => '#CBD5E1',
+        ],
+        'progress' => [
+            'label'  => 'In Progress',
+            'color'  => '#D97706',
+            'bg'     => '#FFFBEB',
+            'border' => '#FCD34D',
+        ],
+        'completed' => [
+            'label'  => 'Completed',
+            'color'  => '#059669',
+            'bg'     => '#ECFDF5',
+            'border' => '#A7F3D0',
         ],
         'scoring' => [
             'label'  => 'Scoring',
@@ -1785,14 +1873,10 @@ function get_all_campaigns($filter = 'all') {
                     }
                 }
 
-        $deadline_raw = get_post_meta($cid, '_campaign_deadline', true) ?: get_post_meta($cid, '_deadline', true);
-        $deadline_display = 'No deadline';
-        if ($deadline_raw) {
-            $ts = strtotime($deadline_raw);
-            if ($ts) {
-                $deadline_display = date('d M Y', $ts);
-            }
-        }
+        $dl_info = function_exists('pcs_get_campaign_deadline_info') ? pcs_get_campaign_deadline_info($cid) : ['raw' => '', 'display' => 'No deadline', 'iso' => ''];
+        $deadline_raw = $dl_info['raw'];
+        $deadline_display = $dl_info['display'];
+        $deadline_iso = $dl_info['iso'];
 
         // Lấy đúng Owner từ _owner_id
         $owner_id = (int) get_post_meta($cid, '_owner_id', true) ?: (int) $camp_post->post_author;
@@ -1960,49 +2044,55 @@ function get_all_campaigns($filter = 'all') {
 
         $percent = $total_assets > 0 ? round(($released_assets / $total_assets) * 100) : 0;
 
-        // Chuẩn hóa trạng thái Campaign theo 6 core status:
-        // draft -> scoring -> in_review -> approved / rejected -> released
-        $campaign_status = 'Draft';
-        $campaign_status_slug = 'draft';
-        $campaign_status_type = 'neutral';
-        $filter_group = 'draft';
+        // =====================================================================
+        // CAMPAIGN STATUS LOGIC (CHỈ DÀNH RIÊNG CHO CAMPAIGN, KHÔNG ĐỔI ASSET):
+        // 1. Draft (màu xám ghi): Khi chưa làm tí nào (0 asset hoặc tất cả asset đều là draft)
+        // 2. Completed (màu xanh lá): Khi tất cả asset đã duyệt/phát hành xong (approved/released)
+        // 3. In Progress (màu cam): Đang thực hiện (đã có asset upload, đang chấm, review, reject, hoặc mới xong 1 phần)
+        // =====================================================================
+        $has_any_started = false;
+        $all_assets_completed = ($total_assets > 0);
 
-        $asset_statuses = array_unique(array_column($assets_data, 'status'));
-        if (empty($asset_statuses)) {
-            $asset_statuses = ['draft'];
+        foreach ($assets_data as $ast_item) {
+            $ast_st = strtolower(trim($ast_item['status'] ?? 'draft'));
+            if ($ast_st !== 'draft') {
+                $has_any_started = true;
+            }
+            if ($ast_st !== 'approved' && $ast_st !== 'released') {
+                $all_assets_completed = false;
+            }
         }
 
-        if ($has_scoring || in_array('scoring', $asset_statuses, true)) {
-            $campaign_status = 'Scoring';
-            $campaign_status_slug = 'scoring';
-            $campaign_status_type = 'warning';
-            $filter_group = 'scoring';
-            $maker_task_summary = 'AI scoring in progress';
-        } elseif ($has_rejected || in_array('rejected', $asset_statuses, true)) {
-            $campaign_status = 'Rejected';
-            $campaign_status_slug = 'rejected';
-            $campaign_status_type = 'danger';
-            $filter_group = 'rejected';
-        } elseif ($has_in_review || in_array('in_review', $asset_statuses, true)) {
-            $campaign_status = 'In Review';
-            $campaign_status_slug = 'in_review';
-            $campaign_status_type = 'primary';
-            $filter_group = 'in_review';
-        } elseif ($total_assets > 0 && $released_assets === $total_assets) {
-            $campaign_status = 'Released';
-            $campaign_status_slug = 'released';
-            $campaign_status_type = 'purple';
-            $filter_group = 'released';
-            $maker_task_summary = 'All assets released';
-        } elseif ($total_assets > 0 && $approved_assets === $total_assets) {
-            $campaign_status = 'Approved';
-            $campaign_status_slug = 'approved';
+        if (!$has_any_started) {
+            // Chưa làm tí nào -> Draft (màu xám ghi)
+            $campaign_status = 'Draft';
+            $campaign_status_slug = 'draft';
+            $campaign_status_type = 'neutral';
+            $filter_group = 'draft';
+            $maker_task_summary = 'Upload artwork to start review';
+        } elseif ($all_assets_completed) {
+            // Tất cả asset đã duyệt/phát hành xong -> Completed (màu xanh lá)
+            $campaign_status = 'Completed';
+            $campaign_status_slug = 'completed';
             $campaign_status_type = 'success';
-            $filter_group = 'approved';
-            $maker_task_summary = 'All assets approved';
+            $filter_group = 'completed';
+            $maker_task_summary = 'All assets completed';
+        } else {
+            // Đang thực hiện -> In Progress (màu cam)
+            $campaign_status = 'In Progress';
+            $campaign_status_slug = 'progress';
+            $campaign_status_type = 'warning';
+            $filter_group = 'progress';
+            if ($has_rejected) {
+                $maker_task_summary = 'Action required: Revisions needed';
+            } elseif ($has_scoring) {
+                $maker_task_summary = 'AI scoring in progress';
+            } else {
+                $maker_task_summary = 'In review & compliance checks';
+            }
         }
 
-        $all_filter_groups = array_unique(array_filter(array_merge([$filter_group], $asset_statuses)));
+        $all_filter_groups = array_unique(array_filter(array_merge([$campaign_status_slug, $filter_group], $asset_statuses)));
         $filter_groups_str = implode(',', $all_filter_groups);
 
         $campaigns_data[] = [
@@ -2012,6 +2102,8 @@ function get_all_campaigns($filter = 'all') {
             'owner_name'       => $owner_name,
             'owner_initials'   => $owner_initials,
             'deadline'         => $deadline_display,
+            'deadline_iso'     => $deadline_iso,
+            'deadline_raw'     => $deadline_raw,
             'done'             => $released_assets,
             'released_count'   => $released_assets,
             'approved_count'   => $approved_assets,
@@ -2182,6 +2274,7 @@ function handle_create_campaign($campaign_name, $deadline = '', $maker_ids = [],
             pcs_server_meta($cid, '_maker_ids', $m_str);
             pcs_server_meta($cid, '_checker_ids', $c_str);
             pcs_server_meta($cid, '_campaign_deadline', $dl_val);
+            pcs_server_meta($cid, '_deadline', $dl_val);
             pcs_server_meta($cid, '_guideline_files', $json_guidelines);
             if ($primary_url) {
                 pcs_server_meta($cid, '_guideline_file_url', $primary_url);
@@ -2191,6 +2284,7 @@ function handle_create_campaign($campaign_name, $deadline = '', $maker_ids = [],
             update_post_meta($cid, '_maker_ids', $m_str);
             update_post_meta($cid, '_checker_ids', $c_str);
             update_post_meta($cid, '_campaign_deadline', $dl_val);
+            update_post_meta($cid, '_deadline', $dl_val);
             update_post_meta($cid, '_guideline_files', $json_guidelines);
             if ($primary_url) {
                 update_post_meta($cid, '_guideline_file_url', $primary_url);
@@ -2390,8 +2484,10 @@ function handle_update_campaign($campaign_id, $data = []) {
         $deadline = sanitize_text_field($data['deadline']);
         if (function_exists('pcs_server_meta')) {
             pcs_server_meta($cid, '_deadline', $deadline);
+            pcs_server_meta($cid, '_campaign_deadline', $deadline);
         } else {
             update_post_meta($cid, '_deadline', $deadline);
+            update_post_meta($cid, '_campaign_deadline', $deadline);
         }
     }
 
@@ -3199,11 +3295,8 @@ function get_checker_review_queue($filter = 'all') {
             $c_post = get_post($cid);
             if ($c_post) {
                 $campaign_title = $c_post->post_title;
-                $deadline_raw = get_post_meta($cid, '_campaign_deadline', true) ?: get_post_meta($cid, '_deadline', true);
-                if ($deadline_raw) {
-                    $ts = strtotime($deadline_raw);
-                    if ($ts) $deadline_display = date('d M', $ts);
-                }
+                $dl_info = function_exists('pcs_get_campaign_deadline_info') ? pcs_get_campaign_deadline_info($cid) : ['display' => 'No deadline'];
+                $deadline_display = $dl_info['display'];
                 $priority = get_post_meta($cid, '_priority', true) ?: 'Normal';
             }
         }
@@ -3723,12 +3816,13 @@ function get_campaign_detail_asset_data($campaign_id = 0, $selected_asset_id = 0
     $cid = $camp_post->ID;
 
     // 1. Campaign Metadata từ Database
-    $deadline_raw = get_post_meta($cid, '_campaign_deadline', true) ?: get_post_meta($cid, '_deadline', true);
-    $deadline_display = 'No deadline';
-    if ($deadline_raw) {
-        $ts = strtotime($deadline_raw);
-        if ($ts) $deadline_display = date('d M', $ts);
-    }
+    $dl_info = function_exists('pcs_get_campaign_deadline_info') ? pcs_get_campaign_deadline_info($cid) : ['raw' => '', 'display' => 'No deadline', 'iso' => ''];
+    $deadline_raw = $dl_info['raw'];
+    $deadline_display = $dl_info['display'];
+    $deadline_iso = $dl_info['iso'];
+
+    $assigned_makers = function_exists('pcs_id_list') ? pcs_id_list($cid, '_maker_ids') : [];
+    $assigned_checkers = function_exists('pcs_id_list') ? pcs_id_list($cid, '_checker_ids') : [];
 
     $priority = get_post_meta($cid, '_priority', true) ?: 'Normal';
 
@@ -4151,9 +4245,14 @@ function get_campaign_detail_asset_data($campaign_id = 0, $selected_asset_id = 0
     return [
         'campaign_id'            => $cid,
         'campaign_name'          => $camp_post->post_title,
+        'owner_id'               => $owner_id,
         'owner_name'             => $owner_name,
         'owner_initials'         => $owner_initials,
+        'maker_ids'              => $assigned_makers,
+        'checker_ids'            => $assigned_checkers,
         'deadline'               => $deadline_display,
+        'deadline_raw'           => $deadline_raw,
+        'deadline_iso'           => $deadline_iso,
         'priority'               => $priority,
         'guidelines'             => $guidelines_list,
         'total_assets'           => $total_assets,
@@ -4198,20 +4297,25 @@ function get_admin_kpis() {
         'total'            => 0
     ];
 
-    // Source of truth: Aggregate by Campaign status for Admin overview
+    // Source of truth: Aggregate by Asset status across all campaigns
     if (function_exists('get_all_campaigns')) {
         $campaigns = get_all_campaigns('all');
         foreach ($campaigns as $camp) {
-            $st = str_replace([' ', '-'], '_', strtolower(trim($camp['status_slug'] ?? $camp['status'] ?? 'draft')));
-            if ($st === 'approved' || $st === 'awaiting_release' || $st === 'awaiting') {
-                $counts['awaiting_release']++;
-                $counts['approved']++;
-            } elseif (isset($counts[$st])) {
-                $counts[$st]++;
-            } else {
-                $counts['draft']++;
+            if (!empty($camp['assets'])) {
+                foreach ($camp['assets'] as $ast) {
+                    $st = str_replace([' ', '-'], '_', strtolower(trim($ast['status'] ?? 'draft')));
+                    if ($st === 'awaiting_release' || $st === 'awaiting') $st = 'approved';
+                    if (isset($counts[$st])) {
+                        $counts[$st]++;
+                    } else {
+                        $counts['draft']++;
+                    }
+                    if ($st === 'approved') {
+                        $counts['awaiting_release']++;
+                    }
+                    $counts['total']++;
+                }
             }
-            $counts['total']++;
         }
     }
 
@@ -4336,11 +4440,12 @@ function get_admin_release_queue($filter = 'all') {
             if ($c_post) {
                 $campaign_title = $c_post->post_title;
                 $campaign_code = get_post_meta($cid, '_campaign_code', true) ?: '';
-                $deadline_raw = get_post_meta($cid, '_campaign_deadline', true) ?: get_post_meta($cid, '_deadline', true);
+                $dl_info = function_exists('pcs_get_campaign_deadline_info') ? pcs_get_campaign_deadline_info($cid) : ['display' => '—', 'raw' => ''];
+                $deadline_display = $dl_info['display'];
+                $deadline_raw = $dl_info['raw'];
                 if ($deadline_raw) {
                     $ts = pcs_parse_deadline_timestamp($deadline_raw);
                     if ($ts) {
-                        $deadline_display = date('d M', $ts);
                         $days_remaining = (int) ceil(($ts - time()) / 86400);
                         if ($days_remaining <= 14) {
                             $due_soon = true;

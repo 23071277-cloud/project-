@@ -2073,11 +2073,8 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                             <div class="table-filter-pills">
                                 <button type="button" class="pill-tab active" data-filter="all">All</button>
                                 <button type="button" class="pill-tab" data-filter="draft">Draft</button>
-                                <button type="button" class="pill-tab" data-filter="scoring">Scoring</button>
-                                <button type="button" class="pill-tab" data-filter="in_review">In Review</button>
-                                <button type="button" class="pill-tab" data-filter="rejected">Rejected</button>
-                                <button type="button" class="pill-tab" data-filter="approved">Approved</button>
-                                <button type="button" class="pill-tab" data-filter="released">Released</button>
+                                <button type="button" class="pill-tab" data-filter="progress">In Progress</button>
+                                <button type="button" class="pill-tab" data-filter="completed">Completed</button>
                             </div>
                             <button type="button" class="btn-toggle-expand" id="btnToggleCampaignsView" onclick="toggleCampaignsExpansion()" title="Toggle full width table view">
                                 <svg class="icon-expand" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
@@ -2142,7 +2139,7 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                             </td>
                                             <td style="text-align: center; white-space: nowrap;">
                                                 <div style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
-                                                    <button type="button" class="btn-action-outline" style="padding: 5px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;" onclick="openEditTeamModal(<?= (int)$camp['id'] ?>, '<?= esc_js($camp['name']) ?>', <?= (int)($camp['owner_id'] ?? 0) ?>, <?= esc_attr(json_encode($camp['maker_ids'] ?? [])) ?>, <?= esc_attr(json_encode($camp['checker_ids'] ?? [])) ?>, '<?= esc_js($camp['deadline'] ?? '') ?>')">
+                                                    <button type="button" class="btn-action-outline" style="padding: 5px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;" onclick="openEditTeamModal(<?= (int)$camp['id'] ?>, '<?= esc_js($camp['name']) ?>', <?= (int)($camp['owner_id'] ?? 0) ?>, <?= esc_attr(json_encode($camp['maker_ids'] ?? [])) ?>, <?= esc_attr(json_encode($camp['checker_ids'] ?? [])) ?>, '<?= esc_js($camp['deadline_iso'] ?? $camp['deadline'] ?? '') ?>')">
                                                         <span>Edit</span>
                                                     </button>
                                                     <button type="button" class="btn-view-campaign js-toggle-drawer" data-target="drawer-<?= $camp['id'] ?>">
@@ -2942,7 +2939,8 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                 let visibleCount = 0;
                 campRows.forEach(row => {
                     const statuses = (row.getAttribute('data-statuses') || row.getAttribute('data-status') || '').split(',').map(s => s.trim().toLowerCase());
-                    const matches = (filter === 'all' || statuses.includes(filter.toLowerCase()));
+                    const fLow = filter.toLowerCase();
+                    const matches = (fLow === 'all' || statuses.includes(fLow) || (fLow === 'progress' && statuses.includes('in_progress')) || (fLow === 'in_progress' && statuses.includes('progress')));
                     row.style.display = matches ? '' : 'none';
                     if (matches) visibleCount++;
 
@@ -3374,7 +3372,23 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
 
             const deadlineInput = document.getElementById('editCampaignDeadlineInput');
             if (deadlineInput) {
-                deadlineInput.value = (deadline && deadline !== 'No deadline') ? deadline : '';
+                if (deadline && deadline !== 'No deadline') {
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(deadline)) {
+                        deadlineInput.value = deadline;
+                    } else {
+                        const parsed = new Date(deadline);
+                        if (!isNaN(parsed.getTime())) {
+                            const y = parsed.getFullYear();
+                            const m = String(parsed.getMonth() + 1).padStart(2, '0');
+                            const d = String(parsed.getDate()).padStart(2, '0');
+                            deadlineInput.value = `${y}-${m}-${d}`;
+                        } else {
+                            deadlineInput.value = '';
+                        }
+                    }
+                } else {
+                    deadlineInput.value = '';
+                }
             }
 
             const ownerSelect = document.getElementById('editTeamOwnerSelect');

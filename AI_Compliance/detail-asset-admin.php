@@ -109,6 +109,24 @@ if ($reqMethod === 'POST' && isset($_POST['action']) && $_POST['action'] === 'ad
             $releaseSuccess = false;
         }
     }
+} elseif ($reqMethod === 'POST' && isset($_POST['action']) && in_array($_POST['action'], ['update_campaign', 'update_campaign_team'], true)) {
+    $campIdPost = absint($_POST['campaign_id'] ?? ($_GET['campaign_id'] ?? 0));
+    $campTitle = sanitize_text_field($_POST['campaign_title'] ?? '');
+    $campDeadline = sanitize_text_field($_POST['campaign_deadline'] ?? '');
+    $campOwnerId = absint($_POST['owner_id'] ?? 0);
+    $maker_ids = isset($_POST['maker_ids']) ? array_map('absint', (array) $_POST['maker_ids']) : [];
+    $checker_ids = isset($_POST['checker_ids']) ? array_map('absint', (array) $_POST['checker_ids']) : [];
+    if ($campIdPost && function_exists('handle_update_campaign')) {
+        handle_update_campaign($campIdPost, [
+            'title'       => $campTitle,
+            'deadline'    => $campDeadline,
+            'owner_id'    => $campOwnerId,
+            'maker_ids'   => $maker_ids,
+            'checker_ids' => $checker_ids
+        ]);
+        $releaseAlert = 'Campaign details and team assignments updated successfully!';
+        $releaseSuccess = true;
+    }
 }
 
 // 6. Query Campaign & Assets Data from WordPress Database
@@ -120,6 +138,15 @@ $campaignId          = (int) ($detailData['campaign_id'] ?? 0);
 $campaignName        = $detailData['campaign_name'] ?? '—';
 $ownerName           = $detailData['owner_name'] ?? '—';
 $deadline            = $detailData['deadline'] ?? 'No deadline';
+$deadlineIso         = $detailData['deadline_iso'] ?? '';
+$deadlineRaw         = $detailData['deadline_raw'] ?? '';
+$campaignOwnerId     = (int) ($detailData['owner_id'] ?? 0);
+$campaignMakerIds    = (array) ($detailData['maker_ids'] ?? []);
+$campaignCheckerIds  = (array) ($detailData['checker_ids'] ?? []);
+
+$allAdminsList       = function_exists('get_all_users_for_picker') ? get_all_users_for_picker('ADMIN') : [];
+$allMakersList       = function_exists('get_all_users_for_picker') ? get_all_users_for_picker('MAKER') : [];
+$allCheckersList     = function_exists('get_all_users_for_picker') ? get_all_users_for_picker('CHECKER') : [];
 $priority            = $detailData['priority'] ?? 'Normal';
 $totalAssets         = (int) ($detailData['total_assets'] ?? 0);
 $reviewedCount       = (int) ($detailData['reviewed_count'] ?? 0);
@@ -1034,6 +1061,113 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
             margin-bottom: 8px;
         }
 
+        /* ================= USER PICKER MULTI-SELECT STYLES ================= */
+        .user-picker-wrap {
+            position: relative;
+            width: 100%;
+        }
+        .user-picker-box {
+            min-height: 44px;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            padding: 6px 10px;
+            background: #FFFFFF;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+            cursor: text;
+            transition: border-color 0.15s ease;
+        }
+        .user-picker-box:focus-within {
+            border-color: #6366F1;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+        }
+        .user-picker-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .user-picker-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #EEF2FF;
+            color: #373E8C;
+            border: 1px solid #C7D2FE;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .user-picker-tag-remove {
+            cursor: pointer;
+            font-weight: 800;
+            font-size: 14px;
+            color: #6366F1;
+            line-height: 1;
+        }
+        .user-picker-tag-remove:hover {
+            color: #EF4444;
+        }
+        .user-picker-input {
+            border: none;
+            outline: none;
+            font-size: 13px;
+            font-family: inherit;
+            flex: 1 1 120px;
+            min-width: 100px;
+            padding: 4px 0;
+            background: transparent;
+        }
+        .user-picker-dropdown {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            max-height: 200px;
+            overflow-y: auto;
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            padding: 6px;
+        }
+        .user-dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        .user-dropdown-item:hover {
+            background: #F8FAFC;
+        }
+        .user-dropdown-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            color: #FFF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .user-dropdown-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: #0F172A;
+        }
+        .user-dropdown-email {
+            font-size: 11.5px;
+            color: #64748B;
+        }
+
         /* ================= 9. MODALS ================= */
         .modal-overlay {
             position: fixed;
@@ -1245,6 +1379,14 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                 </div>
             <?php else: ?>
 
+                <!-- Back to Dashboard Navigation -->
+                <div style="margin-bottom: 14px;">
+                    <a href="<?= esc_url($adminDashUrl) ?>" class="btn-back-breadcrumb" style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #373E8C; text-decoration: none; padding: 7px 14px; background: #FFFFFF; border: 1px solid #E0E0FF; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); transition: all 0.15s ease;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                        <span>Back to Dashboard</span>
+                    </a>
+                </div>
+
                 <!-- ================= 2. CAMPAIGN HERO / GOVERNANCE HEADER ================= -->
                 <section class="campaign-hero">
                     <div class="campaign-hero-top">
@@ -1260,15 +1402,15 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                             </div>
                         </div>
                         <div class="hero-actions">
-                            <a href="<?= esc_url(function_exists('pcs_url') ? pcs_url('approval-queue-admin.php') : 'approval-queue-admin.php') ?>" class="btn-secondary" style="background: #F4F3FD; border-color: #D5D9F3; color: #4E56A6;">
+                            <a href="<?= esc_url((function_exists('pcs_url') ? pcs_url('approval-queue-admin.php') : 'approval-queue-admin.php') . '?campaign_id=' . (int)$campaignId) ?>" class="btn-secondary" style="background: #F4F3FD; border-color: #D5D9F3; color: #4E56A6;">
                                 <span>Approval Queue &rarr;</span>
                             </a>
                             <button type="button" class="btn-secondary" onclick="openGuidelinesModal()">
                                 <span>Manage Guidelines</span>
                             </button>
-                            <a href="<?= esc_url($adminDashUrl . '#campaigns-section') ?>" class="btn-primary">
+                            <button type="button" class="btn-primary" onclick="openEditCampaignModal()">
                                 <span>Edit Campaign</span>
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </section>
@@ -1985,6 +2127,125 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
     </div>
 </div>
 
+<!-- ================= MODAL 4: EDIT CAMPAIGN DETAILS & TEAM ================= -->
+<div class="modal-overlay" id="editCampaignModal">
+    <div class="modal-card" style="max-width: 580px;">
+        <div class="modal-header">
+            <div>
+                <h3 class="modal-title">Edit Campaign</h3>
+                <p style="font-size: 13px; color: #64748B; margin-top: 2px;">Update campaign details and team assignments</p>
+            </div>
+            <span class="btn-modal-close" onclick="closeEditCampaignModal()">&times;</span>
+        </div>
+        <form method="POST" action="">
+            <input type="hidden" name="action" value="update_campaign">
+            <input type="hidden" name="campaign_id" value="<?= (int)$campaignId ?>">
+            
+            <div class="modal-body" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+                <!-- Edit Campaign Title -->
+                <div>
+                    <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Campaign Title</label>
+                    <input type="text" name="campaign_title" id="editCampaignTitleInput" required value="<?= esc_attr($campaignName) ?>" style="width: 100%; height: 44px; padding: 0 14px; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 14px; background: #fff; box-sizing: border-box;" placeholder="Enter campaign name">
+                </div>
+
+                <!-- Edit Deadline -->
+                <div>
+                    <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Target Deadline</label>
+                    <input type="date" name="campaign_deadline" id="editCampaignDeadlineInput" value="<?= esc_attr($deadlineIso) ?>" style="width: 100%; height: 44px; padding: 0 14px; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 14px; background: #fff; box-sizing: border-box;">
+                </div>
+
+                <!-- Edit Owner -->
+                <div>
+                    <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Campaign Owner</label>
+                    <select name="owner_id" id="editCampaignOwnerSelect" required style="width: 100%; height: 44px; padding: 0 14px; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 14px; background: #fff; box-sizing: border-box;">
+                        <?php foreach ($allAdminsList as $adm): 
+                            list($admId, $admName, $admEmail) = pcs_extract_user_info($adm);
+                        ?>
+                            <option value="<?= esc_attr($admId) ?>" <?= ($campaignOwnerId === (int)$admId) ? 'selected' : '' ?>>
+                                <?= esc_html($admName) ?> (<?= esc_html($admEmail) ?>)
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <!-- Edit Makers -->
+                <div>
+                    <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Assigned Maker(s)</label>
+                    <div class="user-picker-wrap" id="editMakerPicker">
+                        <div class="user-picker-box" onclick="focusPickerInput('editMakerPicker')">
+                            <div class="user-picker-tags" id="editMakerPickerTags">
+                                <?php foreach ($campaignMakerIds as $mId): 
+                                    $u = function_exists('get_userdata') ? get_userdata($mId) : null;
+                                    $mName = $u ? ($u->display_name ?: $u->user_login) : ('User #' . $mId);
+                                ?>
+                                    <span class="user-picker-tag" data-id="<?= esc_attr($mId) ?>">
+                                        <span><?= esc_html($mName) ?></span>
+                                        <span class="user-picker-tag-remove" onclick="removePickerUser('editMakerPicker', '<?= esc_attr($mId) ?>')">&times;</span>
+                                        <input type="hidden" name="maker_ids[]" value="<?= esc_attr($mId) ?>">
+                                    </span>
+                                <?php endforeach; ?>
+                            </div>
+                            <input type="text" class="user-picker-input" id="editMakerPickerInput" placeholder="Type to search Makers..." onfocus="openPickerDropdown('editMakerPicker')" oninput="filterPickerUsers('editMakerPicker', this.value)">
+                        </div>
+                        <div class="user-picker-dropdown" id="editMakerPickerDropdown" style="display: none;">
+                            <?php foreach ($allMakersList as $mUser): 
+                                list($uId, $uName, $uEmail) = pcs_extract_user_info($mUser);
+                            ?>
+                                <div class="user-dropdown-item" data-id="<?= esc_attr($uId) ?>" data-name="<?= esc_attr($uName) ?>" data-email="<?= esc_attr($uEmail) ?>" onclick="addPickerUser('editMakerPicker', '<?= esc_attr($uId) ?>', '<?= esc_js($uName) ?>', 'maker_ids[]')">
+                                    <div class="user-dropdown-avatar" style="background: #373E8C;"><?= strtoupper(substr($uName, 0, 2)) ?></div>
+                                    <div>
+                                        <div class="user-dropdown-name"><?= esc_html($uName) ?></div>
+                                        <div class="user-dropdown-email"><?= esc_html($uEmail) ?></div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Edit Checkers -->
+                <div>
+                    <label style="display: block; font-size: 13px; font-weight: 700; color: #161B2E; margin-bottom: 6px;">Assigned Checker(s)</label>
+                    <div class="user-picker-wrap" id="editCheckerPicker">
+                        <div class="user-picker-box" onclick="focusPickerInput('editCheckerPicker')">
+                            <div class="user-picker-tags" id="editCheckerPickerTags">
+                                <?php foreach ($campaignCheckerIds as $cId): 
+                                    $u = function_exists('get_userdata') ? get_userdata($cId) : null;
+                                    $cName = $u ? ($u->display_name ?: $u->user_login) : ('User #' . $cId);
+                                ?>
+                                    <span class="user-picker-tag" data-id="<?= esc_attr($cId) ?>">
+                                        <span><?= esc_html($cName) ?></span>
+                                        <span class="user-picker-tag-remove" onclick="removePickerUser('editCheckerPicker', '<?= esc_attr($cId) ?>')">&times;</span>
+                                        <input type="hidden" name="checker_ids[]" value="<?= esc_attr($cId) ?>">
+                                    </span>
+                                <?php endforeach; ?>
+                            </div>
+                            <input type="text" class="user-picker-input" id="editCheckerPickerInput" placeholder="Type to search Checkers..." onfocus="openPickerDropdown('editCheckerPicker')" oninput="filterPickerUsers('editCheckerPicker', this.value)">
+                        </div>
+                        <div class="user-picker-dropdown" id="editCheckerPickerDropdown" style="display: none;">
+                            <?php foreach ($allCheckersList as $cUser): 
+                                list($uId, $uName, $uEmail) = pcs_extract_user_info($cUser);
+                            ?>
+                                <div class="user-dropdown-item" data-id="<?= esc_attr($uId) ?>" data-name="<?= esc_attr($uName) ?>" data-email="<?= esc_attr($uEmail) ?>" onclick="addPickerUser('editCheckerPicker', '<?= esc_attr($uId) ?>', '<?= esc_js($uName) ?>', 'checker_ids[]')">
+                                    <div class="user-dropdown-avatar" style="background: #00B894;"><?= strtoupper(substr($uName, 0, 2)) ?></div>
+                                    <div>
+                                        <div class="user-dropdown-name"><?= esc_html($uName) ?></div>
+                                        <div class="user-dropdown-email"><?= esc_html($uEmail) ?></div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid #E2E8F0; display: flex; justify-content: flex-end; gap: 12px;">
+                <button type="button" class="btn-secondary" style="height: 38px; padding: 0 16px;" onclick="closeEditCampaignModal()">Cancel</button>
+                <button type="submit" class="btn-primary" style="height: 38px; padding: 0 18px;">Save Campaign Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- ================= JAVASCRIPT CONTROLLERS ================= -->
 <script>
 // Tab Filtering Controller
@@ -2196,12 +2457,87 @@ function closeGuidelinesModal() {
     document.getElementById('guidelinesModal').classList.remove('active');
 }
 
+function openEditCampaignModal() {
+    const modal = document.getElementById('editCampaignModal');
+    if (modal) modal.classList.add('active');
+}
+function closeEditCampaignModal() {
+    const modal = document.getElementById('editCampaignModal');
+    if (modal) modal.classList.remove('active');
+}
+
+// User Multi-Select Picker Functions
+function focusPickerInput(pickerId) {
+    const input = document.getElementById(pickerId + 'Input');
+    if (input) input.focus();
+}
+
+function openPickerDropdown(pickerId) {
+    document.querySelectorAll('.user-picker-dropdown').forEach(dd => {
+        if (dd.id !== pickerId + 'Dropdown') dd.style.display = 'none';
+    });
+    const dd = document.getElementById(pickerId + 'Dropdown');
+    if (dd) dd.style.display = 'block';
+}
+
+function filterPickerUsers(pickerId, query) {
+    const dd = document.getElementById(pickerId + 'Dropdown');
+    if (!dd) return;
+    dd.style.display = 'block';
+    const q = query.toLowerCase().trim();
+    const items = dd.querySelectorAll('.user-dropdown-item');
+    items.forEach(item => {
+        const name = (item.getAttribute('data-name') || '').toLowerCase();
+        const email = (item.getAttribute('data-email') || '').toLowerCase();
+        item.style.display = (!q || name.includes(q) || email.includes(q)) ? 'flex' : 'none';
+    });
+}
+
+function addPickerUser(pickerId, userId, userName, inputName) {
+    const tagsContainer = document.getElementById(pickerId + 'Tags');
+    const input = document.getElementById(pickerId + 'Input');
+    const dd = document.getElementById(pickerId + 'Dropdown');
+    if (!tagsContainer) return;
+
+    if (tagsContainer.querySelector('[data-id="' + userId + '"]')) {
+        if (dd) dd.style.display = 'none';
+        if (input) input.value = '';
+        return;
+    }
+
+    const tag = document.createElement('span');
+    tag.className = 'user-picker-tag';
+    tag.setAttribute('data-id', userId);
+    tag.innerHTML = '<span>' + escapeHtml(userName) + '</span>' +
+        '<span class="user-picker-tag-remove" onclick="removePickerUser(\'' + pickerId + '\', \'' + userId + '\')">&times;</span>' +
+        '<input type="hidden" name="' + inputName + '" value="' + userId + '">';
+    tagsContainer.appendChild(tag);
+
+    if (input) input.value = '';
+    if (dd) dd.style.display = 'none';
+}
+
+function removePickerUser(pickerId, userId) {
+    const tagsContainer = document.getElementById(pickerId + 'Tags');
+    if (!tagsContainer) return;
+    const tag = tagsContainer.querySelector('[data-id="' + userId + '"]');
+    if (tag) tag.remove();
+}
+
+// Close user picker dropdown when clicking outside
+window.addEventListener('click', function(e) {
+    if (!e.target.closest('.user-picker-wrap')) {
+        document.querySelectorAll('.user-picker-dropdown').forEach(dd => dd.style.display = 'none');
+    }
+});
+
 // Close modals with Escape key or click outside
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeReleaseModal();
         closeViewReleaseModal();
         closeGuidelinesModal();
+        closeEditCampaignModal();
     }
 });
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
@@ -2210,6 +2546,7 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
             closeReleaseModal();
             closeViewReleaseModal();
             closeGuidelinesModal();
+            closeEditCampaignModal();
         }
     });
 });

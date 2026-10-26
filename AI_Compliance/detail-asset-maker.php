@@ -143,6 +143,7 @@ $guidelines      = $detailData['guidelines'] ?? [];
 $activities      = $detailData['activities'] ?? [];
 
 $isDbEmpty = empty($detailData) || empty($campaignId);
+$makerDashUrl = function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php';
 
 // Calculate dynamic status breakdown for Header & Progress Bar
 $draftCount = 0;
@@ -1743,6 +1744,14 @@ endif;
             </div>
 
         <?php else: ?>
+
+            <!-- Back to Dashboard Navigation -->
+            <div style="margin-bottom: 14px;">
+                <a href="<?= esc_url($makerDashUrl) ?>" class="btn-back-breadcrumb" style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #373E8C; text-decoration: none; padding: 7px 14px; background: #FFFFFF; border: 1px solid #E0E0FF; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); transition: all 0.15s ease;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                    <span>Back to Dashboard</span>
+                </a>
+            </div>
 
             <!-- ================= SECTION: CAMPAIGN INFO BAR ================= -->
             <div class="section-CAMPAIGN">

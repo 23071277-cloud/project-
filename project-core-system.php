@@ -475,6 +475,9 @@ function pcs_save_meta_data($post_id, $post) {
                 $val = sanitize_text_field($raw);
         }
         update_post_meta($post_id, $meta_key, $val);
+        if ($meta_key === '_campaign_deadline') {
+            update_post_meta($post_id, '_deadline', $val);
+        }
     }
 
     // Kết quả chấm: ghi nhận Checker chấm tay (AI chấm thì không có checker_id)

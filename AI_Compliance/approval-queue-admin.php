@@ -87,7 +87,22 @@ $detailAdminBaseUrl = function_exists('pcs_url') ? pcs_url('detail-asset-admin.p
 $auditLogBaseUrl = function_exists('pcs_url') ? pcs_url('audit-log.php') : 'audit-log.php';
 
 // 7. Dynamic Data Query: Approval Queue Items
+$targetCampaignId = (int) ($_GET['campaign_id'] ?? 0);
+$targetCampaignName = '';
+if ($targetCampaignId > 0 && pcs_is_wp() && function_exists('get_post')) {
+    $tcp = get_post($targetCampaignId);
+    if ($tcp) {
+        $targetCampaignName = $tcp->post_title;
+    }
+}
+
 $rawQueue = function_exists('get_admin_release_queue') ? get_admin_release_queue('awaiting_release') : [];
+
+if ($targetCampaignId > 0) {
+    $rawQueue = array_values(array_filter($rawQueue, function($item) use ($targetCampaignId) {
+        return (int)($item['campaign_id'] ?? 0) === $targetCampaignId;
+    }));
+}
 
 $uniqueCheckers = [];
 $needsAttentionCount = 0;
@@ -1089,6 +1104,18 @@ sort($uniqueCheckers);
                     </div>
                 </div>
             </section>
+
+            <?php if ($targetCampaignId > 0): ?>
+                <div style="margin: 0 0 16px 0; padding: 10px 16px; background: #EEF2FF; border: 1px solid #C7D2FE; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; font-size: 13px;">
+                    <div style="display: flex; align-items: center; gap: 8px; color: #1E293B;">
+                        <span style="font-weight: 700; color: #373E8C;">Filtered by Campaign:</span>
+                        <strong><?php echo esc_html($targetCampaignName ?: ('Campaign #' . $targetCampaignId)); ?></strong>
+                    </div>
+                    <a href="<?php echo esc_url(function_exists('pcs_url') ? pcs_url('approval-queue-admin.php') : 'approval-queue-admin.php'); ?>" style="font-weight: 600; color: #4F57A7; text-decoration: underline; font-size: 12.5px;">
+                        Show all campaigns &times;
+                    </a>
+                </div>
+            <?php endif; ?>
 
             <!-- SECTION 2: QUEUE SEARCH AND FILTERS TOOLBAR -->
             <section data-layer="Section - 2. Queue Search and Filters Toolbar" class="filters-toolbar">
