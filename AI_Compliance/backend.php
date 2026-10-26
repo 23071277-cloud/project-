@@ -2044,6 +2044,11 @@ function get_all_campaigns($filter = 'all') {
 
         $percent = $total_assets > 0 ? round(($released_assets / $total_assets) * 100) : 0;
 
+        $asset_statuses = array_values(array_unique(array_filter(array_column($assets_data, 'status'))));
+        if (empty($asset_statuses)) {
+            $asset_statuses = ['draft'];
+        }
+
         // =====================================================================
         // CAMPAIGN STATUS LOGIC (CHỈ DÀNH RIÊNG CHO CAMPAIGN, KHÔNG ĐỔI ASSET):
         // 1. Draft (màu xám ghi): Khi chưa làm tí nào (0 asset hoặc tất cả asset đều là draft)
@@ -2147,6 +2152,10 @@ function get_all_campaigns($filter = 'all') {
         return array_values(array_filter($all_camps, fn($c) => in_array('draft', $c['asset_statuses'], true) || $c['filter_group'] === 'draft'));
     } elseif ($filter === 'scoring') {
         return array_values(array_filter($all_camps, fn($c) => in_array('scoring', $c['asset_statuses'], true) || $c['filter_group'] === 'scoring'));
+    } elseif ($filter === 'progress' || $filter === 'in_progress') {
+        return array_values(array_filter($all_camps, fn($c) => $c['filter_group'] === 'progress' || ($c['status_slug'] ?? '') === 'progress'));
+    } elseif ($filter === 'completed' || $filter === 'complete') {
+        return array_values(array_filter($all_camps, fn($c) => $c['filter_group'] === 'completed' || ($c['status_slug'] ?? '') === 'completed'));
     }
 
     return $all_camps;
