@@ -133,6 +133,17 @@ function ai_compliance_template_router($template) {
         }
     }
 
+    // Nếu request chứa detail-asset-2, phục vụ trực tiếp detail-asset-maker.php
+    if (strpos($req_uri, 'detail-asset-2') !== false) {
+        $dam_file = get_template_directory() . '/detail-asset-maker.php';
+        if (!file_exists($dam_file)) {
+            $dam_file = __DIR__ . '/detail-asset-maker.php';
+        }
+        if (file_exists($dam_file)) {
+            return $dam_file;
+        }
+    }
+
     $denied_file = get_template_directory() . '/access-denied.php';
     if (!file_exists($denied_file)) {
         $denied_file = __DIR__ . '/access-denied.php';

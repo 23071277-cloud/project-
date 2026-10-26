@@ -1128,7 +1128,9 @@ function pcs_url($target) {
         'admin-dashboard.php'       => ['slugs' => ['admin', 'admin-dashboard', 'admin-workspace'], 'template' => 'admin-dashboard.php'],
         'detail-asset-admin.php'    => ['slugs' => ['detail-asset-admin', 'admin-detail-asset', 'admin-asset-detail'], 'template' => 'detail-asset-admin.php'],
         'detail-asset-checker.php'  => ['slugs' => ['detail-asset-checker', 'checker-detail-asset', 'asset-detail'], 'template' => 'detail-asset-checker.php'],
-        'detail-asset-maker.php'    => ['slugs' => ['detail-asset-maker', 'maker-detail-asset', 'maker-asset-detail', 'asset-detail-maker'], 'template' => 'detail-asset-maker.php'],
+        'detail-asset-maker.php'    => ['slugs' => ['detail-asset-2', 'detail-asset-maker', 'detail-asset', 'maker-detail-asset', 'maker-asset-detail', 'asset-detail-maker'], 'template' => 'detail-asset-maker.php'],
+        'detail-asset-2'            => ['slugs' => ['detail-asset-2', 'detail-asset-maker', 'detail-asset'], 'template' => 'detail-asset-maker.php'],
+        'detail-asset-2.php'        => ['slugs' => ['detail-asset-2', 'detail-asset-maker', 'detail-asset'], 'template' => 'detail-asset-maker.php'],
         'checker-review.php'        => ['slugs' => ['checker-review', 'review-checker', 'review-asset'], 'template' => 'checker-review.php'],
         'audit-log.php'              => ['slugs' => ['audit-log', 'audit-history', 'compliance-audit-log', 'audit'], 'template' => 'audit-log.php'],
         'compare-version.php'       => ['slugs' => ['compare-version', 'compare-versions', 'compare', 'version-compare'], 'template' => 'compare-version.php'],
@@ -3124,9 +3126,9 @@ function get_coming_up_tasks() {
         $assets       = $camp['assets'] ?? [];
         $total_assets = (int)($camp['total'] ?? count($assets));
 
-        // Truong hop 1: Campaign chua co asset nao -> Maker can vao tao va upload asset dau tien (Draft)
+        // Truong hop 1: Campaign chua co asset nao -> Maker vao xem chi tiet campaign (Draft), tu do co the bam [Upload Asset]
         if (empty($assets) || $total_assets === 0) {
-            $upload_url = function_exists('pcs_url') ? pcs_url('smart-maker-upload.php') : 'smart-maker-upload.php';
+            $detail_url = function_exists('pcs_url') ? pcs_url('detail-asset-maker.php') : 'detail-asset-maker.php';
             $tasks[] = [
                 'date'         => $deadline ?: 'No deadline',
                 'badge_type'   => 'draft',
@@ -3135,8 +3137,8 @@ function get_coming_up_tasks() {
                 'campaign'     => $camp_name,
                 'campaign_id'  => $camp_id,
                 'asset_id'     => 0,
-                'url'          => $upload_url . '?campaign_id=' . $camp_id . '&mode=new_asset',
-                'action_label' => 'Upload'
+                'url'          => $detail_url . '?campaign_id=' . $camp_id,
+                'action_label' => 'Detail'
             ];
             continue;
         }
@@ -3161,7 +3163,7 @@ function get_coming_up_tasks() {
                     'action_label' => 'Detail'
                 ];
             } elseif ($ast_status === 'draft' || $badge_type === 'neutral') {
-                $upload_url = function_exists('pcs_url') ? pcs_url('smart-maker-upload.php') : 'smart-maker-upload.php';
+                $detail_url = function_exists('pcs_url') ? pcs_url('detail-asset-maker.php') : 'detail-asset-maker.php';
                 $tasks[] = [
                     'date'         => $deadline ?: 'Draft',
                     'badge_type'   => 'draft',
@@ -3170,8 +3172,8 @@ function get_coming_up_tasks() {
                     'campaign'     => $camp_name,
                     'campaign_id'  => $camp_id,
                     'asset_id'     => (int)($asset['id'] ?? 0),
-                    'url'          => $upload_url . '?campaign_id=' . $camp_id . '&asset_id=' . (int)($asset['id'] ?? 0) . '&mode=new_version',
-                    'action_label' => 'Upload'
+                    'url'          => $detail_url . '?campaign_id=' . $camp_id . '&asset_id=' . (int)($asset['id'] ?? 0),
+                    'action_label' => 'Detail'
                 ];
             }
             // Khong dua in_review, scoring, approved, released vao Coming Up
