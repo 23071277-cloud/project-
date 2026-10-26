@@ -1516,12 +1516,11 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                                         elseif ($ast['status'] === 'in_review') $filterGroup = 'in_review';
                                         elseif ($ast['status'] === 'released') $filterGroup = 'released';
 
-                                        // URL for checker review if in review
-                                        $checkerReviewUrl = (function_exists('pcs_url') ? pcs_url('checker-review.php') : 'checker-review.php') . '?' . http_build_query([
-                                            'campaign_id' => $campaignId,
-                                            'asset_id'    => $ast['id'],
-                                            'version_id'  => $ast['current_version_id'],
-                                            'from'        => 'detail_admin'
+                                        // URL for Admin Final Review
+                                        $adminFinalReviewUrl = (function_exists('pcs_url') ? pcs_url('final-review-admin.php') : 'final-review-admin.php') . '?' . http_build_query([
+                                            'version_id'  => (int)$ast['current_version_id'],
+                                            'asset_id'    => (int)$ast['id'],
+                                            'campaign_id' => (int)$campaignId,
                                         ]);
                                     ?>
                                         <tr class="asset-row <?= $isActive ? 'active-row' : '' ?>"
@@ -1539,6 +1538,7 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                                             data-next="<?= esc_attr($ast['next_label']) ?>"
                                             data-file-url="<?= esc_attr($ast['file_url']) ?>"
                                             data-version-id="<?= (int)$ast['current_version_id'] ?>"
+                                            data-final-review-url="<?= esc_attr($adminFinalReviewUrl) ?>"
                                             data-review-note="<?= esc_attr($ast['review_note']) ?>"
                                             data-override="<?= $ast['override_recorded'] ? '1' : '0' ?>"
                                             onclick="selectAssetRow(this)">
@@ -1630,8 +1630,8 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                                                         <a href="<?= esc_url($relUrl) ?>" class="btn-table-action" style="text-decoration: none; padding: 5px 12px; font-size: 11.5px; border-radius: 6px; white-space: nowrap;">
                                                             View Release
                                                         </a>
-                                                    <?php elseif ($ast['status'] === 'in_review'): ?>
-                                                        <a href="<?= esc_url($checkerReviewUrl) ?>" class="btn-table-action" style="padding: 5px 12px; font-size: 11.5px; border-radius: 6px; white-space: nowrap;">
+                                                    <?php elseif (!empty($ast['current_version_id'])): ?>
+                                                        <a href="<?= esc_url($adminFinalReviewUrl) ?>" class="btn-table-action" style="padding: 5px 12px; font-size: 11.5px; border-radius: 6px; white-space: nowrap;">
                                                             View Version
                                                         </a>
                                                     <?php else: ?>
@@ -2410,7 +2410,7 @@ function openReleaseModal(data) {
     const finalReviewLink = document.getElementById('modalFinalReviewLink');
     if (finalReviewLink) {
         const finalReviewBase = '<?= esc_js(function_exists('pcs_url') ? pcs_url('final-review-admin.php') : 'final-review-admin.php') ?>';
-        finalReviewLink.href = finalReviewBase + '?campaign_id=<?= (int)$campaignId ?>&asset_id=' + encodeURIComponent(data.asset_id || 0) + '&version_id=' + encodeURIComponent(data.version_id || 0);
+        finalReviewLink.href = finalReviewBase + '?version_id=' + encodeURIComponent(data.version_id || 0) + '&asset_id=' + encodeURIComponent(data.asset_id || 0) + '&campaign_id=<?= (int)$campaignId ?>';
     }
 
     document.getElementById('releaseModal').classList.add('active');
