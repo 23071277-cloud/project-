@@ -3106,7 +3106,10 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
 // =========================================================================
 
 /**
- * Lấy danh sách nhiệm vụ cần làm gấp (Coming Up column) từ dữ liệu thực tế
+ * Lay danh sach nhiem vu can lam cho Maker (Coming Up column) tu du lieu thuc te:
+ * 1. Rejected Assets: Cac asset bi reject can sua doi va upload version moi (badge: Rejected, mau do)
+ * 2. Empty Campaigns: Cac campaign chua co asset nao hoac asset o trang thai draft (badge: Draft, mau xam)
+ * Tuyet doi khong hien In Review / Scoring / Approved / Released trong Coming Up cua Maker.
  */
 if (!function_exists('get_coming_up_tasks')) {
 function get_coming_up_tasks() {
@@ -3114,28 +3117,64 @@ function get_coming_up_tasks() {
     $tasks = [];
 
     foreach ($campaigns as $camp) {
-        foreach ($camp['assets'] as $asset) {
-            if ($asset['badge_type'] === 'danger') {
+        $camp_id   = !empty($camp['id']) ? (int)$camp['id'] : 0;
+        $camp_name = $camp['name'] ?? ('Campaign #' . $camp_id);
+        $deadline  = !empty($camp['deadline']) && $camp['deadline'] !== 'No deadline' ? $camp['deadline'] : '';
+
+        $assets       = $camp['assets'] ?? [];
+        $total_assets = (int)($camp['total'] ?? count($assets));
+
+        // Truong hop 1: Campaign chua co asset nao -> Maker can vao tao va upload asset dau tien (Draft)
+        if (empty($assets) || $total_assets === 0) {
+            $upload_url = function_exists('pcs_url') ? pcs_url('smart-maker-upload.php') : 'smart-maker-upload.php';
+            $tasks[] = [
+                'date'         => $deadline ?: 'No deadline',
+                'badge_type'   => 'draft',
+                'badge'        => 'Draft',
+                'title'        => 'Upload first asset (' . $camp_name . ')',
+                'campaign'     => $camp_name,
+                'campaign_id'  => $camp_id,
+                'asset_id'     => 0,
+                'url'          => $upload_url . '?campaign_id=' . $camp_id . '&mode=new_asset',
+                'action_label' => 'Upload'
+            ];
+            continue;
+        }
+
+        // Truong hop 2: Campaign co asset -> Chi hien thi asset bi REJECTED hoac DRAFT
+        foreach ($assets as $asset) {
+            $ast_status = strtolower(trim($asset['status'] ?? ''));
+            $badge_type = strtolower(trim($asset['badge_type'] ?? ''));
+
+            if ($ast_status === 'rejected' || $badge_type === 'danger') {
+                $ver_num    = (int)($asset['current_version_num'] ?? 1);
+                $detail_url = function_exists('pcs_url') ? pcs_url('detail-asset-maker.php') : 'detail-asset-maker.php';
                 $tasks[] = [
-                    'date'        => 'Action Required',
-                    'badge_type'  => 'danger',
-                    'badge'       => 'Action Required',
-                    'title'       => 'Upload V' . (($asset['current_version_num'] ?? 2) + 1) . ' (' . $asset['name'] . ')',
-                    'campaign'    => $camp['name'],
-                    'campaign_id' => $camp['id'] ?? 0,
-                    'asset_id'    => $asset['id'] ?? 0,
+                    'date'         => $deadline ?: 'Action Required',
+                    'badge_type'   => 'rejected',
+                    'badge'        => 'Rejected',
+                    'title'        => 'Upload V' . ($ver_num + 1) . ' (' . ($asset['name'] ?? 'Asset') . ')',
+                    'campaign'     => $camp_name,
+                    'campaign_id'  => $camp_id,
+                    'asset_id'     => (int)($asset['id'] ?? 0),
+                    'url'          => $detail_url . '?campaign_id=' . $camp_id . '&asset_id=' . (int)($asset['id'] ?? 0),
+                    'action_label' => 'Detail'
                 ];
-            } elseif ($asset['badge_type'] === 'primary') {
+            } elseif ($ast_status === 'draft' || $badge_type === 'neutral') {
+                $upload_url = function_exists('pcs_url') ? pcs_url('smart-maker-upload.php') : 'smart-maker-upload.php';
                 $tasks[] = [
-                    'date'        => $camp['deadline'],
-                    'badge_type'  => 'primary',
-                    'badge'       => 'In Review',
-                    'title'       => $asset['name'] . ' ' . explode(' · ', $asset['version'])[0],
-                    'campaign'    => $camp['name'],
-                    'campaign_id' => $camp['id'] ?? 0,
-                    'asset_id'    => $asset['id'] ?? 0,
+                    'date'         => $deadline ?: 'Draft',
+                    'badge_type'   => 'draft',
+                    'badge'        => 'Draft',
+                    'title'        => 'Upload artwork (' . ($asset['name'] ?? 'Asset') . ')',
+                    'campaign'     => $camp_name,
+                    'campaign_id'  => $camp_id,
+                    'asset_id'     => (int)($asset['id'] ?? 0),
+                    'url'          => $upload_url . '?campaign_id=' . $camp_id . '&asset_id=' . (int)($asset['id'] ?? 0) . '&mode=new_version',
+                    'action_label' => 'Upload'
                 ];
             }
+            // Khong dua in_review, scoring, approved, released vao Coming Up
         }
     }
 

@@ -762,14 +762,22 @@ unset($camp);
 
         .status-pill-small {
             font-size: 11px;
-            font-weight: 600;
+            font-weight: 700;
             padding: 2px 8px;
             border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
         }
 
-        .status-pill-small.danger { background: rgba(255, 218, 214, 0.6); color: #BA1A1A; }
+        .status-pill-small.danger,
+        .status-pill-small.rejected { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
         .status-pill-small.primary { background: rgba(224, 224, 255, 0.6); color: #373E8C; }
-        .status-pill-small.warning { background: #F1F5F9; color: #64748B; }
+        .status-pill-small.warning { background: #FEF3C7; color: #D97706; border: 1px solid #FDE68A; }
+        .status-pill-small.draft,
+        .status-pill-small.neutral { background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1; }
+        .status-pill-small.success,
+        .status-pill-small.approved,
+        .status-pill-small.released { background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; }
 
         .coming-title {
             font-size: 14px;
@@ -1584,9 +1592,10 @@ unset($camp);
                             <?php
                                 $itemCampId = !empty($item['campaign_id']) ? (int)$item['campaign_id'] : 0;
                                 $itemAssetId = !empty($item['asset_id']) ? (int)$item['asset_id'] : 0;
-                                $itemDetailUrl = pcs_url('detail-asset-maker.php') . ($itemCampId ? '?campaign_id=' . $itemCampId . ($itemAssetId ? '&asset_id=' . $itemAssetId : '') : '');
-                                $badgeClass = $item['badge_type'] ?? 'primary';
-                                $badgeLabel = ($item['badge'] === 'Awaiting Review') ? 'In Review' : $item['badge'];
+                                $itemDetailUrl = !empty($item['url']) ? $item['url'] : (pcs_url('detail-asset-maker.php') . ($itemCampId ? '?campaign_id=' . $itemCampId . ($itemAssetId ? '&asset_id=' . $itemAssetId : '') : ''));
+                                $badgeClass = $item['badge_type'] ?? 'rejected';
+                                $badgeLabel = $item['badge'] ?? 'Rejected';
+                                $actionLabel = !empty($item['action_label']) ? $item['action_label'] : 'Detail';
                             ?>
                             <div class="coming-item-card">
                                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
@@ -1606,7 +1615,7 @@ unset($camp);
                                         <?= esc_html($item['date']) ?>
                                     </span>
                                     <a href="<?= esc_url($itemDetailUrl) ?>" style="font-size: 12px; font-weight: 700; color: #373E8C; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
-                                        <span>Detail</span>
+                                        <span><?= esc_html($actionLabel) ?></span>
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                                     </a>
                                 </div>
