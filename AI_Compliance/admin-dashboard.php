@@ -872,31 +872,34 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 6px;
         }
 
         .attention-pill {
-            font-size: 10.5px;
+            font-size: 9.5px;
             font-weight: 800;
-            letter-spacing: 0.5px;
-            padding: 2px 7px;
+            letter-spacing: 0.3px;
+            padding: 2px 6px;
             border-radius: 4px;
             text-transform: uppercase;
             background-color: #E0E0FF;
             color: #373E8C;
+            white-space: nowrap;
         }
 
         .status-pill-small {
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 700;
-            padding: 2px 8px;
+            padding: 2px 6px;
             border-radius: 9999px;
             background: #D1FAE5;
             color: #047857;
             border: 1px solid #A7F3D0;
+            white-space: nowrap;
         }
 
         .attention-title {
-            font-size: 15px;
+            font-size: 13.5px;
             font-weight: 700;
             color: #1E293B;
             line-height: 1.35;
@@ -906,7 +909,7 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
         }
 
         .attention-campaign-tag {
-            font-size: 12px;
+            font-size: 11.5px;
             color: #64748B;
             display: flex;
             align-items: center;
@@ -929,19 +932,43 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
 
         .attention-meta {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 12px;
+            flex-direction: column;
+            gap: 3px;
+            font-size: 11px;
             color: #64748B;
             padding-top: 6px;
             border-top: 1px dashed #E2E8F0;
+        }
+
+        .btn-open-review-primary-card {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+            box-sizing: border-box;
+            background: #373E8C;
+            color: #FFFFFF !important;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 8px 14px;
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.15s ease;
+            margin-top: 4px;
+        }
+
+        .btn-open-review-primary-card:hover {
+            background: #2B3170;
+            color: #FFFFFF !important;
+            box-shadow: 0 2px 6px rgba(55, 62, 140, 0.25);
         }
 
         .btn-open-review-link {
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            font-size: 12.5px;
+            font-size: 12px;
             font-weight: 700;
             color: #373E8C;
             margin-top: 4px;
@@ -2048,8 +2075,8 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                                         <span>Checker: <strong><?= htmlspecialchars($item['checker_name']) ?></strong></span>
                                         <span><?= htmlspecialchars($item['approved_at']) ?></span>
                                     </div>
-                                    <a href="<?= esc_url($attFinalReviewUrl) ?>" class="btn-open-review-link" style="text-decoration: none;">
-                                        <span>Open Final Review &rarr;</span>
+                                    <a href="<?= esc_url($attFinalReviewUrl) ?>" class="btn-open-review-primary-card" title="View Asset and Open Final Review">
+                                        <span>View &amp; Review &rarr;</span>
                                     </a>
                                 </div>
                             <?php endforeach; ?>

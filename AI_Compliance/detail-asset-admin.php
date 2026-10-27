@@ -1603,21 +1603,17 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                                             </td>
                                             <td style="text-align: center; white-space: nowrap;" onclick="event.stopPropagation()">
                                                 <div style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap;">
-                                                    <?php if ($ast['status'] === 'approved'): ?>
-                                                        <button type="button" class="btn-table-action primary" style="padding: 5px 12px; font-size: 11.5px; border-radius: 6px; white-space: nowrap;"
-                                                                onclick="openReleaseModal(<?= htmlspecialchars(json_encode([
-                                                                    'version_id'    => $ast['current_version_id'],
-                                                                    'asset_id'      => $ast['id'],
-                                                                    'asset_name'    => $ast['name'],
-                                                                    'version_label' => $ast['version_label'],
-                                                                    'campaign_name' => $campaignName,
-                                                                    'maker_name'    => $ast['maker_name'],
-                                                                    'checker_name'  => $ast['checker_name'],
-                                                                    'review_note'   => $ast['review_note'] ?: 'Asset verified against corporate guidelines and MAS financial advertisement standards. Ready for production release.',
-                                                                    'file_url'      => $ast['file_url']
-                                                                ]), ENT_QUOTES, 'UTF-8') ?>)">
+                                                    <?php if ($ast['status'] === 'approved'):
+                                                        $targetVid = !empty($ast['current_version_id']) ? $ast['current_version_id'] : ($ast['version_id'] ?? 0);
+                                                        $adminFinalRevUrl = pcs_url('final-review-admin.php') . '?' . http_build_query([
+                                                            'version_id'  => $targetVid,
+                                                            'asset_id'    => $ast['id'],
+                                                            'campaign_id' => $campaignId
+                                                        ]);
+                                                    ?>
+                                                        <a href="<?= esc_url($adminFinalRevUrl) ?>" class="btn-table-action primary" style="text-decoration: none; padding: 5px 12px; font-size: 11.5px; border-radius: 6px; white-space: nowrap;">
                                                             <span>Review &rarr;</span>
-                                                        </button>
+                                                        </a>
                                                     <?php elseif ($ast['status'] === 'released'): ?>
                                                         <?php 
                                                         $targetVid = !empty($ast['current_version_id']) ? $ast['current_version_id'] : ($ast['version_id'] ?? 0);

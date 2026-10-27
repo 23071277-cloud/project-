@@ -780,6 +780,76 @@ function pcs_notify_all_admins($title, $message, $type = 'info', $link = '', $ca
 }
 
 /**
+ * Gui thong bao den tat ca Checker trong he thong hoac Checker duoc phan cong cho campaign
+ * Dam bao 100% Checker deu nhan duoc notification ngay khi Maker upload file moi hoac revision
+ */
+if (!function_exists('pcs_notify_all_checkers')) {
+function pcs_notify_all_checkers($title, $message, $type = 'info', $link = '', $campaign_id = 0, $asset_id = 0, $version_id = 0, $exclude_user_id = 0) {
+    $campaign_id = (int) $campaign_id;
+    $asset_id = (int) $asset_id;
+    $version_id = (int) $version_id;
+
+    $checker_ids = [];
+
+    // 1. Checkers assigned to the campaign team
+    if ($campaign_id > 0 && function_exists('pcs_get_campaign_team_user_ids')) {
+        $team = pcs_get_campaign_team_user_ids($campaign_id);
+        if (!empty($team['checker_ids'])) {
+            foreach ($team['checker_ids'] as $cid) {
+                if ($cid > 0 && !in_array((int)$cid, $checker_ids, true)) {
+                    $checker_ids[] = (int)$cid;
+                }
+            }
+        }
+    }
+
+    // 2. All users with Checker role in WordPress
+    if (empty($checker_ids) && pcs_is_wp() && function_exists('get_users')) {
+        $checkers = get_users(['role' => 'checker']);
+        foreach ($checkers as $chk) {
+            if ($chk->ID > 0 && !in_array((int)$chk->ID, $checker_ids, true)) {
+                $checker_ids[] = (int)$chk->ID;
+            }
+        }
+    }
+
+    // 3. Fallback mock checkers
+    if (empty($checker_ids) && function_exists('pcs_get_system_users_by_role')) {
+        $u_checkers = pcs_get_system_users_by_role('CHECKER');
+        foreach ($u_checkers as $uc) {
+            $u_id = (int)($uc['id'] ?? $uc['ID'] ?? 0);
+            if ($u_id > 0 && !in_array($u_id, $checker_ids, true)) {
+                $checker_ids[] = $u_id;
+            }
+        }
+    }
+
+    // 4. Default Checker fallback ID 3 if list empty
+    if (empty($checker_ids)) {
+        $checker_ids[] = 3;
+    }
+
+    $sent = 0;
+    foreach ($checker_ids as $chk_id) {
+        if ($chk_id > 0 && $chk_id !== (int)$exclude_user_id && function_exists('pcs_send_notification')) {
+            $chk_link = $link;
+            if (empty($chk_link) || strpos($chk_link, 'admin') !== false) {
+                $chk_link = pcs_get_notification_link('detail-asset-checker.php', [
+                    'campaign_id' => $campaign_id,
+                    'asset_id'    => $asset_id,
+                    'version_id'  => $version_id
+                ]);
+            }
+            $nid = pcs_send_notification($chk_id, $title, $message, $type, $chk_link, $campaign_id, $asset_id, $version_id);
+            if ($nid) $sent++;
+        }
+    }
+
+    return $sent;
+}
+}
+
+/**
  * Helper: Kiểm tra xem User có phải là role Admin / Administrator hay không
  */
 if (!function_exists('pcs_is_admin_user')) {
@@ -807,10 +877,10 @@ function pcs_is_admin_user($user_id = 0) {
 
 /**
  * Lấy danh sách thông báo của 1 User
- * Đối với Admin: Nhận và giám sát toàn bộ thông báo hệ thống (Cross-role oversight)
+ * Hỗ trợ tải toàn bộ thông báo (limit = -1: không giới hạn 50 tin)
  */
 if (!function_exists('pcs_get_user_notifications')) {
-function pcs_get_user_notifications($user_id, $limit = 50, $unread_only = false) {
+function pcs_get_user_notifications($user_id, $limit = -1, $unread_only = false) {
     $user_id = (int) $user_id;
     if ($user_id <= 0) return [];
 
@@ -829,8 +899,7 @@ function pcs_get_user_notifications($user_id, $limit = 50, $unread_only = false)
     ];
 
     if (pcs_is_wp() && function_exists('get_posts')) {
-        // Voi Admin: truy van pool rong hon de duoc cap nhat day du toan he thong
-        $query_limit = $is_admin ? max(150, $limit * 3) : $limit;
+        $query_limit = ($limit > 0) ? ($is_admin ? max(150, $limit * 3) : $limit) : -1;
 
         $args = [
             'post_type'      => 'pcs_notification',
@@ -843,15 +912,26 @@ function pcs_get_user_notifications($user_id, $limit = 50, $unread_only = false)
         if (!$is_admin) {
             $args['meta_key'] = '_recipient_user_id';
             $args['meta_value'] = (string) $user_id;
-            if ($unread_only) {
-                $args['meta_query'] = [
-                    ['key' => '_is_read', 'value' => '0']
-                ];
-            }
+        } else {
+            // Cho Admin: Lay thong bao gui dich danh cho Admin nay hoac toan he thong
+            $args['meta_query'] = [
+                'relation' => 'OR',
+                [
+                    'key'   => '_recipient_user_id',
+                    'value' => (string) $user_id,
+                ],
+                [
+                    'key'   => '_recipient_user_id',
+                    'value' => '0',
+                ],
+                [
+                    'key'     => '_recipient_user_id',
+                    'compare' => 'NOT EXISTS',
+                ]
+            ];
         }
 
         $posts = get_posts($args);
-        $seen_events = [];
         foreach ($posts as $p) {
             $nid = $p->ID;
             $type = get_post_meta($nid, '_type', true) ?: 'info';
@@ -861,19 +941,7 @@ function pcs_get_user_notifications($user_id, $limit = 50, $unread_only = false)
             $aid = (int) get_post_meta($nid, '_asset_id', true);
             $vid = (int) get_post_meta($nid, '_version_id', true);
 
-            // Deduplication: Loai bo cac thong bao trung lap cho cung 1 su kien (vi du: 1 asset release duoc gui cho nhieu role)
-            if ($vid > 0 && !empty($type)) {
-                $dedup_key = $vid . '_' . $type;
-                if (isset($seen_events[$dedup_key])) {
-                    continue;
-                }
-                $seen_events[$dedup_key] = true;
-            }
-
-            // =========================================================================
-            // CHUAN HOA THONG BAO CHO ADMIN: Khong bo sot thong bao nao!
-            // Tu dong chuyen huong link ve trang Admin co quyen truy cap (detail-asset-admin / admin-dashboard)
-            // =========================================================================
+            // Chuan hoa thong bao cho Admin: dam bao link tro ve trang Admin co quyen xem
             if ($is_admin) {
                 $has_admin_link = false;
                 foreach ($admin_accessible_pages as $page_slug) {
@@ -895,7 +963,7 @@ function pcs_get_user_notifications($user_id, $limit = 50, $unread_only = false)
                 }
             }
 
-            // Trang thai da doc (Read Status) - kiem tra read_by_{user_id} truoc cho moi role
+            // Trang thai da doc (Read Status) - kiem tra _read_by_{user_id} truoc
             $is_read = false;
             $user_read = get_post_meta($nid, '_read_by_' . $user_id, true);
             if ($user_read !== '') {
@@ -924,7 +992,7 @@ function pcs_get_user_notifications($user_id, $limit = 50, $unread_only = false)
                 'version_id'  => $vid,
             ];
 
-            if (count($notifications) >= $limit) {
+            if ($limit > 0 && count($notifications) >= $limit) {
                 break;
             }
         }
@@ -990,7 +1058,7 @@ function pcs_get_user_notifications($user_id, $limit = 50, $unread_only = false)
                     'asset_id'    => $aid,
                     'version_id'  => $vid,
                 ];
-                if (count($notifications) >= $limit) break;
+                if ($limit > 0 && count($notifications) >= $limit) break;
             }
         }
     }
@@ -1011,14 +1079,14 @@ function pcs_get_user_notifications($user_id, $limit = 50, $unread_only = false)
 
 /**
  * Đếm số thông báo chưa đọc của 1 User
- * Đảm bảo 100% khớp tuyệt đối với danh sách thông báo hiển thị
+ * Đảm bảo khớp tuyệt đối với danh sách thông báo hiển thị
  */
 if (!function_exists('pcs_get_unread_notifications_count')) {
 function pcs_get_unread_notifications_count($user_id) {
     $user_id = (int) $user_id;
     if ($user_id <= 0) return 0;
 
-    $notifs = pcs_get_user_notifications($user_id, 50);
+    $notifs = pcs_get_user_notifications($user_id, -1);
     $unread = 0;
     foreach ($notifs as $n) {
         if (empty($n['is_read'])) {
@@ -1042,6 +1110,9 @@ function pcs_mark_notification_read($notif_id, $user_id = 0) {
         update_post_meta($nid, '_is_read', '1');
         if ($user_id > 0) {
             update_post_meta($nid, '_read_by_' . $user_id, '1');
+        }
+        if (function_exists('clean_post_cache')) {
+            clean_post_cache($nid);
         }
         if (function_exists('pcs_bump_sync_version')) {
             pcs_bump_sync_version();
@@ -1074,22 +1145,49 @@ function pcs_mark_all_notifications_read($user_id) {
 
     $is_admin = pcs_is_admin_user($user_id);
 
-    if (pcs_is_wp() && function_exists('get_posts')) {
-        $args = [
-            'post_type'      => 'pcs_notification',
-            'post_status'    => 'publish',
-            'posts_per_page' => -1,
-            'fields'         => 'ids',
-        ];
-        if (!$is_admin) {
-            $args['meta_query'] = [
-                ['key' => '_recipient_user_id', 'value' => (string) $user_id]
-            ];
+    if (pcs_is_wp()) {
+        global $wpdb;
+        $posts = [];
+        if ($wpdb) {
+            if (!$is_admin) {
+                $sql = $wpdb->prepare("
+                    SELECT DISTINCT p.ID
+                    FROM {$wpdb->posts} p
+                    INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id AND pm.meta_key = '_recipient_user_id'
+                    WHERE p.post_type = 'pcs_notification' AND pm.meta_value = %s
+                ", (string)$user_id);
+                $posts = $wpdb->get_col($sql);
+            } else {
+                $sql = $wpdb->prepare("
+                    SELECT DISTINCT p.ID
+                    FROM {$wpdb->posts} p
+                    LEFT JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id AND pm.meta_key = '_recipient_user_id'
+                    WHERE p.post_type = 'pcs_notification' AND (pm.meta_value = %s OR pm.meta_value = '0' OR pm.meta_value IS NULL)
+                ", (string)$user_id);
+                $posts = $wpdb->get_col($sql);
+            }
         }
-        $posts = get_posts($args);
+
+        if (empty($posts) && function_exists('get_posts')) {
+            $args = [
+                'post_type'      => 'pcs_notification',
+                'post_status'    => 'publish',
+                'posts_per_page' => -1,
+                'fields'         => 'ids',
+            ];
+            if (!$is_admin) {
+                $args['meta_key'] = '_recipient_user_id';
+                $args['meta_value'] = (string) $user_id;
+            }
+            $posts = get_posts($args);
+        }
+
         foreach ($posts as $pid) {
-            update_post_meta($pid, '_is_read', '1');
-            update_post_meta($pid, '_read_by_' . $user_id, '1');
+            update_post_meta((int)$pid, '_is_read', '1');
+            update_post_meta((int)$pid, '_read_by_' . $user_id, '1');
+            if (function_exists('clean_post_cache')) {
+                clean_post_cache((int)$pid);
+            }
         }
         if (function_exists('pcs_bump_sync_version')) {
             pcs_bump_sync_version();
@@ -2898,25 +2996,17 @@ function pcs_transition_version_to_in_review($version_id, $asset_id = 0) {
     $asset_name  = $asset_id > 0 ? get_the_title($asset_id) : 'Asset';
     $camp_name   = $campaign_id > 0 ? get_the_title($campaign_id) : 'Campaign';
 
-    $team = function_exists('pcs_get_campaign_team_user_ids') ? pcs_get_campaign_team_user_ids($campaign_id) : [];
-    $checkers = $team['checker_ids'] ?? [];
-    if (empty($checkers) && function_exists('pcs_get_system_users_by_role')) {
-        $ck_users = pcs_get_system_users_by_role('CHECKER');
-        $checkers = wp_list_pluck($ck_users, 'id');
-    }
-    foreach ($checkers as $chk_id) {
-        if ($chk_id != $maker_id && function_exists('pcs_send_notification')) {
-            pcs_send_notification(
-                $chk_id,
-                'Asset Ready for Review: ' . $asset_name . ' (V' . $ver_num . ')',
-                'AI scoring completed. Asset "' . $asset_name . '" (V' . $ver_num . ') in campaign "' . $camp_name . '" is ready for review.',
-                'review_ready',
-                pcs_get_notification_link('detail-asset-checker.php', ['version_id' => $version_id, 'campaign_id' => $campaign_id, 'asset_id' => $asset_id]),
-                $campaign_id,
-                $asset_id,
-                $version_id
-            );
-        }
+    if (function_exists('pcs_notify_all_checkers')) {
+        pcs_notify_all_checkers(
+            'Asset Ready for Review: ' . $asset_name . ' (V' . $ver_num . ')',
+            'AI scoring completed. Asset "' . $asset_name . '" (V' . $ver_num . ') in campaign "' . $camp_name . '" is ready for review.',
+            'review_ready',
+            pcs_get_notification_link('detail-asset-checker.php', ['version_id' => $version_id, 'campaign_id' => $campaign_id, 'asset_id' => $asset_id]),
+            $campaign_id,
+            $asset_id,
+            $version_id,
+            $maker_id
+        );
     }
 
     // Đồng thời thông báo cho Admin khi AI chấm xong để Admin cập nhật realtime không cần reload
@@ -3112,10 +3202,24 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
             }
         }
 
-        // Thông báo cho Admin khi Maker tải lên asset/version mới để Admin cập nhật realtime
+        // Thông báo đồng thời cho cả Checker và Admin khi Maker tải lên asset/version mới
+        $u_title = ($ver_num > 1) ? ('Artwork Revision V' . $ver_num . ' Uploaded: ' . $asset_name) : ('New Asset Uploaded: ' . $asset_name);
+        $u_msg = 'Maker ' . $maker_display . ' uploaded ' . ($ver_num > 1 ? ('revision V' . $ver_num) : 'V1') . ' for asset "' . $asset_name . '" in campaign "' . $camp_name . '". AI pre-flight scanning active.';
+
+        if (function_exists('pcs_notify_all_checkers')) {
+            pcs_notify_all_checkers(
+                $u_title,
+                $u_msg,
+                'upload',
+                pcs_get_notification_link('detail-asset-checker.php', ['campaign_id' => $campaign_id, 'asset_id' => $asset_id, 'version_id' => $version_id]),
+                $campaign_id,
+                $asset_id,
+                $version_id,
+                $maker_id
+            );
+        }
+
         if (function_exists('pcs_notify_all_admins')) {
-            $u_title = ($ver_num > 1) ? ('Artwork Revision V' . $ver_num . ' Uploaded: ' . $asset_name) : ('New Asset Uploaded: ' . $asset_name);
-            $u_msg = 'Maker ' . $maker_display . ' uploaded ' . ($ver_num > 1 ? ('revision V' . $ver_num) : 'V1') . ' for asset "' . $asset_name . '" in campaign "' . $camp_name . '". AI pre-flight scanning active.';
             pcs_notify_all_admins(
                 $u_title,
                 $u_msg,

@@ -1799,12 +1799,20 @@ if (!function_exists('pcs_render_score_status_icon')) {
                             <?= esc_html($chk1['section'] ?? $chk1['source_sub'] ?? 'Section 3.4 - Intellectual Property & Third-Party Marks') ?>
                         </div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px;">
-                        <span style="color: #64748B; font-weight: 500;">View source</span>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; flex-wrap: wrap;">
+                        <?php
+                        $doc_full_url_1 = !empty($chk1['source_url']) && $chk1['source_url'] !== 'javascript:void(0);' ? preg_replace('/#page=\d+$/', '', $chk1['source_url']) : '';
+                        if (!empty($doc_full_url_1)): ?>
+                            <a href="<?= esc_url($doc_full_url_1) ?>" target="_blank" title="View Full Document Source" style="color: #475569; font-weight: 600; text-decoration: underline; display: inline-flex; align-items: center; gap: 3px;">
+                                <span>View source</span>
+                            </a>
+                        <?php else: ?>
+                            <span style="color: #64748B; font-weight: 500;">View source</span>
+                        <?php endif; ?>
                         <?php if (!empty($chk1['source_url']) && $chk1['source_url'] !== 'javascript:void(0);'): ?>
                             <a href="<?= esc_url($chk1['source_url']) ?>" target="_blank" title="Open PDF Page" style="color: #0284c7; font-size: 12px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 3px;">
                                 <span>(PDF Page <?= esc_html($chk1['page_number'] ?? 8) ?>)</span>
-                                <span>↗</span>
+                                <span>&nearr;</span>
                             </a>
                         <?php endif; ?>
                     </div>
@@ -1868,12 +1876,20 @@ if (!function_exists('pcs_render_score_status_icon')) {
                             <?= esc_html($chk2['section'] ?? $chk2['source_sub'] ?? 'Section 2.1 - Core Palette and Visual Exclusion Clearances') ?>
                         </div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px;">
-                        <span style="color: #64748B; font-weight: 500;">View source</span>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; flex-wrap: wrap;">
+                        <?php
+                        $doc_full_url_2 = !empty($chk2['source_url']) && $chk2['source_url'] !== 'javascript:void(0);' ? preg_replace('/#page=\d+$/', '', $chk2['source_url']) : '';
+                        if (!empty($doc_full_url_2)): ?>
+                            <a href="<?= esc_url($doc_full_url_2) ?>" target="_blank" title="View Full Document Source" style="color: #475569; font-weight: 600; text-decoration: underline; display: inline-flex; align-items: center; gap: 3px;">
+                                <span>View source</span>
+                            </a>
+                        <?php else: ?>
+                            <span style="color: #64748B; font-weight: 500;">View source</span>
+                        <?php endif; ?>
                         <?php if (!empty($chk2['source_url']) && $chk2['source_url'] !== 'javascript:void(0);'): ?>
                             <a href="<?= esc_url($chk2['source_url']) ?>" target="_blank" title="Open PDF Page" style="color: #0284c7; font-size: 12px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 3px;">
                                 <span>(PDF Page <?= esc_html($chk2['page_number'] ?? 5) ?>)</span>
-                                <span>↗</span>
+                                <span>&nearr;</span>
                             </a>
                         <?php endif; ?>
                     </div>
@@ -1946,12 +1962,20 @@ if (!function_exists('pcs_render_score_status_icon')) {
                             <?= esc_html($chk3['section'] ?? $chk3['source_sub'] ?? 'Section 5.2(b) - Fair and Balanced Representation of Risks and Returns') ?>
                         </div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px;">
-                        <span style="color: #64748B; font-weight: 500;">View source</span>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; flex-wrap: wrap;">
+                        <?php
+                        $doc_full_url_3 = !empty($chk3['source_url']) && $chk3['source_url'] !== 'javascript:void(0);' ? preg_replace('/#page=\d+$/', '', $chk3['source_url']) : '';
+                        if (!empty($doc_full_url_3)): ?>
+                            <a href="<?= esc_url($doc_full_url_3) ?>" target="_blank" title="View Full Document Source" style="color: #475569; font-weight: 600; text-decoration: underline; display: inline-flex; align-items: center; gap: 3px;">
+                                <span>View source</span>
+                            </a>
+                        <?php else: ?>
+                            <span style="color: #64748B; font-weight: 500;">View source</span>
+                        <?php endif; ?>
                         <?php if (!empty($chk3['source_url']) && $chk3['source_url'] !== 'javascript:void(0);'): ?>
                             <a href="<?= esc_url($chk3['source_url']) ?>" target="_blank" title="Open PDF Page" style="color: #0284c7; font-size: 12px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 3px;">
                                 <span>(PDF Page <?= esc_html($chk3['page_number'] ?? 14) ?>)</span>
-                                <span>↗</span>
+                                <span>&nearr;</span>
                             </a>
                         <?php endif; ?>
                     </div>

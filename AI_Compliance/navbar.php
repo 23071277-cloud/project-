@@ -44,7 +44,7 @@ if (!empty($_GET['notif_read']) && function_exists('pcs_mark_notification_read')
     }
 }
 
-$unavNotifications = ($unavUserId > 0 && function_exists('pcs_get_user_notifications')) ? pcs_get_user_notifications($unavUserId, 50) : [];
+$unavNotifications = ($unavUserId > 0 && function_exists('pcs_get_user_notifications')) ? pcs_get_user_notifications($unavUserId, -1) : [];
 $unavUnreadCount = ($unavUserId > 0 && function_exists('pcs_get_unread_notifications_count')) ? pcs_get_unread_notifications_count($unavUserId) : 0;
 
 // Sort strictly newest first (DESC)
@@ -1448,14 +1448,22 @@ function handleNotificationClick(e, notifId, targetUrl, el) {
             params.append('notif_id', notifId);
             params.append('user_id', unavUserId);
 
-            try {
-                fetch(pcsAjaxUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: params.toString(),
-                    keepalive: true
-                });
-            } catch(err) {}
+            var notifTargets = [
+                window.location.pathname,
+                window.location.href.split('#')[0].split('?')[0],
+                pcsAjaxUrl
+            ];
+            notifTargets.forEach(function(targetEndpoint) {
+                try {
+                    fetch(targetEndpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: params.toString(),
+                        credentials: 'same-origin',
+                        keepalive: true
+                    }).catch(function() {});
+                } catch(err) {}
+            });
         }
     }
 
@@ -1495,11 +1503,21 @@ function quickMarkNotifRead(e, notifId, btnEl) {
         params.append('notif_id', notifId);
         params.append('user_id', unavUserId);
 
-        fetch(pcsAjaxUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: params.toString()
-        }).catch(function(err) {});
+        var notifTargets = [
+            window.location.pathname,
+            window.location.href.split('#')[0].split('?')[0],
+            pcsAjaxUrl
+        ];
+        notifTargets.forEach(function(targetEndpoint) {
+            try {
+                fetch(targetEndpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: params.toString(),
+                    credentials: 'same-origin'
+                }).catch(function() {});
+            } catch(err) {}
+        });
     }
 }
 
@@ -1522,11 +1540,21 @@ function markAllNotificationsRead(userId) {
     params.append('action', 'pcs_mark_all_notifs_read');
     params.append('user_id', targetId);
 
-    fetch(pcsAjaxUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: params.toString()
-    }).catch(function(err) {});
+    var notifTargets = [
+        window.location.pathname,
+        window.location.href.split('#')[0].split('?')[0],
+        pcsAjaxUrl
+    ];
+    notifTargets.forEach(function(targetEndpoint) {
+        try {
+            fetch(targetEndpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params.toString(),
+                credentials: 'same-origin'
+            }).catch(function() {});
+        } catch(err) {}
+    });
 }
 
 // Dong bo ngay lap tuc voi localStorage de chong giat so thong bao (bounce-back) khi F5 hoac edge-cache
