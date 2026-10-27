@@ -1539,7 +1539,7 @@ unset($camp);
                 <p class="attention-notice"><?= count($comingUpList) > 0 ? count($comingUpList) . ' items need your attention.' : 'All items are up to date.' ?></p>
             </div>
             <div class="hero-action-buttons">
-                <a href="<?= esc_url(pcs_url('smart-maker-upload.php')) ?>" class="btn-primary" style="display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">Upload Asset</a>
+                <button type="button" class="btn-primary" onclick="openSelectCampaignModal()" style="display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border: none;">Upload Asset</button>
             </div>
         </section>
 
@@ -2138,5 +2138,74 @@ unset($camp);
             </form>
         </div>
     </div>
+
+    <!-- Modal: Select Campaign for Asset Upload -->
+    <div class="modal-overlay" id="selectCampaignModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+        <div class="modal-box" style="background: #FFFFFF; border-radius: 16px; padding: 26px 28px; max-width: 500px; width: 92%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2); position: relative;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px;">
+                <div>
+                    <h3 class="modal-title" style="font-size: 18px; font-weight: 800; color: #161B2E; margin: 0 0 4px 0;">Select Target Campaign</h3>
+                    <p style="font-size: 13px; color: #64748B; margin: 0;">Choose which campaign you want to upload a marketing asset for:</p>
+                </div>
+                <span style="font-size: 24px; cursor: pointer; color: #94A3B8; line-height: 1; padding: 0 4px;" onclick="closeSelectCampaignModal()">&times;</span>
+            </div>
+
+            <div style="margin: 20px 0;">
+                <label style="display: block; font-size: 12px; font-weight: 700; color: #1E293B; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 8px;">Target Campaign <span style="color: #DC2626;">*</span></label>
+                <?php if (!empty($campaigns)): ?>
+                    <select id="modalUploadCampaignSelect" class="form-select-clean" style="width: 100%; height: 44px; padding: 0 12px; border: 1.5px solid #CBD5E1; border-radius: 8px; font-size: 14px; color: #0F172A; background: #FFFFFF; box-sizing: border-box;">
+                        <option value="">-- Choose a Campaign --</option>
+                        <?php foreach ($campaigns as $c): ?>
+                            <option value="<?= (int)$c['id'] ?>">
+                                <?= esc_html($c['name']) ?> (Deadline: <?= esc_html($c['deadline'] ?? 'No deadline') ?>)
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                <?php else: ?>
+                    <div style="padding: 14px; background: #F8FAFC; border-radius: 8px; border: 1px dashed #CBD5E1; text-align: center; color: #64748B; font-size: 13px;">
+                        No active campaigns found. Please create a campaign first.
+                    </div>
+                <?php endif; ?>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px;">
+                <button type="button" class="btn-table-action" style="padding: 9px 18px; border: 1px solid #CBD5E1; border-radius: 8px; background: #FFFFFF; color: #475569; font-size: 13px; font-weight: 600; cursor: pointer;" onclick="closeSelectCampaignModal()">Cancel</button>
+                <?php if (!empty($campaigns)): ?>
+                    <button type="button" class="btn-primary" style="padding: 9px 20px; border-radius: 8px; background: #373E8C; color: #FFFFFF; font-size: 13px; font-weight: 700; border: none; cursor: pointer;" onclick="proceedToUploadWithSelectedCampaign()">Continue to Upload &rarr;</button>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openSelectCampaignModal() {
+            var modal = document.getElementById('selectCampaignModal');
+            if (modal) modal.style.display = 'flex';
+        }
+        function closeSelectCampaignModal() {
+            var modal = document.getElementById('selectCampaignModal');
+            if (modal) modal.style.display = 'none';
+        }
+        function proceedToUploadWithSelectedCampaign() {
+            var sel = document.getElementById('modalUploadCampaignSelect');
+            var campId = sel ? sel.value : '';
+            if (!campId) {
+                alert('Please select a campaign before proceeding.');
+                if (sel) sel.focus();
+                return;
+            }
+            var uploadUrl = '<?= (function_exists('pcs_url') ? pcs_url('smart-maker-upload.php') : 'smart-maker-upload.php') ?>';
+            var sep = uploadUrl.indexOf('?') !== -1 ? '&' : '?';
+            window.location.href = uploadUrl + sep + 'campaign_id=' + encodeURIComponent(campId) + '&mode=new_asset';
+        }
+
+        // Close modal when clicking outside box
+        window.addEventListener('click', function(e) {
+            var modal = document.getElementById('selectCampaignModal');
+            if (modal && e.target === modal) {
+                closeSelectCampaignModal();
+            }
+        });
+    </script>
 </body>
 </html>

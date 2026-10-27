@@ -67,50 +67,68 @@ $uploadedVersionId = 0;
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action']) && $_POST['action'] === 'maker_smart_upload') {
     $campIdPost   = (int) ($_POST['campaign_id'] ?? 0);
     $campNamePost = sanitize_text_field($_POST['campaign_name'] ?? '');
-    $uploadMode   = sanitize_text_field($_POST['upload_mode'] ?? 'new_version');
+    $uploadMode   = sanitize_text_field($_POST['upload_mode'] ?? 'new_asset');
     $assetIdPost  = (int) ($_POST['asset_id'] ?? 0);
     $assetNamePost = sanitize_text_field($_POST['asset_name'] ?? '');
-    $assetTypePost = sanitize_text_field($_POST['asset_type'] ?? 'Digital Ad');
+    $assetTypePost = sanitize_text_field($_POST['asset_type'] ?? '');
     $versionNotes  = sanitize_text_field($_POST['version_notes'] ?? '');
     $uploadedFileName = (!empty($_FILES['asset_file']['name'])) ? $_FILES['asset_file']['name'] : 'asset_file.png';
 
-    $targetCamp = $campIdPost ?: $campNamePost;
-    $targetAsset = ($uploadMode === 'new_version' && $assetIdPost > 0) ? $assetIdPost : $assetNamePost;
-
-    if (function_exists('handle_upload_asset_version')) {
-        $res = handle_upload_asset_version($targetCamp, $targetAsset, $uploadedFileName, $versionNotes);
-        $uploadedVersionId = (int)$res;
-        if (function_exists('pcs_bump_sync_version')) {
-            pcs_bump_sync_version();
-        }
-        if ($uploadedVersionId > 0) {
-            $scoringBaseUrl = function_exists('pcs_url') ? pcs_url('ai-scoring-progress.php') : 'ai-scoring-progress.php';
-            $sep = (strpos($scoringBaseUrl, '?') !== false) ? '&' : '?';
-            $scoringUrl = $scoringBaseUrl . $sep . http_build_query([
-                'version_id'  => $uploadedVersionId,
-                'campaign_id' => $campIdPost,
-                'asset_id'    => $assetIdPost ?: (is_numeric($targetAsset) ? (int)$targetAsset : 0)
-            ]);
-
-            // Clean output buffers to guarantee immediate header redirection
-            while (ob_get_level()) {
-                ob_end_clean();
-            }
-
-            if (function_exists('wp_redirect') && !headers_sent()) {
-                wp_redirect($scoringUrl);
-                exit;
-            } elseif (!headers_sent()) {
-                header('Location: ' . $scoringUrl);
-                exit;
-            } else {
-                echo '<script>window.location.replace(' . json_encode($scoringUrl) . ');</script>';
-                echo '<noscript><meta http-equiv="refresh" content="0;url=' . esc_url($scoringUrl) . '"></noscript>';
-                exit;
-            }
-        } else {
-            $feedbackAlert = 'Upload failed. Please check file and try again.';
+    // Strict validation
+    if ($uploadMode === 'new_asset') {
+        if (empty(trim($assetNamePost))) {
+            $feedbackAlert = 'Asset Name is required. Please enter an asset name before uploading.';
             $feedbackSuccess = false;
+        } elseif (empty(trim($assetTypePost))) {
+            $feedbackAlert = 'Asset Type is required. Please select an asset type before uploading.';
+            $feedbackSuccess = false;
+        }
+    } elseif ($uploadMode === 'new_version') {
+        if ($assetIdPost <= 0) {
+            $feedbackAlert = 'Please select which asset you want to upload a new version for.';
+            $feedbackSuccess = false;
+        }
+    }
+
+    if (empty($feedbackAlert)) {
+        $targetCamp = $campIdPost ?: $campNamePost;
+        $targetAsset = ($uploadMode === 'new_version' && $assetIdPost > 0) ? $assetIdPost : $assetNamePost;
+
+        if (function_exists('handle_upload_asset_version')) {
+            $res = handle_upload_asset_version($targetCamp, $targetAsset, $uploadedFileName, $versionNotes, $assetTypePost);
+            $uploadedVersionId = (int)$res;
+            if (function_exists('pcs_bump_sync_version')) {
+                pcs_bump_sync_version();
+            }
+            if ($uploadedVersionId > 0) {
+                $scoringBaseUrl = function_exists('pcs_url') ? pcs_url('ai-scoring-progress.php') : 'ai-scoring-progress.php';
+                $sep = (strpos($scoringBaseUrl, '?') !== false) ? '&' : '?';
+                $scoringUrl = $scoringBaseUrl . $sep . http_build_query([
+                    'version_id'  => $uploadedVersionId,
+                    'campaign_id' => $campIdPost,
+                    'asset_id'    => $assetIdPost ?: (is_numeric($targetAsset) ? (int)$targetAsset : 0)
+                ]);
+
+                // Clean output buffers to guarantee immediate header redirection
+                while (ob_get_level()) {
+                    ob_end_clean();
+                }
+
+                if (function_exists('wp_redirect') && !headers_sent()) {
+                    wp_redirect($scoringUrl);
+                    exit;
+                } elseif (!headers_sent()) {
+                    header('Location: ' . $scoringUrl);
+                    exit;
+                } else {
+                    echo '<script>window.location.replace(' . json_encode($scoringUrl) . ');</script>';
+                    echo '<noscript><meta http-equiv="refresh" content="0;url=' . esc_url($scoringUrl) . '"></noscript>';
+                    exit;
+                }
+            } else {
+                $feedbackAlert = 'Upload failed. Please ensure an Asset Name is specified and file is valid.';
+                $feedbackSuccess = false;
+            }
         }
     }
 }
@@ -126,7 +144,7 @@ $isDbEmpty        = $screenData['is_empty'] ?? true;
 $campaign         = $screenData['campaign'] ?? null;
 $assets           = $screenData['assets'] ?? [];
 $selectedAsset    = $screenData['selected_asset'] ?? null;
-$activeMode       = $screenData['mode'] ?? 'new_version';
+$activeMode       = $screenData['mode'] ?? ($modeReq ?: 'new_asset');
 $targetVersion    = $screenData['target_version'] ?? 1;
 $previousVersion  = $screenData['previous_version'] ?? null;
 $previousFeedback = $screenData['previous_feedback'] ?? [];
@@ -140,8 +158,9 @@ $deadline     = $campaign['deadline'] ?? 'No deadline';
 $format       = $campaign['format'] ?? 'Print + Digital';
 $ownerName    = $campaign['owner_name'] ?? 'Cam Anh';
 
-$selAssetName = $selectedAsset['name'] ?? ($assets[0]['name'] ?? 'Social Banner');
-$selAssetType = $selectedAsset['format'] ?? 'Digital Ad';
+$selAssetName = $selectedAsset['name'] ?? '';
+$selAssetType = $selectedAsset['format'] ?? '';
+$allCampaigns = function_exists('get_all_campaigns') ? get_all_campaigns() : [];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -887,7 +906,7 @@ endif;
                 </div>
 
                 <!-- Section - 02 Campaign Context Strip -->
-                <section class="campaign-context-strip" style="margin-top: 24px;">
+                <section class="campaign-context-strip" style="margin-top: 24px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">
                     <span class="context-label-tag">CAMPAIGN</span>
                     <span class="context-divider">/</span>
                     <span class="context-strong"><?= esc_html($campaignName) ?></span>
@@ -902,6 +921,19 @@ endif;
                         <div style="width: 6px; height: 6px; border-radius: 3px; background: #D97706;"></div>
                         <span><?= esc_html($priority) ?></span>
                     </div>
+
+                    <?php if (!empty($allCampaigns) && count($allCampaigns) > 1): ?>
+                        <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+                            <label for="campaignSwitcherSelect" style="font-size: 11px; font-weight: 700; color: #475569; letter-spacing: 0.3px;">CAMPAIGN:</label>
+                            <select id="campaignSwitcherSelect" onchange="switchCampaign(this.value)" style="height: 30px; padding: 0 10px; border-radius: 6px; border: 1.5px solid #CBD5E1; font-size: 12px; font-weight: 600; color: #1E293B; background: #FFFFFF; cursor: pointer;">
+                                <?php foreach ($allCampaigns as $ac): ?>
+                                    <option value="<?= (int)$ac['id'] ?>" <?= ($ac['id'] == $campaignId) ? 'selected' : '' ?>>
+                                        <?= esc_html($ac['name']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    <?php endif; ?>
                 </section>
 
                 <!-- 03 Main 12-Column Workspace Grid -->
@@ -916,16 +948,19 @@ endif;
                             <div class="form-row-2col">
                                 <!-- Asset Name Field (Dynamic: Text input for New Asset OR Dropdown for New Version) -->
                                 <div class="input-group" style="flex: 1.6;">
-                                    <label class="input-label-tag" for="assetNameInput">ASSET NAME</label>
+                                    <label class="input-label-tag" for="assetNameInput">ASSET NAME <span style="color: #DC2626;">*</span></label>
                                     <div class="field-container">
                                         <div id="newAssetInputWrap" style="<?= ($activeMode === 'new_asset') ? '' : 'display: none;' ?> width: 100%;">
-                                            <input type="text" name="asset_name" id="assetNameInput" class="form-input-clean" placeholder="e.g. Social Banner 1080x1080" value="<?= esc_attr($activeMode === 'new_asset' ? '' : $selAssetName) ?>" oninput="updateSummary()">
+                                            <input type="text" name="asset_name" id="assetNameInput" class="form-input-clean" placeholder="e.g. Social Banner 1080x1080" value="<?= esc_attr($activeMode === 'new_asset' ? '' : $selAssetName) ?>" <?= ($activeMode === 'new_asset') ? 'required' : 'disabled' ?> oninput="updateSummary()">
                                         </div>
                                         <div id="newVersionSelectWrap" style="<?= ($activeMode === 'new_version') ? '' : 'display: none;' ?> width: 100%;">
-                                            <select name="asset_id" id="assetSelectDropdown" class="form-select-clean" onchange="onAssetDropdownChange(this)">
+                                            <select name="asset_id" id="assetSelectDropdown" class="form-select-clean" <?= ($activeMode === 'new_version') ? 'required' : 'disabled' ?> onchange="onAssetDropdownChange(this)">
                                                 <?php if (empty($assets)): ?>
                                                     <option value="0">No existing assets — Switch to New Asset</option>
                                                 <?php else: ?>
+                                                    <?php if ($assetIdReq <= 0): ?>
+                                                        <option value="">-- Choose Asset to upload new version --</option>
+                                                    <?php endif; ?>
                                                     <?php foreach ($assets as $ast): ?>
                                                         <option value="<?= (int)$ast['id'] ?>" 
                                                                 data-name="<?= esc_attr($ast['name']) ?>" 
@@ -947,15 +982,16 @@ endif;
 
                                 <!-- Asset Type Field -->
                                 <div class="input-group" style="flex: 1;">
-                                    <label class="input-label-tag" for="assetTypeSelect">ASSET TYPE</label>
+                                    <label class="input-label-tag" for="assetTypeSelect">ASSET TYPE <span style="color: #DC2626;">*</span></label>
                                     <div class="field-container">
-                                        <select name="asset_type" id="assetTypeSelect" class="form-select-clean" onchange="updateSummary()">
+                                        <select name="asset_type" id="assetTypeSelect" class="form-select-clean" required onchange="updateSummary()">
+                                            <option value="">-- Select Asset Type --</option>
                                             <option value="Digital Ad" <?= ($selAssetType === 'Digital Ad' || strpos($selAssetType, 'Digital') !== false) ? 'selected' : '' ?>>Digital Ad</option>
-                                            <option value="Social Banner (Square)" <?= (strpos($selAssetType, 'Square') !== false) ? 'selected' : '' ?>>Social Banner (1080x1080)</option>
-                                            <option value="Story / Reels (9:16)">Story / Vertical (9:16)</option>
-                                            <option value="Print Ad / Poster">Print Ad / Poster</option>
-                                            <option value="PDF Brochure" <?= (strpos($selAssetType, 'PDF') !== false) ? 'selected' : '' ?>>PDF Brochure</option>
-                                            <option value="Landing Page Asset">Landing Page Asset</option>
+                                            <option value="Social Banner (1080x1080)" <?= (strpos($selAssetType, 'Square') !== false || strpos($selAssetType, '1080') !== false) ? 'selected' : '' ?>>Social Banner (1080x1080)</option>
+                                            <option value="Story / Vertical (9:16)" <?= (strpos($selAssetType, '9:16') !== false || strpos($selAssetType, 'Story') !== false) ? 'selected' : '' ?>>Story / Vertical (9:16)</option>
+                                            <option value="Print Ad / Poster" <?= (strpos($selAssetType, 'Print') !== false || strpos($selAssetType, 'Poster') !== false) ? 'selected' : '' ?>>Print Ad / Poster</option>
+                                            <option value="PDF Brochure" <?= (strpos($selAssetType, 'PDF') !== false || strpos($selAssetType, 'Brochure') !== false) ? 'selected' : '' ?>>PDF Brochure</option>
+                                            <option value="Landing Page Asset" <?= (strpos($selAssetType, 'Landing') !== false) ? 'selected' : '' ?>>Landing Page Asset</option>
                                         </select>
                                         <svg width="9" height="6" viewBox="0 0 9 6" fill="none">
                                             <path d="M4.5 5.55L0 1.05L1.05 0L4.5 3.45L7.95 0L9 1.05L4.5 5.55Z" fill="#767682"/>
@@ -1234,12 +1270,24 @@ endif;
         const newAssetWrap = document.getElementById('newAssetInputWrap');
         const newVerWrap = document.getElementById('newVersionSelectWrap');
         const feedbackSec = document.getElementById('previousFeedbackSection');
+        const nameInput = document.getElementById('assetNameInput');
+        const assetSelect = document.getElementById('assetSelectDropdown');
+        const typeSelect = document.getElementById('assetTypeSelect');
 
         if (mode === 'new_asset') {
             btnAsset.classList.add('active');
             btnVer.classList.remove('active');
             newAssetWrap.style.display = 'block';
             newVerWrap.style.display = 'none';
+
+            if (nameInput) {
+                nameInput.disabled = false;
+                nameInput.required = true;
+            }
+            if (assetSelect) {
+                assetSelect.disabled = true;
+                assetSelect.required = false;
+            }
 
             // Target version for brand new asset is V1
             setTargetVersion(1, '—', 'None');
@@ -1250,8 +1298,15 @@ endif;
             newAssetWrap.style.display = 'none';
             newVerWrap.style.display = 'block';
 
-            const sel = document.getElementById('assetSelectDropdown');
-            if (sel) onAssetDropdownChange(sel);
+            if (nameInput) {
+                nameInput.disabled = true;
+                nameInput.required = false;
+            }
+            if (assetSelect) {
+                assetSelect.disabled = false;
+                assetSelect.required = true;
+                onAssetDropdownChange(assetSelect);
+            }
             if (feedbackSec) feedbackSec.style.display = 'block';
         }
         updateSummary();
@@ -1260,7 +1315,44 @@ endif;
     // Asset Dropdown Change Handler
     function onAssetDropdownChange(selectElem) {
         const opt = selectElem.options[selectElem.selectedIndex];
-        if (!opt || opt.value === '0') return;
+        if (!opt || !opt.value || opt.value === '0') {
+            setTargetVersion(1, '—', 'None');
+            const summaryName = document.getElementById('summaryAssetName');
+            if (summaryName) summaryName.textContent = 'Please choose asset';
+            const stripName = document.getElementById('stripAssetName');
+            if (stripName) stripName.textContent = 'Please choose asset';
+            return;
+        }
+
+        const vCount = parseInt(opt.getAttribute('data-version-count') || '1', 10);
+        const nextV = vCount + 1;
+        const curStatus = opt.getAttribute('data-status') || 'draft';
+        const assetName = opt.getAttribute('data-name') || opt.text;
+        const assetFormat = opt.getAttribute('data-format') || '';
+
+        // Auto-sync Asset Type dropdown to match asset format
+        if (assetFormat) {
+            const typeSelect = document.getElementById('assetTypeSelect');
+            if (typeSelect) {
+                for (let i = 0; i < typeSelect.options.length; i++) {
+                    if (typeSelect.options[i].value === assetFormat || (assetFormat && typeSelect.options[i].value.indexOf(assetFormat) !== -1)) {
+                        typeSelect.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+        }
+
+        setTargetVersion(nextV, 'V' + vCount, curStatus.charAt(0).toUpperCase() + curStatus.slice(1));
+        updateSummary();
+    }
+
+    function switchCampaign(cid) {
+        if (!cid) return;
+        var url = '<?= (function_exists('pcs_url') ? pcs_url('smart-maker-upload.php') : 'smart-maker-upload.php') ?>';
+        var sep = url.indexOf('?') !== -1 ? '&' : '?';
+        window.location.href = url + sep + 'campaign_id=' + encodeURIComponent(cid) + '&mode=' + encodeURIComponent(currentMode);
+    }
 
         const vCount = parseInt(opt.getAttribute('data-version-count') || '1', 10);
         const nextV = vCount + 1;
@@ -1476,6 +1568,38 @@ endif;
     const form = document.getElementById('smartUploadForm');
     if (form) {
         form.addEventListener('submit', function(e) {
+            if (currentMode === 'new_asset') {
+                const nameInput = document.getElementById('assetNameInput');
+                if (!nameInput || !nameInput.value.trim()) {
+                    e.preventDefault();
+                    alert('Please enter an Asset Name before uploading.');
+                    if (nameInput) nameInput.focus();
+                    return false;
+                }
+                const typeSelect = document.getElementById('assetTypeSelect');
+                if (!typeSelect || !typeSelect.value.trim()) {
+                    e.preventDefault();
+                    alert('Please select an Asset Type before uploading.');
+                    if (typeSelect) typeSelect.focus();
+                    return false;
+                }
+            } else {
+                const assetSelect = document.getElementById('assetSelectDropdown');
+                if (!assetSelect || !assetSelect.value || assetSelect.value === '0') {
+                    e.preventDefault();
+                    alert('Please select which asset you want to upload a new version for.');
+                    if (assetSelect) assetSelect.focus();
+                    return false;
+                }
+                const typeSelect = document.getElementById('assetTypeSelect');
+                if (!typeSelect || !typeSelect.value.trim()) {
+                    e.preventDefault();
+                    alert('Please select an Asset Type before uploading.');
+                    if (typeSelect) typeSelect.focus();
+                    return false;
+                }
+            }
+
             const fileInput = document.getElementById('realFileInput');
             if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
                 e.preventDefault();

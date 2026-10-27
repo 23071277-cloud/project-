@@ -2941,7 +2941,7 @@ if (function_exists('has_action') && !has_action('pcs_background_ai_scoring_job'
  * Xử lý tải lên Asset Version mới (Maker Upload)
  */
 if (!function_exists('handle_upload_asset_version')) {
-function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $uploaded_file_name = '', $version_notes = '') {
+function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $uploaded_file_name = '', $version_notes = '', $asset_type = '') {
     $current_user = get_current_user_profile();
     $maker_id = $current_user['id'] ?? 1;
 
@@ -2964,9 +2964,15 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
 
         $asset_id = is_numeric($asset_name_or_id) ? (int)$asset_name_or_id : 0;
         if (!$asset_id) {
+            $clean_asset_name = trim((string)$asset_name_or_id);
+            if ($clean_asset_name === '') {
+                // Bat buoc phai co Asset Name, khong fallback de tranh de len asset khac
+                return false;
+            }
+
             $a_posts = get_posts([
                 'post_type'   => 'asset',
-                'title'       => $asset_name_or_id,
+                'title'       => $clean_asset_name,
                 'post_status' => 'publish',
                 'numberposts' => 1,
                 'meta_key'    => '_campaign_id',
@@ -2974,19 +2980,27 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
             ]);
             if (!empty($a_posts)) {
                 $asset_id = $a_posts[0]->ID;
+                if (!empty($asset_type)) {
+                    update_post_meta($asset_id, '_format', sanitize_text_field($asset_type));
+                }
             } else {
                 $asset_id = wp_insert_post([
                     'post_type'   => 'asset',
-                    'post_title'  => $asset_name_or_id ?: 'Marketing Asset',
+                    'post_title'  => $clean_asset_name,
                     'post_status' => 'publish',
                     'post_author' => $maker_id
                 ]);
+                $fmt_val = !empty($asset_type) ? sanitize_text_field($asset_type) : 'Digital Ad';
                 if (function_exists('pcs_server_meta')) {
                     pcs_server_meta($asset_id, '_campaign_id', $campaign_id);
+                    pcs_server_meta($asset_id, '_format', $fmt_val);
                 } else {
                     update_post_meta($asset_id, '_campaign_id', $campaign_id);
+                    update_post_meta($asset_id, '_format', $fmt_val);
                 }
             }
+        } elseif ($asset_id > 0 && !empty($asset_type)) {
+            update_post_meta($asset_id, '_format', sanitize_text_field($asset_type));
         }
 
         $real_file_url = '';
@@ -7306,7 +7320,7 @@ function get_smart_maker_upload_data($campaign_id = 0, $asset_id = 0, $mode = ''
         ];
     }
 
-    // 3. Resolve Selected Asset
+    // 3. Resolve Selected Asset & Mode Determination
     $selected_asset = null;
     if ($asset_id > 0) {
         foreach ($assets as $ast) {
@@ -7316,21 +7330,15 @@ function get_smart_maker_upload_data($campaign_id = 0, $asset_id = 0, $mode = ''
             }
         }
     }
-    if (!$selected_asset && !empty($assets)) {
-        foreach ($assets as $ast) {
-            if ($ast['status'] === 'rejected') {
-                $selected_asset = $ast;
-                break;
-            }
-        }
-        if (!$selected_asset) {
-            $selected_asset = $assets[0];
-        }
-    }
 
-    // Mode determination
+    // Default mode: neu co asset_id cu the thi la new_version, con khong mac dinh la new_asset
     if (empty($mode)) {
         $mode = ($selected_asset !== null) ? 'new_version' : 'new_asset';
+    }
+
+    // Neu dang o che do new_asset, khong auto-bind asset cu nao het de Maker phai nhap ten moi
+    if ($mode === 'new_asset') {
+        $selected_asset = null;
     }
 
     // 4. Resolve Target Version & Previous Version Info
