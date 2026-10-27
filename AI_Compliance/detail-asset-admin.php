@@ -1620,8 +1620,9 @@ $isDbEmpty = ($campaignId === 0 && empty($assets));
                                                         </button>
                                                     <?php elseif ($ast['status'] === 'released'): ?>
                                                         <?php 
+                                                        $targetVid = !empty($ast['current_version_id']) ? $ast['current_version_id'] : ($ast['version_id'] ?? 0);
                                                         $relUrl = pcs_url('release-detail.php') . '?' . http_build_query([
-                                                            'version_id'  => $ast['version_id'],
+                                                            'version_id'  => $targetVid,
                                                             'asset_id'    => $ast['id'],
                                                             'campaign_id' => $campaignId,
                                                             'from'        => 'admin_assets'
