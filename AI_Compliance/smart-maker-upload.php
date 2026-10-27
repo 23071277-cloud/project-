@@ -906,7 +906,7 @@ endif;
                 </div>
 
                 <!-- Section - 02 Campaign Context Strip -->
-                <section class="campaign-context-strip" style="margin-top: 24px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <section class="campaign-context-strip" style="margin-top: 24px;">
                     <span class="context-label-tag">CAMPAIGN</span>
                     <span class="context-divider">/</span>
                     <span class="context-strong"><?= esc_html($campaignName) ?></span>
@@ -921,19 +921,6 @@ endif;
                         <div style="width: 6px; height: 6px; border-radius: 3px; background: #D97706;"></div>
                         <span><?= esc_html($priority) ?></span>
                     </div>
-
-                    <?php if (!empty($allCampaigns) && count($allCampaigns) > 1): ?>
-                        <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
-                            <label for="campaignSwitcherSelect" style="font-size: 11px; font-weight: 700; color: #475569; letter-spacing: 0.3px;">CAMPAIGN:</label>
-                            <select id="campaignSwitcherSelect" onchange="switchCampaign(this.value)" style="height: 30px; padding: 0 10px; border-radius: 6px; border: 1.5px solid #CBD5E1; font-size: 12px; font-weight: 600; color: #1E293B; background: #FFFFFF; cursor: pointer;">
-                                <?php foreach ($allCampaigns as $ac): ?>
-                                    <option value="<?= (int)$ac['id'] ?>" <?= ($ac['id'] == $campaignId) ? 'selected' : '' ?>>
-                                        <?= esc_html($ac['name']) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                    <?php endif; ?>
                 </section>
 
                 <!-- 03 Main 12-Column Workspace Grid -->
@@ -1312,6 +1299,10 @@ endif;
         updateSummary();
     }
 
+    window.addEventListener('DOMContentLoaded', function() {
+        switchMode(currentMode);
+    });
+
     // Asset Dropdown Change Handler
     function onAssetDropdownChange(selectElem) {
         const opt = selectElem.options[selectElem.selectedIndex];
@@ -1342,22 +1333,6 @@ endif;
                 }
             }
         }
-
-        setTargetVersion(nextV, 'V' + vCount, curStatus.charAt(0).toUpperCase() + curStatus.slice(1));
-        updateSummary();
-    }
-
-    function switchCampaign(cid) {
-        if (!cid) return;
-        var url = '<?= (function_exists('pcs_url') ? pcs_url('smart-maker-upload.php') : 'smart-maker-upload.php') ?>';
-        var sep = url.indexOf('?') !== -1 ? '&' : '?';
-        window.location.href = url + sep + 'campaign_id=' + encodeURIComponent(cid) + '&mode=' + encodeURIComponent(currentMode);
-    }
-
-        const vCount = parseInt(opt.getAttribute('data-version-count') || '1', 10);
-        const nextV = vCount + 1;
-        const curStatus = opt.getAttribute('data-status') || 'draft';
-        const assetName = opt.getAttribute('data-name') || opt.text;
 
         setTargetVersion(nextV, 'V' + vCount, curStatus.charAt(0).toUpperCase() + curStatus.slice(1));
         updateSummary();
