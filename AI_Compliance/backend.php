@@ -7276,16 +7276,53 @@ function get_smart_maker_upload_data($campaign_id = 0, $asset_id = 0, $mode = ''
         'guidelines'  => $guidelines_list
     ];
 
-    // 2. Fetch Assets in this Campaign
-    $wp_assets = get_posts([
-        'post_type'      => 'asset',
-        'post_status'    => ['publish', 'draft', 'pending', 'any'],
-        'posts_per_page' => -1,
-        'meta_key'       => '_campaign_id',
-        'meta_value'     => (string) $cid,
-        'orderby'        => 'ID',
-        'order'          => 'ASC'
-    ]);
+    // 2. Fetch Assets in this Campaign (Strictly scoped to $cid)
+    $wp_assets = [];
+    if ($cid > 0) {
+        $raw_assets = get_posts([
+            'post_type'      => 'asset',
+            'post_status'    => ['publish', 'draft', 'pending', 'any'],
+            'posts_per_page' => -1,
+            'meta_query'     => [
+                'relation' => 'OR',
+                [
+                    'key'     => '_campaign_id',
+                    'value'   => (int) $cid,
+                    'compare' => '='
+                ],
+                [
+                    'key'     => '_campaign_id',
+                    'value'   => (string) $cid,
+                    'compare' => '='
+                ]
+            ],
+            'orderby'        => 'ID',
+            'order'          => 'ASC'
+        ]);
+
+        $parent_assets = get_posts([
+            'post_type'      => 'asset',
+            'post_status'    => ['publish', 'draft', 'pending', 'any'],
+            'posts_per_page' => -1,
+            'post_parent'    => $cid,
+            'orderby'        => 'ID',
+            'order'          => 'ASC'
+        ]);
+
+        $combined = array_merge($raw_assets, $parent_assets);
+        $seen = [];
+        foreach ($combined as $ap) {
+            if (isset($seen[$ap->ID])) continue;
+            $seen[$ap->ID] = true;
+
+            // Strict PHP validation: verify this asset belongs exclusively to $cid
+            $ast_cid = (int) get_post_meta($ap->ID, '_campaign_id', true);
+            $ast_parent = (int) $ap->post_parent;
+            if ($ast_cid === $cid || ($ast_cid === 0 && $ast_parent === $cid)) {
+                $wp_assets[] = $ap;
+            }
+        }
+    }
 
     $assets = [];
     foreach ($wp_assets as $ap) {

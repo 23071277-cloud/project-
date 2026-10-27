@@ -87,6 +87,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action']) && 
         if ($assetIdPost <= 0) {
             $feedbackAlert = 'Please select which asset you want to upload a new version for.';
             $feedbackSuccess = false;
+        } elseif (empty(trim($assetTypePost))) {
+            $feedbackAlert = 'Asset Type is required. Please select an asset type before uploading.';
+            $feedbackSuccess = false;
         }
     }
 
@@ -433,6 +436,37 @@ $allCampaigns = function_exists('get_all_campaigns') ? get_all_campaigns() : [];
             font-size: 14px;
             font-weight: 500;
             font-family: inherit;
+        }
+        .combobox-dropdown-menu {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            background: #FFFFFF;
+            border: 1px solid #CBD5E1;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
+            z-index: 1000;
+            overflow: hidden;
+            text-align: left;
+        }
+        .combobox-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 9px 13px;
+            font-size: 13px;
+            color: #1E293B;
+            cursor: pointer;
+            border-bottom: 1px solid #F1F5F9;
+            transition: background 0.15s, color 0.15s;
+        }
+        .combobox-item:hover, .combobox-item.active {
+            background: #EEF2FF;
+            color: #373E8C;
+        }
+        .combobox-item:last-child {
+            border-bottom: none;
         }
 
         /* Large Drop Zone (Hero) */
@@ -935,54 +969,124 @@ endif;
                             <div class="form-row-2col">
                                 <!-- Asset Name Field (Dynamic: Text input for New Asset OR Dropdown for New Version) -->
                                 <div class="input-group" style="flex: 1.6;">
-                                    <label class="input-label-tag" for="assetNameInput">ASSET NAME <span style="color: #DC2626;">*</span></label>
-                                    <div class="field-container">
+                                    <label class="input-label-tag" for="assetNameInput" id="assetFieldLabel"><?= ($activeMode === 'new_version') ? 'SELECT ASSET / ASSET NAME' : 'ASSET NAME' ?> <span style="color: #DC2626;">*</span></label>
+                                    <div class="field-container" style="position: relative;">
                                         <div id="newAssetInputWrap" style="<?= ($activeMode === 'new_asset') ? '' : 'display: none;' ?> width: 100%;">
                                             <input type="text" name="asset_name" id="assetNameInput" class="form-input-clean" placeholder="e.g. Social Banner 1080x1080" value="<?= esc_attr($activeMode === 'new_asset' ? '' : $selAssetName) ?>" <?= ($activeMode === 'new_asset') ? 'required' : 'disabled' ?> oninput="updateSummary()">
                                         </div>
                                         <div id="newVersionSelectWrap" style="<?= ($activeMode === 'new_version') ? '' : 'display: none;' ?> width: 100%;">
-                                            <select name="asset_id" id="assetSelectDropdown" class="form-select-clean" <?= ($activeMode === 'new_version') ? 'required' : 'disabled' ?> onchange="onAssetDropdownChange(this)">
+                                            <div style="position: relative; width: 100%; display: flex; align-items: center;">
+                                                <input type="text" 
+                                                       id="assetSearchInput" 
+                                                       class="form-input-clean" 
+                                                       placeholder="<?= empty($assets) ? 'No assets in this campaign (Switch to New Asset)' : 'Type to filter or click to choose asset...' ?>" 
+                                                       autocomplete="off"
+                                                       value="<?= esc_attr($selectedAsset ? ($selectedAsset['name'] . ' (V' . $selectedAsset['version_count'] . ' · ' . ucfirst($selectedAsset['status']) . ')') : '') ?>"
+                                                       <?= empty($assets) ? 'readonly' : '' ?>
+                                                       onfocus="openAssetDropdown()" 
+                                                       oninput="filterAssetDropdown(this.value)"
+                                                       onclick="openAssetDropdown()">
+                                                <input type="hidden" name="asset_id" id="selectedAssetId" value="<?= (int)($selectedAsset ? $selectedAsset['id'] : 0) ?>" <?= ($activeMode === 'new_version') ? 'required' : 'disabled' ?>>
+                                                <div onclick="toggleAssetDropdown(event)" style="cursor: pointer; padding: 4px 6px; display: flex; align-items: center; color: #767682;" title="Toggle Assets Dropdown">
+                                                    <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                                </div>
+                                            </div>
+
+                                            <!-- Custom Floating Dropdown Menu for Assets -->
+                                            <div id="assetOptionsList" class="combobox-dropdown-menu" style="display: none;">
                                                 <?php if (empty($assets)): ?>
-                                                    <option value="0">No existing assets — Switch to New Asset</option>
+                                                    <div style="padding: 14px 16px; font-size: 13px; color: #64748B; text-align: center; line-height: 1.5;">
+                                                        No existing assets found in <strong><?= esc_html($campaignName) ?></strong>.<br>
+                                                        <span style="font-size: 12px; color: #4F57A7; font-weight: 600; cursor: pointer; text-decoration: underline;" onclick="switchMode('new_asset')">+ Create a New Asset</span>
+                                                    </div>
                                                 <?php else: ?>
-                                                    <?php if ($assetIdReq <= 0): ?>
-                                                        <option value="">-- Choose Asset to upload new version --</option>
-                                                    <?php endif; ?>
-                                                    <?php foreach ($assets as $ast): ?>
-                                                        <option value="<?= (int)$ast['id'] ?>" 
-                                                                data-name="<?= esc_attr($ast['name']) ?>" 
-                                                                data-format="<?= esc_attr($ast['format']) ?>"
-                                                                data-version-count="<?= (int)$ast['version_count'] ?>"
-                                                                data-status="<?= esc_attr($ast['status']) ?>"
-                                                                <?= ($selectedAsset && $selectedAsset['id'] === $ast['id']) ? 'selected' : '' ?>>
-                                                            <?= esc_html($ast['name']) ?> (V<?= (int)$ast['version_count'] ?> · <?= ucfirst($ast['status']) ?>)
-                                                        </option>
-                                                    <?php endforeach; ?>
+                                                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 7px 14px 5px 14px; font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px; background: #F8FAFC; border-bottom: 1px solid #E2E8F0;">
+                                                        <span>Assets in this Campaign</span>
+                                                        <span style="background: #E2E8F0; color: #334155; padding: 1px 6px; border-radius: 10px; font-size: 10px;"><?= count($assets) ?></span>
+                                                    </div>
+                                                    <div id="assetItemsContainer" style="max-height: 230px; overflow-y: auto;">
+                                                        <?php foreach ($assets as $ast): ?>
+                                                            <div class="combobox-item <?= ($selectedAsset && $selectedAsset['id'] === $ast['id']) ? 'active' : '' ?>"
+                                                                 data-id="<?= (int)$ast['id'] ?>"
+                                                                 data-name="<?= esc_attr($ast['name']) ?>"
+                                                                 data-format="<?= esc_attr($ast['format']) ?>"
+                                                                 data-version-count="<?= (int)$ast['version_count'] ?>"
+                                                                 data-status="<?= esc_attr($ast['status']) ?>"
+                                                                 onclick="selectAssetItem(this)">
+                                                                <div style="display: flex; flex-direction: column; gap: 2px;">
+                                                                    <span class="combobox-item-title" style="font-size: 13.5px; font-weight: 600; color: #1E293B;"><?= esc_html($ast['name']) ?></span>
+                                                                    <span style="font-size: 11.5px; color: #64748B;">Format: <?= esc_html($ast['format']) ?></span>
+                                                                </div>
+                                                                <div style="display: flex; align-items: center; gap: 6px;">
+                                                                    <span style="font-size: 11px; font-weight: 700; color: #4F57A7; background: #EEF2FF; padding: 2px 7px; border-radius: 4px;">V<?= (int)$ast['version_count'] ?></span>
+                                                                    <?php 
+                                                                    $stBadgeBg = '#F1F5F9';
+                                                                    $stBadgeColor = '#475569';
+                                                                    $stLower = strtolower($ast['status']);
+                                                                    if ($stLower === 'rejected') { $stBadgeBg = '#FEE2E2'; $stBadgeColor = '#991B1B'; }
+                                                                    elseif ($stLower === 'in_review' || $stLower === 'in review') { $stBadgeBg = '#FEF3C7'; $stBadgeColor = '#92400E'; }
+                                                                    elseif ($stLower === 'approved' || $stLower === 'released') { $stBadgeBg = '#DCFCE7'; $stBadgeColor = '#166534'; }
+                                                                    ?>
+                                                                    <span style="font-size: 10.5px; font-weight: 700; text-transform: uppercase; color: <?= $stBadgeColor ?>; background: <?= $stBadgeBg ?>; padding: 2px 6px; border-radius: 4px;"><?= esc_html($ast['status']) ?></span>
+                                                                </div>
+                                                            </div>
+                                                        <?php endforeach; ?>
+                                                    </div>
+                                                    <div id="noMatchAssetMsg" style="display: none; padding: 14px 16px; font-size: 13px; color: #94A3B8; text-align: center;">
+                                                        No matching assets found in this campaign
+                                                    </div>
                                                 <?php endif; ?>
-                                            </select>
+                                            </div>
                                         </div>
-                                        <svg width="12" height="16" viewBox="0 0 12 16" fill="none">
-                                            <path d="M1.5 15.75C1.0875 15.75 0.734375 15.6031 0.440625 15.3094C0.146875 15.0156 0 14.6625 0 14.25V6.75C0 6.3375 0.146875 5.98438 0.440625 5.69063C0.734375 5.39688 1.0875 5.25 1.5 5.25H2.25V3.75C2.25 2.7125 2.61562 1.82812 3.34687 1.09687C4.07812 0.365625 4.9625 0 6 0C7.0375 0 7.92188 0.365625 8.65312 1.09687C9.38437 1.82812 9.75 2.7125 9.75 3.75V5.25H10.5C10.9125 5.25 11.2656 5.39688 11.5594 5.69063C11.8531 5.98438 12 6.3375 12 6.75V14.25C12 14.6625 11.8531 15.0156 11.5594 15.3094C11.2656 15.6031 10.9125 15.75 10.5 15.75H1.5V15.75M1.5 14.25H10.5V6.75H1.5V14.25M6 12C6.4125 12 6.76562 11.8531 7.05937 11.5594C7.35312 11.2656 7.5 10.9125 7.5 10.5C7.5 10.0875 7.35312 9.73438 7.05937 9.44063C6.76562 9.14688 6.4125 9 6 9C5.5875 9 5.23438 9.14688 4.94063 9.44063C4.64688 9.73438 4.5 10.0875 4.5 10.5C4.5 10.9125 4.64688 11.2656 4.94063 11.5594C5.23438 11.8531 5.5875 12 6 12ZM3.75 5.25H8.25V3.75C8.25 3.125 8.03125 2.59375 7.59375 2.15625C7.15625 1.71875 6.625 1.5 6 1.5C5.375 1.5 4.84375 1.71875 4.40625 2.15625C3.96875 2.59375 3.75 3.125 3.75 3.75V5.25H8.25" fill="#767682"/>
-                                        </svg>
                                     </div>
                                 </div>
 
                                 <!-- Asset Type Field -->
                                 <div class="input-group" style="flex: 1;">
-                                    <label class="input-label-tag" for="assetTypeSelect">ASSET TYPE <span style="color: #DC2626;">*</span></label>
-                                    <div class="field-container">
-                                        <select name="asset_type" id="assetTypeSelect" class="form-select-clean" required onchange="updateSummary()">
-                                            <option value="">-- Select Asset Type --</option>
-                                            <option value="Digital Ad" <?= ($selAssetType === 'Digital Ad' || strpos($selAssetType, 'Digital') !== false) ? 'selected' : '' ?>>Digital Ad</option>
-                                            <option value="Social Banner (1080x1080)" <?= (strpos($selAssetType, 'Square') !== false || strpos($selAssetType, '1080') !== false) ? 'selected' : '' ?>>Social Banner (1080x1080)</option>
-                                            <option value="Story / Vertical (9:16)" <?= (strpos($selAssetType, '9:16') !== false || strpos($selAssetType, 'Story') !== false) ? 'selected' : '' ?>>Story / Vertical (9:16)</option>
-                                            <option value="Print Ad / Poster" <?= (strpos($selAssetType, 'Print') !== false || strpos($selAssetType, 'Poster') !== false) ? 'selected' : '' ?>>Print Ad / Poster</option>
-                                            <option value="PDF Brochure" <?= (strpos($selAssetType, 'PDF') !== false || strpos($selAssetType, 'Brochure') !== false) ? 'selected' : '' ?>>PDF Brochure</option>
-                                            <option value="Landing Page Asset" <?= (strpos($selAssetType, 'Landing') !== false) ? 'selected' : '' ?>>Landing Page Asset</option>
-                                        </select>
-                                        <svg width="9" height="6" viewBox="0 0 9 6" fill="none">
-                                            <path d="M4.5 5.55L0 1.05L1.05 0L4.5 3.45L7.95 0L9 1.05L4.5 5.55Z" fill="#767682"/>
-                                        </svg>
+                                    <label class="input-label-tag" for="assetTypeInput">ASSET TYPE <span style="color: #DC2626;">*</span></label>
+                                    <div class="field-container" id="assetTypeFieldContainer" style="position: relative;">
+                                        <div style="position: relative; width: 100%; display: flex; align-items: center;">
+                                            <input type="text"
+                                                   name="asset_type"
+                                                   id="assetTypeInput"
+                                                   class="form-input-clean"
+                                                   placeholder="-- Select or type Asset Type --"
+                                                   autocomplete="off"
+                                                   value="<?= esc_attr($selAssetType) ?>"
+                                                   required
+                                                   onfocus="openTypeDropdown()"
+                                                   oninput="filterTypeDropdown(this.value); updateSummary()"
+                                                   onclick="openTypeDropdown()">
+                                            <div onclick="toggleTypeDropdown(event)" style="cursor: pointer; padding: 4px 6px; display: flex; align-items: center; color: #767682;" title="Toggle Type Dropdown">
+                                                <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                            </div>
+                                        </div>
+
+                                        <!-- Custom Floating Dropdown Menu for Asset Types -->
+                                        <div id="typeOptionsList" class="combobox-dropdown-menu" style="display: none;">
+                                            <?php 
+                                            $standardTypes = [
+                                                'Digital Ad',
+                                                'Social Banner (1080x1080)',
+                                                'Story / Vertical (9:16)',
+                                                'Print Ad / Poster',
+                                                'PDF Brochure',
+                                                'Landing Page Asset'
+                                            ];
+                                            ?>
+                                            <div style="padding: 7px 14px 5px 14px; font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px; background: #F8FAFC; border-bottom: 1px solid #E2E8F0;">
+                                                Select or filter Asset Type
+                                            </div>
+                                            <div id="typeItemsContainer" style="max-height: 200px; overflow-y: auto;">
+                                                <?php foreach ($standardTypes as $stType): ?>
+                                                    <div class="combobox-item <?= ($selAssetType === $stType) ? 'active' : '' ?>"
+                                                         data-type="<?= esc_attr($stType) ?>"
+                                                         onclick="selectTypeItem(this)">
+                                                        <span class="combobox-type-title" style="font-size: 13px; font-weight: 600; color: #1E293B;"><?= esc_html($stType) ?></span>
+                                                    </div>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1258,8 +1362,9 @@ endif;
         const newVerWrap = document.getElementById('newVersionSelectWrap');
         const feedbackSec = document.getElementById('previousFeedbackSection');
         const nameInput = document.getElementById('assetNameInput');
-        const assetSelect = document.getElementById('assetSelectDropdown');
-        const typeSelect = document.getElementById('assetTypeSelect');
+        const assetSearch = document.getElementById('assetSearchInput');
+        const selectedAssetId = document.getElementById('selectedAssetId');
+        const label = document.getElementById('assetFieldLabel');
 
         if (mode === 'new_asset') {
             btnAsset.classList.add('active');
@@ -1267,13 +1372,17 @@ endif;
             newAssetWrap.style.display = 'block';
             newVerWrap.style.display = 'none';
 
+            if (label) label.innerHTML = 'ASSET NAME <span style="color: #DC2626;">*</span>';
             if (nameInput) {
                 nameInput.disabled = false;
                 nameInput.required = true;
             }
-            if (assetSelect) {
-                assetSelect.disabled = true;
-                assetSelect.required = false;
+            if (selectedAssetId) {
+                selectedAssetId.disabled = true;
+                selectedAssetId.required = false;
+            }
+            if (assetSearch) {
+                assetSearch.disabled = true;
             }
 
             // Target version for brand new asset is V1
@@ -1285,14 +1394,23 @@ endif;
             newAssetWrap.style.display = 'none';
             newVerWrap.style.display = 'block';
 
+            if (label) label.innerHTML = 'SELECT ASSET / ASSET NAME <span style="color: #DC2626;">*</span>';
             if (nameInput) {
                 nameInput.disabled = true;
                 nameInput.required = false;
             }
-            if (assetSelect) {
-                assetSelect.disabled = false;
-                assetSelect.required = true;
-                onAssetDropdownChange(assetSelect);
+            if (selectedAssetId) {
+                selectedAssetId.disabled = false;
+                selectedAssetId.required = true;
+            }
+            if (assetSearch) {
+                assetSearch.disabled = false;
+            }
+
+            if (selectedAssetId && parseInt(selectedAssetId.value, 10) > 0) {
+                // Keep target version from current selected asset
+            } else {
+                setTargetVersion(1, '—', 'None');
             }
             if (feedbackSec) feedbackSec.style.display = 'block';
         }
@@ -1303,40 +1421,166 @@ endif;
         switchMode(currentMode);
     });
 
-    // Asset Dropdown Change Handler
-    function onAssetDropdownChange(selectElem) {
-        const opt = selectElem.options[selectElem.selectedIndex];
-        if (!opt || !opt.value || opt.value === '0') {
-            setTargetVersion(1, '—', 'None');
-            const summaryName = document.getElementById('summaryAssetName');
-            if (summaryName) summaryName.textContent = 'Please choose asset';
-            const stripName = document.getElementById('stripAssetName');
-            if (stripName) stripName.textContent = 'Please choose asset';
-            return;
+    // Combobox: Asset Dropdown Handlers
+    function openAssetDropdown() {
+        const list = document.getElementById('assetOptionsList');
+        if (list) {
+            list.style.display = 'block';
+            const typeList = document.getElementById('typeOptionsList');
+            if (typeList) typeList.style.display = 'none';
+        }
+    }
+    function closeAssetDropdown() {
+        const list = document.getElementById('assetOptionsList');
+        if (list) list.style.display = 'none';
+    }
+    function toggleAssetDropdown(e) {
+        if (e) e.stopPropagation();
+        const list = document.getElementById('assetOptionsList');
+        if (!list) return;
+        if (list.style.display === 'block') {
+            list.style.display = 'none';
+        } else {
+            openAssetDropdown();
+            const input = document.getElementById('assetSearchInput');
+            if (input) input.focus();
+        }
+    }
+    function filterAssetDropdown(query) {
+        openAssetDropdown();
+        const term = (query || '').toLowerCase().trim();
+        const container = document.getElementById('assetItemsContainer');
+        if (!container) return;
+        const items = container.querySelectorAll('.combobox-item');
+        let visibleCount = 0;
+        items.forEach(function(item) {
+            const name = (item.getAttribute('data-name') || '').toLowerCase();
+            const format = (item.getAttribute('data-format') || '').toLowerCase();
+            const status = (item.getAttribute('data-status') || '').toLowerCase();
+            if (!term || name.indexOf(term) !== -1 || format.indexOf(term) !== -1 || status.indexOf(term) !== -1) {
+                item.style.display = 'flex';
+                visibleCount++;
+            } else {
+                item.style.display = 'none';
+            }
+        });
+        const noMsg = document.getElementById('noMatchAssetMsg');
+        if (noMsg) {
+            noMsg.style.display = (visibleCount === 0) ? 'block' : 'none';
+        }
+    }
+    function selectAssetItem(elem) {
+        const aid = elem.getAttribute('data-id');
+        const name = elem.getAttribute('data-name');
+        const format = elem.getAttribute('data-format');
+        const vCount = parseInt(elem.getAttribute('data-version-count') || '1', 10);
+        const status = elem.getAttribute('data-status') || 'draft';
+
+        const selectedIdInput = document.getElementById('selectedAssetId');
+        if (selectedIdInput) selectedIdInput.value = aid;
+
+        const searchInput = document.getElementById('assetSearchInput');
+        if (searchInput) searchInput.value = name + ' (V' + vCount + ' · ' + status.charAt(0).toUpperCase() + status.slice(1) + ')';
+
+        // Mark active item in list
+        const container = document.getElementById('assetItemsContainer');
+        if (container) {
+            container.querySelectorAll('.combobox-item').forEach(function(el) {
+                el.classList.remove('active');
+            });
+            elem.classList.add('active');
         }
 
-        const vCount = parseInt(opt.getAttribute('data-version-count') || '1', 10);
-        const nextV = vCount + 1;
-        const curStatus = opt.getAttribute('data-status') || 'draft';
-        const assetName = opt.getAttribute('data-name') || opt.text;
-        const assetFormat = opt.getAttribute('data-format') || '';
+        closeAssetDropdown();
 
-        // Auto-sync Asset Type dropdown to match asset format
-        if (assetFormat) {
-            const typeSelect = document.getElementById('assetTypeSelect');
-            if (typeSelect) {
-                for (let i = 0; i < typeSelect.options.length; i++) {
-                    if (typeSelect.options[i].value === assetFormat || (assetFormat && typeSelect.options[i].value.indexOf(assetFormat) !== -1)) {
-                        typeSelect.selectedIndex = i;
-                        break;
-                    }
-                }
+        // Auto-sync Asset Type if present
+        if (format) {
+            const typeInput = document.getElementById('assetTypeInput');
+            if (typeInput) typeInput.value = format;
+            const typeContainer = document.getElementById('typeItemsContainer');
+            if (typeContainer) {
+                typeContainer.querySelectorAll('.combobox-item').forEach(function(el) {
+                    if (el.getAttribute('data-type') === format) el.classList.add('active');
+                    else el.classList.remove('active');
+                });
             }
         }
 
-        setTargetVersion(nextV, 'V' + vCount, curStatus.charAt(0).toUpperCase() + curStatus.slice(1));
+        setTargetVersion(vCount + 1, 'V' + vCount, status.charAt(0).toUpperCase() + status.slice(1));
         updateSummary();
     }
+
+    // Combobox: Type Dropdown Handlers
+    function openTypeDropdown() {
+        const list = document.getElementById('typeOptionsList');
+        if (list) {
+            list.style.display = 'block';
+            const assetList = document.getElementById('assetOptionsList');
+            if (assetList) assetList.style.display = 'none';
+        }
+    }
+    function closeTypeDropdown() {
+        const list = document.getElementById('typeOptionsList');
+        if (list) list.style.display = 'none';
+    }
+    function toggleTypeDropdown(e) {
+        if (e) e.stopPropagation();
+        const list = document.getElementById('typeOptionsList');
+        if (!list) return;
+        if (list.style.display === 'block') {
+            list.style.display = 'none';
+        } else {
+            openTypeDropdown();
+            const input = document.getElementById('assetTypeInput');
+            if (input) input.focus();
+        }
+    }
+    function filterTypeDropdown(query) {
+        openTypeDropdown();
+        const term = (query || '').toLowerCase().trim();
+        const container = document.getElementById('typeItemsContainer');
+        if (!container) return;
+        const items = container.querySelectorAll('.combobox-item');
+        items.forEach(function(item) {
+            const type = (item.getAttribute('data-type') || '').toLowerCase();
+            if (!term || type.indexOf(term) !== -1) {
+                item.style.display = 'flex';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+    function selectTypeItem(elem) {
+        const type = elem.getAttribute('data-type');
+        const input = document.getElementById('assetTypeInput');
+        if (input) input.value = type;
+
+        const container = document.getElementById('typeItemsContainer');
+        if (container) {
+            container.querySelectorAll('.combobox-item').forEach(function(el) {
+                el.classList.remove('active');
+            });
+            elem.classList.add('active');
+        }
+
+        closeTypeDropdown();
+        updateSummary();
+    }
+
+    // Close floating dropdown menus on outside click
+    document.addEventListener('click', function(e) {
+        const assetWrap = document.getElementById('newVersionSelectWrap');
+        const assetList = document.getElementById('assetOptionsList');
+        if (assetList && assetWrap && !assetWrap.contains(e.target)) {
+            assetList.style.display = 'none';
+        }
+
+        const typeField = document.getElementById('assetTypeFieldContainer');
+        const typeList = document.getElementById('typeOptionsList');
+        if (typeList && typeField && !typeField.contains(e.target)) {
+            typeList.style.display = 'none';
+        }
+    });
 
     function setTargetVersion(targetNum, prevLabel, prevStatus) {
         document.getElementById('targetVersionHeader').textContent = 'V' + targetNum;
@@ -1529,14 +1773,17 @@ endif;
         if (currentMode === 'new_asset') {
             name = document.getElementById('assetNameInput').value.trim() || 'New Asset';
         } else {
-            const sel = document.getElementById('assetSelectDropdown');
-            if (sel && sel.selectedIndex >= 0) {
-                const opt = sel.options[sel.selectedIndex];
-                name = opt.getAttribute('data-name') || opt.text;
+            const searchInput = document.getElementById('assetSearchInput');
+            if (searchInput && searchInput.value) {
+                name = searchInput.value.split(' (V')[0].trim() || 'Selected Asset';
+            } else {
+                name = 'Please select asset';
             }
         }
-        document.getElementById('summaryAssetName').textContent = name;
-        document.getElementById('stripAssetName').textContent = name;
+        const sumName = document.getElementById('summaryAssetName');
+        if (sumName) sumName.textContent = name;
+        const stripName = document.getElementById('stripAssetName');
+        if (stripName) stripName.textContent = name;
     }
 
     // Client-side Validation & Immediate AI Scoring Transition on Submit
@@ -1551,26 +1798,31 @@ endif;
                     if (nameInput) nameInput.focus();
                     return false;
                 }
-                const typeSelect = document.getElementById('assetTypeSelect');
-                if (!typeSelect || !typeSelect.value.trim()) {
+                const typeInput = document.getElementById('assetTypeInput');
+                if (!typeInput || !typeInput.value.trim()) {
                     e.preventDefault();
-                    alert('Please select an Asset Type before uploading.');
-                    if (typeSelect) typeSelect.focus();
+                    alert('Please select or enter an Asset Type before uploading.');
+                    if (typeInput) typeInput.focus();
                     return false;
                 }
             } else {
-                const assetSelect = document.getElementById('assetSelectDropdown');
-                if (!assetSelect || !assetSelect.value || assetSelect.value === '0') {
+                const selectedAssetId = document.getElementById('selectedAssetId');
+                const aid = selectedAssetId ? parseInt(selectedAssetId.value, 10) : 0;
+                if (!aid || aid <= 0) {
                     e.preventDefault();
                     alert('Please select which asset you want to upload a new version for.');
-                    if (assetSelect) assetSelect.focus();
+                    const assetSearch = document.getElementById('assetSearchInput');
+                    if (assetSearch) {
+                        assetSearch.focus();
+                        openAssetDropdown();
+                    }
                     return false;
                 }
-                const typeSelect = document.getElementById('assetTypeSelect');
-                if (!typeSelect || !typeSelect.value.trim()) {
+                const typeInput = document.getElementById('assetTypeInput');
+                if (!typeInput || !typeInput.value.trim()) {
                     e.preventDefault();
-                    alert('Please select an Asset Type before uploading.');
-                    if (typeSelect) typeSelect.focus();
+                    alert('Please select or enter an Asset Type before uploading.');
+                    if (typeInput) typeInput.focus();
                     return false;
                 }
             }
