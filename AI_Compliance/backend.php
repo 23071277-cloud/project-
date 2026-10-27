@@ -647,6 +647,16 @@ function pcs_send_notification($user_id, $title, $message, $type = 'info', $link
             update_post_meta($nid, '_is_read', '0');
             update_post_meta($nid, '_created_at', $now);
 
+            // Gửi email thật qua WP Mail SMTP nếu recipient có email hợp lệ
+            if (function_exists('wp_mail') && function_exists('get_userdata')) {
+                $u_recip = get_userdata($user_id);
+                if ($u_recip && !empty($u_recip->user_email)) {
+                    $mail_subj = '[Brand Compliance] ' . $title;
+                    $mail_body = "Hi " . $u_recip->display_name . ",\n\n" . $message . "\n\nAction link: " . $link . "\n\n-- Brand Compliance System";
+                    @wp_mail($u_recip->user_email, $mail_subj, $mail_body);
+                }
+            }
+
             if (function_exists('pcs_bump_sync_version')) {
                 pcs_bump_sync_version();
             }
