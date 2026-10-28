@@ -35,10 +35,25 @@ function pcs_process_new_upload( $asset_id, $file_url, $maker_id ) {
             'version_id'     => $version_post_id,
             'asset_id'       => $asset_id
         ));
+    } elseif ( function_exists( 'wp_schedule_single_event' ) ) {
+        wp_schedule_single_event( time(), 'pcs_background_ai_scoring_job', array( $version_post_id, $asset_id ) );
     }
 
     return $version_post_id;
 }
+
+// Kiểm tra và hiển thị trạng thái Action Scheduler trong WP-Admin
+add_action('admin_notices', function() {
+    if (!current_user_can('manage_options')) return;
+    $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+    if ($screen && $screen->id === 'plugins') {
+        if (!function_exists('as_enqueue_async_action')) {
+            echo '<div class="notice notice-warning is-dismissible">';
+            echo '<p><strong>[Background Job Queue]</strong> Plugin <code>Action Scheduler</code> chưa được cài đặt/kích hoạt. Hệ thống đang chạy cơ chế hàng đợi dự phòng (Self-Healing Async Engine).</p>';
+            echo '</div>';
+        }
+    }
+});
 
 // 2. BACKGROUND WORKER: XỬ LÝ GỌI AI NGẦM
 // Trạng thái: scoring -> in_review

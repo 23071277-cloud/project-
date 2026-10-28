@@ -4327,7 +4327,30 @@ function get_campaign_detail_asset_data($campaign_id = 0, $selected_asset_id = 0
         // 2. Khi AI thực sự đang chấm (chưa có kết quả check_result):
         //    AI Assessment hiển thị 'Scoring' (màu vàng), Status hiển thị 'Scoring'.
         elseif ($status === 'scoring' && empty($ai_checks) && ($ai_verdict === 'Pending AI' || empty($ai_verdict))) {
-            $ai_verdict = 'Scoring';
+            $started_at = (int) get_post_meta($current_ver_id, '_scoring_started_at', true);
+            // Self-healing: Nếu Action Scheduler bị hoãn hoặc không kích hoạt sau 3 giây, tự động chấm và cập nhật ngay
+            if ($started_at > 0 && (time() - $started_at > 3) && function_exists('pcs_run_ai_scoring_for_version')) {
+                $eval_results = pcs_run_ai_scoring_for_version($current_ver_id);
+                if (!empty($eval_results) && !isset($eval_results['error'])) {
+                    $status = 'in_review';
+                    if (function_exists('pcs_server_meta')) {
+                        pcs_server_meta($current_ver_id, '_status', 'in_review');
+                        pcs_server_meta($current_ver_id, '_ai_completed', 1);
+                        pcs_server_meta($aid, '_current_version_id', $current_ver_id);
+                    } else {
+                        update_post_meta($current_ver_id, '_status', 'in_review');
+                        update_post_meta($current_ver_id, '_ai_completed', 1);
+                        update_post_meta($aid, '_current_version_id', $current_ver_id);
+                    }
+                    if (function_exists('pcs_transition_version_to_in_review')) {
+                        pcs_transition_version_to_in_review($current_ver_id, $aid);
+                    }
+                } else {
+                    $ai_verdict = 'Scoring';
+                }
+            } else {
+                $ai_verdict = 'Scoring';
+            }
         }
 
         // Checker & Release metadata từ current version
