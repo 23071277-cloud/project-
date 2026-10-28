@@ -9,8 +9,8 @@ if (file_exists(__DIR__ . '/backend.php')) {
 }
 $loginUrl = function_exists('pcs_url') ? pcs_url('page-login.php') : 'page-login.php';
 $homeUrl = function_exists('pcs_url') ? pcs_url('home-page.php') : (function_exists('home_url') ? home_url('/') : 'home-page.php');
-$solutionUrl = function_exists('home_url') ? home_url('/solution/') : 'page-solution.php';
-$aboutUrl = function_exists('home_url') ? home_url('/about-us/') : 'page-about-us.php';
+$solutionUrl = function_exists('pcs_url') ? pcs_url('solution.php') : (function_exists('home_url') ? home_url('/solution/') : 'page-solution.php');
+$aboutUrl = function_exists('pcs_url') ? pcs_url('about-us.php') : (function_exists('home_url') ? home_url('/about-us/') : 'page-about-us.php');
 $homeLogoUrl = 'images/logo.png';
 if (function_exists('get_template_directory_uri')) {
     $homeLogoUrl = get_template_directory_uri() . '/images/logo.png';

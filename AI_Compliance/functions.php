@@ -144,6 +144,28 @@ function ai_compliance_template_router($template) {
         }
     }
 
+    // Nếu request chứa solution, phục vụ trực tiếp page-solution.php
+    if (strpos($req_uri, 'solution') !== false) {
+        $sol_file = get_template_directory() . '/page-solution.php';
+        if (!file_exists($sol_file)) {
+            $sol_file = __DIR__ . '/page-solution.php';
+        }
+        if (file_exists($sol_file)) {
+            return $sol_file;
+        }
+    }
+
+    // Nếu request chứa about-us hoặc about, phục vụ trực tiếp page-about-us.php
+    if (strpos($req_uri, 'about-us') !== false || strpos($req_uri, 'about') !== false) {
+        $about_file = get_template_directory() . '/page-about-us.php';
+        if (!file_exists($about_file)) {
+            $about_file = __DIR__ . '/page-about-us.php';
+        }
+        if (file_exists($about_file)) {
+            return $about_file;
+        }
+    }
+
     $denied_file = get_template_directory() . '/access-denied.php';
     if (!file_exists($denied_file)) {
         $denied_file = __DIR__ . '/access-denied.php';

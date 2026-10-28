@@ -1259,6 +1259,10 @@ function pcs_url($target) {
         'ai-scoring-progress.php'   => ['slugs' => ['ai-scoring', 'ai-scoring-progress', 'ai-progress', 'ai-preflight-scan', 'ai-scanning', 'maker-ai-scoring', 'scoring-progress'], 'template' => 'ai-scoring-progress.php'],
         'ai-scoring-result.php'     => ['slugs' => ['ai-scoring-result', 'ai-result', 'ai-assessment', 'maker-ai-result', 'pre-submission-review'], 'template' => 'ai-scoring-result.php'],
         'access-denied.php'         => ['slugs' => ['access-denied', '403', 'unauthorized', 'forbidden', 'restricted'], 'template' => 'access-denied.php'],
+        'page-solution.php'         => ['slugs' => ['solution', 'giai-phap'], 'template' => 'page-solution.php'],
+        'solution.php'              => ['slugs' => ['solution', 'giai-phap'], 'template' => 'page-solution.php'],
+        'page-about-us.php'         => ['slugs' => ['about-us', 'about', 've-chung-toi'], 'template' => 'page-about-us.php'],
+        'about-us.php'              => ['slugs' => ['about-us', 'about', 've-chung-toi'], 'template' => 'page-about-us.php'],
     ];
 
     if (!isset($map[$clean_target])) {
