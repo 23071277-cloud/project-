@@ -11,12 +11,47 @@ $loginUrl = function_exists('pcs_url') ? pcs_url('page-login.php') : 'page-login
 $homeUrl = function_exists('pcs_url') ? pcs_url('home-page.php') : (function_exists('home_url') ? home_url('/') : 'home-page.php');
 $solutionUrl = function_exists('pcs_url') ? pcs_url('solution.php') : (function_exists('home_url') ? home_url('/solution/') : 'page-solution.php');
 $aboutUrl = function_exists('pcs_url') ? pcs_url('about-us.php') : (function_exists('home_url') ? home_url('/about-us/') : 'page-about-us.php');
-$homeLogoUrl = 'images/logo.png';
+
+$imgBase = 'images/';
 if (function_exists('get_template_directory_uri')) {
-    $homeLogoUrl = get_template_directory_uri() . '/images/logo.png';
+    $imgBase = get_template_directory_uri() . '/images/';
 } elseif (function_exists('get_stylesheet_directory_uri')) {
-    $homeLogoUrl = get_stylesheet_directory_uri() . '/images/logo.png';
+    $imgBase = get_stylesheet_directory_uri() . '/images/';
 }
+$homeLogoUrl = $imgBase . 'logo.png';
+
+$partners = [
+    [
+        'name' => 'Around25',
+        'url'  => 'https://www.around25.com/',
+        'logo' => $imgBase . 'partner-around25.png',
+        'fallback' => 'images/partner-around25.png',
+    ],
+    [
+        'name' => 'G-U Labs',
+        'url'  => 'https://g-u-labs-inc.ghost.io/ja/about/',
+        'logo' => $imgBase . 'partner-gulabs.png',
+        'fallback' => 'images/partner-gulabs.png',
+    ],
+    [
+        'name' => 'Aimnext Vietnam',
+        'url'  => 'https://www.aimnext.com.vn/seminar-vn',
+        'logo' => $imgBase . 'partner-aimnext.png',
+        'fallback' => 'images/partner-aimnext.png',
+    ],
+    [
+        'name' => 'ReloTalent',
+        'url'  => 'https://www.relotalent.com/',
+        'logo' => $imgBase . 'partner-relotalent.png',
+        'fallback' => 'images/partner-relotalent.png',
+    ],
+    [
+        'name' => 'ExpatFinder',
+        'url'  => 'https://www.expatfinder.com/',
+        'logo' => $imgBase . 'partner-expatfinder.png',
+        'fallback' => 'images/partner-expatfinder.png',
+    ],
+];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -176,7 +211,7 @@ if (function_exists('get_template_directory_uri')) {
 
         .hero-grid {
             display: grid;
-            grid-template-columns: 1.2fr 0.8fr;
+            grid-template-columns: 1.15fr 0.85fr;
             align-items: center;
             gap: 48px;
         }
@@ -233,27 +268,29 @@ if (function_exists('get_template_directory_uri')) {
         .hero-badge-card {
             background: #FFFFFF;
             border-radius: 20px;
-            padding: 30px;
+            padding: 32px 36px;
             box-shadow: 0 20px 40px rgba(89, 68, 155, 0.12);
             border: 1px solid #E2E8F0;
             width: 100%;
-            max-width: 380px;
+            max-width: 480px;
             position: relative;
         }
 
         .hero-badge-card h4 {
-            font-size: 14px;
+            font-size: 13.5px;
             color: #6D74B4;
             font-weight: 700;
             text-transform: uppercase;
-            margin-bottom: 12px;
+            letter-spacing: 0.05em;
+            margin-bottom: 16px;
         }
 
         .hero-badge-card .status-item {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 12px 0;
+            gap: 20px;
+            padding: 14px 0;
             border-bottom: 1px solid #F1F5F9;
         }
 
@@ -261,35 +298,88 @@ if (function_exists('get_template_directory_uri')) {
             border-bottom: none;
         }
 
+        .hero-badge-card .status-item span {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1E293B;
+            white-space: nowrap;
+        }
+
+        .hero-badge-card .status-item strong {
+            font-size: 13.5px;
+            font-weight: 700;
+            white-space: nowrap;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            display: inline-block;
+        }
+
+        .status-badge-pass {
+            background: rgba(16, 185, 129, 0.12);
+            color: #059669 !important;
+        }
+
+        .status-badge-review {
+            background: rgba(245, 158, 11, 0.12);
+            color: #D97706 !important;
+        }
+
         /* ================= 3. PARTNER LOGOS ================= */
         .partners-section {
-            padding: 50px 0;
+            padding: 56px 0;
             background: #FFFFFF;
             border-bottom: 1px solid #E2E8F0;
             text-align: center;
         }
 
         .partners-title {
-            font-size: 18px;
+            font-size: 13px;
             font-weight: 700;
-            color: #475569;
-            margin-bottom: 28px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #59449B;
+            margin-bottom: 32px;
         }
 
         .partners-grid {
             display: flex;
-            flex-wrap: wrap;
             align-items: center;
             justify-content: center;
-            gap: 36px 48px;
-            opacity: 0.7;
+            flex-wrap: wrap;
+            gap: 36px 44px;
         }
 
-        .partner-name {
-            font-size: 18px;
-            font-weight: 800;
-            letter-spacing: 1px;
-            color: #64748B;
+        .partner-logo-item {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 18px;
+            border-radius: 12px;
+            transition: all 0.25s ease;
+            text-decoration: none;
+        }
+
+        .partner-logo-item:hover {
+            transform: translateY(-2px);
+            background: rgba(248, 250, 252, 0.9);
+            box-shadow: 0 4px 14px rgba(89, 68, 155, 0.08);
+        }
+
+        .partner-logo-img {
+            max-height: 36px;
+            max-width: 150px;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            filter: grayscale(100%);
+            opacity: 0.65;
+            transition: all 0.25s ease;
+            display: block;
+        }
+
+        .partner-logo-item:hover .partner-logo-img {
+            filter: grayscale(0%);
+            opacity: 1;
         }
 
         /* ================= 4. PILLARS / CHECKS SECTION ================= */
@@ -659,15 +749,15 @@ if (function_exists('get_template_directory_uri')) {
                     <h4>Pre-flight Verification</h4>
                     <div class="status-item">
                         <span>Foreign Logo Scan</span>
-                        <strong style="color: #10B981;">98/100 Pass</strong>
+                        <strong class="status-badge-pass">98/100 Pass</strong>
                     </div>
                     <div class="status-item">
                         <span>Brand Typography</span>
-                        <strong style="color: #10B981;">95/100 Pass</strong>
+                        <strong class="status-badge-pass">95/100 Pass</strong>
                     </div>
                     <div class="status-item">
                         <span>MAS Disclosure Check</span>
-                        <strong style="color: #F59E0B;">65/100 Needs Review</strong>
+                        <strong class="status-badge-review">65/100 Needs Review</strong>
                     </div>
                 </div>
             </div>
@@ -679,12 +769,11 @@ if (function_exists('get_template_directory_uri')) {
         <div class="container">
             <p class="partners-title">Trusted by financial teams and top creative agencies in Singapore</p>
             <div class="partners-grid">
-                <span class="partner-name">G-U LABS</span>
-                <span class="partner-name">RELOTALENT</span>
-                <span class="partner-name">CATEMA</span>
-                <span class="partner-name">MIREKI</span>
-                <span class="partner-name">VIETPHIL</span>
-                <span class="partner-name">AIME NEXT</span>
+                <?php foreach ($partners as $partner): ?>
+                    <a href="<?= esc_url($partner['url']) ?>" target="_blank" rel="noopener noreferrer" class="partner-logo-item" title="<?= esc_attr($partner['name']) ?>">
+                        <img src="<?= esc_url($partner['logo']) ?>" alt="<?= esc_attr($partner['name']) ?>" class="partner-logo-img" onerror="this.onerror=null; this.src='<?= esc_js($partner['fallback']) ?>';">
+                    </a>
+                <?php endforeach; ?>
             </div>
         </div>
     </section>
