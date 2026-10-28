@@ -15,12 +15,31 @@ $aboutUrl = function_exists('pcs_url') ? pcs_url('about-us.php') : (function_exi
 
 $homeLogoUrl = 'images/logo.png';
 $heroImageUrl = 'images/about-hero.png';
+$handsImageUrl = 'images/about-hands.png';
+$leader1Url = 'images/leader_1.png';
+$leader2Url = 'images/leader_2.png';
+$leader3Url = 'images/leader_3.png';
+$mapHanoiUrl = 'images/map_hanoi.png';
+$mapSingUrl = 'images/map_singapore.png';
+
 if (function_exists('get_template_directory_uri')) {
     $homeLogoUrl = get_template_directory_uri() . '/images/logo.png';
     $heroImageUrl = get_template_directory_uri() . '/images/about-hero.png';
+    $handsImageUrl = get_template_directory_uri() . '/images/about-hands.png';
+    $leader1Url = get_template_directory_uri() . '/images/leader_1.png';
+    $leader2Url = get_template_directory_uri() . '/images/leader_2.png';
+    $leader3Url = get_template_directory_uri() . '/images/leader_3.png';
+    $mapHanoiUrl = get_template_directory_uri() . '/images/map_hanoi.png';
+    $mapSingUrl = get_template_directory_uri() . '/images/map_singapore.png';
 } elseif (function_exists('get_stylesheet_directory_uri')) {
     $homeLogoUrl = get_stylesheet_directory_uri() . '/images/logo.png';
     $heroImageUrl = get_stylesheet_directory_uri() . '/images/about-hero.png';
+    $handsImageUrl = get_stylesheet_directory_uri() . '/images/about-hands.png';
+    $leader1Url = get_stylesheet_directory_uri() . '/images/leader_1.png';
+    $leader2Url = get_stylesheet_directory_uri() . '/images/leader_2.png';
+    $leader3Url = get_stylesheet_directory_uri() . '/images/leader_3.png';
+    $mapHanoiUrl = get_stylesheet_directory_uri() . '/images/map_hanoi.png';
+    $mapSingUrl = get_stylesheet_directory_uri() . '/images/map_singapore.png';
 }
 ?>
 <!DOCTYPE html>
@@ -35,7 +54,7 @@ if (function_exists('get_template_directory_uri')) {
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
 
     <style>
-        /* ================= RESET & CẤU HÌNH TOÀN CỤC ================= */
+        /* ================= RESET & CAU HINH TOAN CUC ================= */
         * {
             margin: 0;
             padding: 0;
@@ -298,352 +317,550 @@ if (function_exists('get_template_directory_uri')) {
             object-fit: cover;
         }
 
-        /* ================= 3. OUR STORY & FOUNDATION SECTION ================= */
-        .story-section {
+        /* ================= 3. BOXLESS PHILOSOPHY / ENGINEERING DOCTRINE ================= */
+        .doctrine-section {
+            padding: 90px 0 80px 0;
+            background: #FFFFFF;
+            border-top: 1px solid rgba(226, 232, 240, 0.8);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+        }
+
+        .doctrine-header {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 48px;
+            align-items: center;
+            margin-bottom: 70px;
+        }
+
+        .doctrine-headline-box .doctrine-overline {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .doctrine-overline .bar {
+            width: 32px;
+            height: 2px;
+            background: #4F57A7;
+            display: inline-block;
+        }
+
+        .doctrine-overline .text {
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            color: #4F57A7;
+            text-transform: uppercase;
+        }
+
+        .doctrine-heading {
+            font-size: clamp(28px, 3.2vw, 42px);
+            font-weight: 800;
+            color: #1F2674;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+        }
+
+        .quote-callout {
+            border-left: 3px solid #4F57A7;
+            padding-left: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .quote-text {
+            font-size: 16.5px;
+            font-weight: 600;
+            font-style: italic;
+            color: #1F2674;
+            line-height: 1.55;
+        }
+
+        .quote-author-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .author-avatar-badge {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #EDE9FE;
+            color: #7C3AED;
+            font-weight: 800;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 2px 6px rgba(124, 58, 237, 0.15);
+        }
+
+        .author-info .author-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1F2674;
+        }
+
+        .author-info .author-title {
+            font-size: 12.5px;
+            color: #64748B;
+            font-weight: 500;
+        }
+
+        /* Organic Flow: Illustration + 3 Story Pillars */
+        .doctrine-flow-grid {
+            display: grid;
+            grid-template-columns: 0.9fr 1.1fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        .doctrine-illustration-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .doctrine-hands-img {
+            max-width: 400px;
+            width: 100%;
+            height: auto;
+            display: block;
+            filter: drop-shadow(0 15px 30px rgba(79, 87, 167, 0.1));
+        }
+
+        .pillars-list {
+            display: flex;
+            flex-direction: column;
+            gap: 36px;
+        }
+
+        .pillar-item {
+            display: flex;
+            gap: 22px;
+            align-items: flex-start;
+        }
+
+        .pillar-num {
+            font-size: 32px;
+            font-weight: 800;
+            color: #C084FC;
+            line-height: 1;
+            letter-spacing: -0.03em;
+            flex-shrink: 0;
+            padding-top: 2px;
+        }
+
+        .pillar-content h3 {
+            font-size: 17.5px;
+            font-weight: 700;
+            color: #7C3AED;
+            margin-bottom: 8px;
+            line-height: 1.35;
+        }
+
+        .pillar-content p {
+            font-size: 14.5px;
+            line-height: 1.65;
+            color: #475569;
+        }
+
+        /* ================= 4. SECTION 5: LEADERSHIP COLLECTIVE ================= */
+        .leadership-section {
             padding: 90px 0;
             background: #FAF8FF;
         }
 
-        .section-header {
+        .leadership-header {
             text-align: center;
             max-width: 720px;
             margin: 0 auto 56px auto;
         }
 
-        .section-tag {
-            display: inline-block;
+        .leadership-overline {
             font-size: 12px;
             font-weight: 700;
             letter-spacing: 0.12em;
-            text-transform: uppercase;
             color: #4F57A7;
-            background: rgba(79, 87, 167, 0.1);
-            padding: 6px 16px;
-            border-radius: 9999px;
-            margin-bottom: 16px;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            display: inline-block;
         }
 
-        .section-heading {
-            font-size: clamp(28px, 3.2vw, 40px);
+        .leadership-title {
+            font-size: clamp(28px, 3.2vw, 42px);
             font-weight: 800;
             color: #1F2674;
-            line-height: 1.25;
+            line-height: 1.2;
             letter-spacing: -0.02em;
-            margin-bottom: 16px;
+            margin-bottom: 14px;
         }
 
-        .section-desc {
+        .leadership-subtitle {
             font-size: 16px;
             color: #64748B;
-            line-height: 1.65;
+            line-height: 1.6;
         }
 
-        .story-grid {
-            display: grid;
-            grid-template-columns: 1.1fr 0.9fr;
-            gap: 48px;
-            align-items: center;
-            margin-bottom: 60px;
-        }
-
-        .story-text {
-            font-size: 16px;
-            line-height: 1.75;
-            color: #334155;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .story-text p strong {
-            color: #1F2674;
-        }
-
-        .story-callout {
-            background: #FFFFFF;
-            border-left: 4px solid #1F2674;
-            padding: 28px 32px;
-            border-radius: 0 16px 16px 0;
-            box-shadow: 0 10px 25px -5px rgba(31, 38, 116, 0.05);
-            border-top: 1px solid rgba(226, 232, 240, 0.8);
-            border-right: 1px solid rgba(226, 232, 240, 0.8);
-            border-bottom: 1px solid rgba(226, 232, 240, 0.8);
-        }
-
-        .callout-quote {
-            font-size: 18px;
-            font-weight: 600;
-            color: #1F2674;
-            line-height: 1.5;
-            margin-bottom: 12px;
-            font-style: italic;
-        }
-
-        .callout-author {
-            font-size: 13px;
-            font-weight: 700;
-            color: #4F57A7;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-        }
-
-        /* ================= 4. CORE VALUES SECTION ================= */
-        .values-section {
-            padding: 80px 0;
-            background: #FFFFFF;
-            border-top: 1px solid rgba(226, 232, 240, 0.8);
-            border-bottom: 1px solid rgba(226, 232, 240, 0.8);
-        }
-
-        .values-grid {
+        .leaders-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 32px;
         }
 
-        .value-card {
-            background: #FAF8FF;
+        .leader-card {
+            background: #FFFFFF;
             border: 1px solid rgba(226, 232, 240, 0.9);
             border-radius: 20px;
-            padding: 36px 30px;
+            overflow: hidden;
+            box-shadow: 0 10px 28px -6px rgba(31, 38, 116, 0.07);
             display: flex;
             flex-direction: column;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
-        .value-card:hover {
+        .leader-card:hover {
             transform: translateY(-4px);
-            box-shadow: 0 16px 32px -8px rgba(31, 38, 116, 0.1);
-            border-color: rgba(79, 87, 167, 0.3);
+            box-shadow: 0 16px 36px -8px rgba(31, 38, 116, 0.12);
+            border-color: rgba(79, 87, 167, 0.35);
         }
 
-        .value-icon-box {
-            width: 52px;
-            height: 52px;
-            border-radius: 14px;
-            background: linear-gradient(135deg, #1F2674 0%, #4F57A7 100%);
+        .leader-photo-wrap {
+            width: 100%;
+            height: 250px;
+            background: #E2E8F0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .leader-photo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .leader-info-box {
+            padding: 24px;
             display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #FFFFFF;
-            margin-bottom: 24px;
-            box-shadow: 0 8px 16px rgba(31, 38, 116, 0.2);
+            flex-direction: column;
+            flex-grow: 1;
         }
 
-        .value-title {
-            font-size: 20px;
-            font-weight: 700;
-            color: #1F2674;
+        .leader-meta-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
             margin-bottom: 12px;
+        }
+
+        .leader-name {
+            font-size: 18px;
+            font-weight: 800;
+            color: #1F2674;
             line-height: 1.3;
         }
 
-        .value-desc {
-            font-size: 15px;
-            line-height: 1.65;
-            color: #64748B;
+        .leader-role {
+            font-size: 12.5px;
+            font-weight: 600;
+            color: #4F57A7;
+            margin-top: 2px;
         }
 
-        /* ================= 5. ENGINEERING SANCTUARY / CAPABILITIES ================= */
-        .capabilities-section {
-            padding: 90px 0;
-            background: #FAF8FF;
-        }
-
-        .caps-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 28px;
-        }
-
-        .cap-card {
-            background: #FFFFFF;
-            border: 1px solid rgba(226, 232, 240, 0.85);
-            border-radius: 18px;
-            padding: 32px;
+        .leader-ext-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: rgba(79, 87, 167, 0.08);
             display: flex;
-            gap: 20px;
-            align-items: flex-start;
+            align-items: center;
+            justify-content: center;
+            color: #4F57A7;
+            flex-shrink: 0;
             transition: all 0.2s ease;
         }
 
-        .cap-card:hover {
-            border-color: rgba(79, 87, 167, 0.35);
-            box-shadow: 0 12px 28px -6px rgba(31, 38, 116, 0.08);
+        .leader-card:hover .leader-ext-icon {
+            background: #1F2674;
+            color: #FFFFFF;
         }
 
-        .cap-number {
-            font-size: 16px;
-            font-weight: 800;
-            color: #4F57A7;
-            background: rgba(79, 87, 167, 0.1);
-            padding: 8px 14px;
-            border-radius: 10px;
-            letter-spacing: -0.02em;
-            line-height: 1;
-            flex-shrink: 0;
-        }
-
-        .cap-content h4 {
-            font-size: 18px;
-            font-weight: 700;
-            color: #1F2674;
-            margin-bottom: 8px;
-        }
-
-        .cap-content p {
-            font-size: 14.5px;
+        .leader-bio {
+            font-size: 13.5px;
             line-height: 1.6;
             color: #64748B;
         }
 
-        /* ================= 6. DUAL OFFICES / LOCATIONS SECTION ================= */
-        .locations-section {
-            padding: 90px 0;
-            background: #FFFFFF;
-            border-top: 1px solid rgba(226, 232, 240, 0.8);
+        /* ================= 5. VALUES THAT ANCHOR CODE (DEEP PURPLE WAVES) ================= */
+        .anchor-values-section {
+            position: relative;
+            background: linear-gradient(180deg, #7E22CE 0%, #6B21A8 100%);
+            color: #FFFFFF;
+            padding: 100px 0;
+            overflow: hidden;
         }
 
-        .offices-grid {
+        .purple-wave-top {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            line-height: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .purple-wave-top svg {
+            width: 100%;
+            height: 60px;
+            display: block;
+        }
+
+        .purple-wave-bottom {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            line-height: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .purple-wave-bottom svg {
+            width: 100%;
+            height: 60px;
+            display: block;
+        }
+
+        .anchor-header {
+            text-align: center;
+            max-width: 760px;
+            margin: 0 auto 56px auto;
+            position: relative;
+            z-index: 2;
+        }
+
+        .anchor-title {
+            font-size: clamp(28px, 3.5vw, 44px);
+            font-weight: 800;
+            color: #FFFFFF;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+            margin-bottom: 16px;
+        }
+
+        .anchor-subtitle {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.9);
+            line-height: 1.6;
+        }
+
+        .anchor-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 28px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .anchor-card {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .anchor-icon-wrap {
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.16);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #FFFFFF;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+        }
+
+        .anchor-card-title {
+            font-size: 19px;
+            font-weight: 700;
+            color: #FFFFFF;
+            margin-bottom: 10px;
+        }
+
+        .anchor-card-desc {
+            font-size: 13.5px;
+            line-height: 1.65;
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        /* ================= 6. DUAL-ANCHOR PRESENCE: ENGINEERING HUBS & ALLIANCES ================= */
+        .hubs-section {
+            padding: 90px 0 100px 0;
+            background: #FFFFFF;
+        }
+
+        .hubs-header-split {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 40px;
+            margin-bottom: 50px;
+        }
+
+        .hubs-title-group .hubs-overline {
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            color: #7C3AED;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .hubs-heading {
+            font-size: clamp(26px, 3vw, 38px);
+            font-weight: 800;
+            color: #1F2674;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+        }
+
+        .hubs-subtitle-wrap {
+            max-width: 440px;
+        }
+
+        .hubs-subtitle {
+            font-size: 14.5px;
+            color: #64748B;
+            line-height: 1.55;
+        }
+
+        .hubs-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 36px;
         }
 
-        .office-card {
-            background: #FAF8FF;
-            border: 1px solid rgba(226, 232, 240, 0.95);
-            border-radius: 20px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 10px 25px -5px rgba(31, 38, 116, 0.06);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .office-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 16px 36px -8px rgba(31, 38, 116, 0.12);
-            border-color: rgba(79, 87, 167, 0.3);
-        }
-
-        .office-card-header {
-            padding: 28px 30px 20px 30px;
-            border-bottom: 1px solid rgba(226, 232, 240, 0.7);
-        }
-
-        .office-badge {
-            display: inline-block;
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: #1F2674;
-            background: rgba(31, 38, 116, 0.08);
-            padding: 4px 12px;
-            border-radius: 9999px;
-            margin-bottom: 12px;
-        }
-
-        .office-title {
-            font-size: 22px;
-            font-weight: 800;
-            color: #1F2674;
-            line-height: 1.25;
-        }
-
-        .office-details {
-            padding: 24px 30px;
+        .hub-card {
             display: flex;
             flex-direction: column;
             gap: 16px;
-            flex-grow: 1;
         }
 
-        .detail-item {
-            display: flex;
-            gap: 14px;
-            align-items: flex-start;
-        }
-
-        .detail-icon {
-            width: 32px;
-            height: 32px;
-            border-radius: 8px;
-            background: rgba(79, 87, 167, 0.1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #4F57A7;
-            flex-shrink: 0;
-            margin-top: 2px;
-        }
-
-        .detail-info {
-            font-size: 14.5px;
-            line-height: 1.5;
-            color: #334155;
-        }
-
-        .detail-label {
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            color: #64748B;
-            margin-bottom: 2px;
-        }
-
-        .detail-value a {
-            color: #1F2674;
-            font-weight: 600;
-            text-decoration: none;
-            transition: color 0.2s ease;
-        }
-
-        .detail-value a:hover {
-            color: #4F57A7;
-            text-decoration: underline;
-        }
-
-        /* Map Embed Container */
-        .map-container {
-            width: 100%;
-            height: 220px;
-            background: #E2E8F0;
+        .hub-map-frame {
             position: relative;
+            height: 250px;
+            border-radius: 20px;
             overflow: hidden;
-            border-top: 1px solid rgba(226, 232, 240, 0.8);
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            box-shadow: 0 12px 30px -8px rgba(31, 38, 116, 0.1);
+            background: #F1F5F9;
         }
 
-        .map-iframe {
+        .hub-map-iframe {
             width: 100%;
             height: 100%;
             border: 0;
             display: block;
         }
 
-        .office-card-footer {
-            padding: 18px 30px;
-            background: #FFFFFF;
-            border-top: 1px solid rgba(226, 232, 240, 0.8);
+        .hub-badge {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            color: #1F2674;
+            padding: 5px 14px;
+            border-radius: 9999px;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+        }
+
+        .hub-floating-card {
+            position: absolute;
+            bottom: 12px;
+            left: 12px;
+            right: 12px;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(10px);
+            padding: 14px 18px;
+            border-radius: 14px;
+            border: 1px solid rgba(226, 232, 240, 0.85);
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 14px;
+            box-shadow: 0 6px 18px rgba(31, 38, 116, 0.08);
         }
 
-        .btn-map-link {
+        .hub-text-block .hub-name {
+            font-size: 15px;
+            font-weight: 800;
+            color: #1F2674;
+            line-height: 1.3;
+            margin-bottom: 2px;
+        }
+
+        .hub-text-block .hub-address {
+            font-size: 12px;
+            color: #64748B;
+            line-height: 1.4;
+        }
+
+        .hub-link-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: #1F2674;
+            color: #FFFFFF;
+            flex-shrink: 0;
+            transition: all 0.2s ease;
+        }
+
+        .hub-link-btn:hover {
+            background: #4F57A7;
+            transform: scale(1.05);
+        }
+
+        .hub-features-row {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            padding: 0 8px;
+        }
+
+        .hub-feat-item {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            font-size: 13.5px;
-            font-weight: 700;
-            color: #1F2674;
-            transition: color 0.2s ease;
+            font-size: 12.5px;
+            font-weight: 600;
+            color: #475569;
         }
 
-        .btn-map-link:hover {
-            color: #4F57A7;
+        .hub-feat-item svg {
+            color: #7C3AED;
+            flex-shrink: 0;
         }
 
         /* ================= 7. CTA BANNER SECTION ================= */
@@ -741,17 +958,26 @@ if (function_exists('get_template_directory_uri')) {
             .stat-card:nth-child(2) {
                 border-right: none;
             }
-            .story-grid {
+            .doctrine-header {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+            .doctrine-flow-grid {
                 grid-template-columns: 1fr;
             }
-            .values-grid {
+            .leaders-grid {
                 grid-template-columns: 1fr;
             }
-            .offices-grid {
+            .anchor-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .hubs-grid {
                 grid-template-columns: 1fr;
             }
-            .caps-grid {
-                grid-template-columns: 1fr;
+            .hubs-header-split {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 16px;
             }
         }
 
@@ -773,6 +999,9 @@ if (function_exists('get_template_directory_uri')) {
             }
             .stat-card:last-child {
                 border-bottom: none;
+            }
+            .anchor-grid {
+                grid-template-columns: 1fr;
             }
             .footer-content {
                 flex-direction: column;
@@ -856,314 +1085,331 @@ if (function_exists('get_template_directory_uri')) {
         </div>
     </section>
 
-    <!-- ================= 3. OUR STORY & VISION SECTION ================= -->
-    <section class="story-section">
+    <!-- ================= 3. BOXLESS PHILOSOPHY / ENGINEERING DOCTRINE ================= -->
+    <section class="doctrine-section">
         <div class="container">
-            <div class="section-header">
-                <span class="section-tag">WHO WE ARE</span>
-                <h2 class="section-heading">Pioneering the Next Era of AI Brand Governance</h2>
-                <p class="section-desc">From our engineering sanctuary in Hanoi to multinational creative hubs, we turn complex regulatory and visual guidelines into automated mathematical certainty.</p>
-            </div>
-
-            <div class="story-grid">
-                <div class="story-text">
-                    <p>
-                        Founded in <strong>2016</strong>, ICTS started with a clear engineering premise: complex software problems deserve simple, robust engineering. Over nearly a decade, we have partnered with forward-thinking enterprises across North America, Europe, Japan, and Southeast Asia to design and ship mission-critical digital systems.
-                    </p>
-                    <p>
-                        As Generative AI accelerates creative production into unprecedented volumes, global marketing and compliance teams face an existential challenge: <em>how to scale multi-channel content velocity without diluting brand equity or triggering costly regulatory non-compliance?</em>
-                    </p>
-                    <p>
-                        <strong>Brand Compliance AI</strong> is our definitive solution. By bridging state-of-the-art multimodal vision algorithms with deterministic rule extraction, we transform lengthy static guideline PDFs into an always-on, high-throughput pre-flight verification engine.
-                    </p>
+            <div class="doctrine-header">
+                <div class="doctrine-headline-box">
+                    <div class="doctrine-overline">
+                        <span class="bar"></span>
+                        <span class="text">ENGINEERING DOCTRINE</span>
+                    </div>
+                    <h2 class="doctrine-heading">A lean solution is always<br/>better than a fancy one.</h2>
                 </div>
 
-                <div class="story-callout">
-                    <div class="callout-quote">
-                        "True innovation does not replace human creators. It gives them the speed and confidence to take bold creative risks without fearing compliance failure."
+                <div class="quote-callout">
+                    <div class="quote-text">
+                        &ldquo;We strip unnecessary technical ballast. What remains is pristine latency, predictable maintenance, and pure product velocity.&rdquo;
                     </div>
-                    <div class="callout-author">&mdash; ICTS Engineering Leadership</div>
+                    <div class="quote-author-row">
+                        <div class="author-avatar-badge">T</div>
+                        <div class="author-info">
+                            <div class="author-name">Jessica Tran</div>
+                            <div class="author-title">Founder &amp; Chief Architect, ICTS Custom Software</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="doctrine-flow-grid">
+                <div class="doctrine-illustration-wrap">
+                    <img src="<?= esc_url($handsImageUrl) ?>" alt="ICTS Team Synergy" class="doctrine-hands-img" onerror="this.onerror=null; this.src='images/about-hands.png';">
+                </div>
+
+                <div class="pillars-list">
+                    <!-- Pillar 01 -->
+                    <div class="pillar-item">
+                        <div class="pillar-num">01</div>
+                        <div class="pillar-content">
+                            <h3>Extended Tech Hub for Global Digital Agencies</h3>
+                            <p>We operate as transparent, embedded engineering squads that seamlessly adopt your Git protocols, CI/CD pipelines, and internal Jira cadences without cultural friction.</p>
+                        </div>
+                    </div>
+
+                    <!-- Pillar 02 -->
+                    <div class="pillar-item">
+                        <div class="pillar-num">02</div>
+                        <div class="pillar-content">
+                            <h3>Acceleration Wing for High-Velocity Ventures</h3>
+                            <p>When time-to-market defines survival, we build production MVPs and core engines with rigorous code hygiene, ensuring you never have to throw away v1 when scaling to series B.</p>
+                        </div>
+                    </div>
+
+                    <!-- Pillar 03 -->
+                    <div class="pillar-item">
+                        <div class="pillar-num">03</div>
+                        <div class="pillar-content">
+                            <h3>Uncompromising Architectural Fidelity</h3>
+                            <p>From event-driven microservices to zero-trust cloud security, we hold every deliverable against Swiss-level benchmarks of uptime, maintainability, and auditability.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- ================= 4. CORE VALUES SECTION ================= -->
-    <section class="values-section">
+    <!-- ================= 4. SECTION 5: LEADERSHIP COLLECTIVE ================= -->
+    <section class="leadership-section">
         <div class="container">
-            <div class="section-header">
-                <span class="section-tag">OUR CORE PRINCIPLES</span>
-                <h2 class="section-heading">Engineered on Trust, Precision, and Partnership</h2>
-                <p class="section-desc">Three foundational pillars that guide every line of code and customer interaction.</p>
+            <div class="leadership-header">
+                <span class="leadership-overline">MINDS BEHIND THE ENGINE</span>
+                <h2 class="leadership-title">The Leadership Collective</h2>
+                <p class="leadership-subtitle">Steered by seasoned practitioners who code, strategize, and uphold uncompromising code standards.</p>
             </div>
 
-            <div class="values-grid">
-                <!-- Value 1 -->
-                <div class="value-card">
-                    <div class="value-icon-box">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <div class="leaders-grid">
+                <!-- Leader 1 -->
+                <div class="leader-card">
+                    <div class="leader-photo-wrap">
+                        <img src="<?= esc_url($leader1Url) ?>" alt="Jessica Tran" class="leader-photo" onerror="this.onerror=null; this.src='images/leader_1.png';">
+                    </div>
+                    <div class="leader-info-box">
+                        <div class="leader-meta-row">
+                            <div>
+                                <h3 class="leader-name">Jessica Tran</h3>
+                                <div class="leader-role">Chief Executive Officer &amp; Founder</div>
+                            </div>
+                            <div class="leader-ext-icon">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                    <polyline points="15 3 21 3 21 9"></polyline>
+                                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                                </svg>
+                            </div>
+                        </div>
+                        <p class="leader-bio">15+ years steering international digital products. Pioneered ICTS's hybrid delivery methodology connecting ASEAN engineering talent with Western enterprise standards.</p>
+                    </div>
+                </div>
+
+                <!-- Leader 2 -->
+                <div class="leader-card">
+                    <div class="leader-photo-wrap">
+                        <img src="<?= esc_url($leader2Url) ?>" alt="Rachel Le" class="leader-photo" onerror="this.onerror=null; this.src='images/leader_2.png';">
+                    </div>
+                    <div class="leader-info-box">
+                        <div class="leader-meta-row">
+                            <div>
+                                <h3 class="leader-name">Rachel Le</h3>
+                                <div class="leader-role">Chief Marketing Officer</div>
+                            </div>
+                            <div class="leader-ext-icon">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                    <polyline points="15 3 21 3 21 9"></polyline>
+                                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                                </svg>
+                            </div>
+                        </div>
+                        <p class="leader-bio">Drives strategic global market expansion and client partnership governance. Fosters relationships with enterprise founders across DACH, Australia, and North America.</p>
+                    </div>
+                </div>
+
+                <!-- Leader 3 -->
+                <div class="leader-card">
+                    <div class="leader-photo-wrap">
+                        <img src="<?= esc_url($leader3Url) ?>" alt="Julia Nguyen" class="leader-photo" onerror="this.onerror=null; this.src='images/leader_3.png';">
+                    </div>
+                    <div class="leader-info-box">
+                        <div class="leader-meta-row">
+                            <div>
+                                <h3 class="leader-name">Julia Nguyen</h3>
+                                <div class="leader-role">Chief Technology Officer</div>
+                            </div>
+                            <div class="leader-ext-icon">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                    <polyline points="15 3 21 3 21 9"></polyline>
+                                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                                </svg>
+                            </div>
+                        </div>
+                        <p class="leader-bio">Former distributed systems lead. Oversees ICTS cloud engineering practices, zero-trust cloud frameworks, and proprietary automated code quality validators.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================= 5. VALUES THAT ANCHOR CODE (DEEP PURPLE WAVES) ================= -->
+    <section class="anchor-values-section">
+        <!-- SVG waves on top and bottom -->
+        <div class="purple-wave-top">
+            <svg viewBox="0 0 1440 60" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+                <path d="M0 0C240 40 480 60 720 40C960 20 1200 40 1440 0V60H0V0Z" fill="#7E22CE"/>
+            </svg>
+        </div>
+
+        <div class="container">
+            <div class="anchor-header">
+                <h2 class="anchor-title">Values that anchor every single line of code.</h2>
+                <p class="anchor-subtitle">No vague aphorisms. Just operational discipline built for decades of sustained product resilience.</p>
+            </div>
+
+            <div class="anchor-grid">
+                <!-- Value 1: Integrity -->
+                <div class="anchor-card">
+                    <div class="anchor-icon-wrap">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                            <polyline points="9 12 11 14 15 10"></polyline>
+                        </svg>
+                    </div>
+                    <h3 class="anchor-card-title">Integrity</h3>
+                    <p class="anchor-card-desc">Accurate, transparent, and direct communication in every circumstance. When a deadline faces headwinds or an architecture exhibits flaws, we state facts clearly and suggest verified remediation paths.</p>
+                </div>
+
+                <!-- Value 2: Communication -->
+                <div class="anchor-card">
+                    <div class="anchor-icon-wrap">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="anchor-card-title">Communication</h3>
+                    <p class="anchor-card-desc">Proactive collaboration acts as the dependable backbone of every sprint. Daily async recaps, live demo checkpoints, and crystal-clear pull request notes ensure no ambiguity ever lingers.</p>
+                </div>
+
+                <!-- Value 3: Technology -->
+                <div class="anchor-card">
+                    <div class="anchor-icon-wrap">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+                            <rect x="9" y="9" width="6" height="6"></rect>
+                            <line x1="9" y1="1" x2="9" y2="4"></line>
+                            <line x1="15" y1="1" x2="15" y2="4"></line>
+                            <line x1="9" y1="20" x2="9" y2="23"></line>
+                            <line x1="15" y1="20" x2="15" y2="23"></line>
+                            <line x1="20" y1="9" x2="23" y2="9"></line>
+                            <line x1="20" y1="14" x2="23" y2="14"></line>
+                            <line x1="1" y1="9" x2="4" y2="9"></line>
+                            <line x1="1" y1="14" x2="4" y2="14"></line>
+                        </svg>
+                    </div>
+                    <h3 class="anchor-card-title">Technology</h3>
+                    <p class="anchor-card-desc">Modern cloud native architectures and custom core engines built for frictionless horizontal scale. We write testable, modular codebases designed to outlast individual developers and tech fads.</p>
+                </div>
+
+                <!-- Value 4: Smile -->
+                <div class="anchor-card">
+                    <div class="anchor-icon-wrap">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="10"></circle>
-                            <polyline points="12 6 12 12 16 14"></polyline>
+                            <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+                            <line x1="9" y1="9" x2="9.01" y2="9"></line>
+                            <line x1="15" y1="9" x2="15.01" y2="9"></line>
                         </svg>
                     </div>
-                    <h3 class="value-title">Mathematical Precision</h3>
-                    <p class="value-desc">
-                        Brand guidelines are not approximations. We evaluate color codes, minimum clearspace boundaries, contrast ratios, and mandatory legal disclaimers down to the sub-pixel level.
-                    </p>
-                </div>
-
-                <!-- Value 2 -->
-                <div class="value-card">
-                    <div class="value-icon-box">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
-                        </svg>
-                    </div>
-                    <h3 class="value-title">Amplifying Human Ambition</h3>
-                    <p class="value-desc">
-                        We liberate Makers and Checkers from tedious, repetitive manual checks. Automated validation allows designers to focus on artistic expression and strategic storytelling.
-                    </p>
-                </div>
-
-                <!-- Value 3 -->
-                <div class="value-card">
-                    <div class="value-icon-box">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                        </svg>
-                    </div>
-                    <h3 class="value-title">Radical Transparency & Sovereignty</h3>
-                    <p class="value-desc">
-                        Zero black-box ambiguity. Every score is supported by line-level guideline citations, visual bounding boxes, and an immutable audit trail within your private enterprise perimeter.
-                    </p>
+                    <h3 class="anchor-card-title">Smile</h3>
+                    <p class="anchor-card-desc">Human empathy, quiet dedication, and lasting partnership with every founder. Beyond unit tests, software is built by people for people; positive camaraderie elevates engineering outcomes.</p>
                 </div>
             </div>
         </div>
-    </section>
 
-    <!-- ================= 5. ENGINEERING SANCTUARY / CAPABILITIES ================= -->
-    <section class="capabilities-section">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-tag">ENGINEERING SANCTUARY</span>
-                <h2 class="section-heading">High-Performance Architecture</h2>
-                <p class="section-desc">Designed to integrate seamlessly into your enterprise production ecosystem.</p>
-            </div>
-
-            <div class="caps-grid">
-                <div class="cap-card">
-                    <div class="cap-number">01</div>
-                    <div class="cap-content">
-                        <h4>Multimodal Vision Pipeline</h4>
-                        <p>Simultaneous raster and vector parsing to detect logo placements, clearspace violations, and contrast degradation across high-res artwork.</p>
-                    </div>
-                </div>
-
-                <div class="cap-card">
-                    <div class="cap-number">02</div>
-                    <div class="cap-content">
-                        <h4>Context-Aware Rule Parsing</h4>
-                        <p>Dynamic NLP engine that ingests PDF guidelines and converts regulatory legalese into deterministic, machine-evaluable checks.</p>
-                    </div>
-                </div>
-
-                <div class="cap-card">
-                    <div class="cap-number">03</div>
-                    <div class="cap-content">
-                        <h4>Maker &amp; Checker Collaboration</h4>
-                        <p>Streamlined submission workflows allowing designers to receive instant feedback and revise assets before final Checker authorization.</p>
-                    </div>
-                </div>
-
-                <div class="cap-card">
-                    <div class="cap-number">04</div>
-                    <div class="cap-content">
-                        <h4>Cryptographic Audit Records</h4>
-                        <p>Immutable event logging and timestamped evaluation certificates providing compliance proof for legal and regulatory audits.</p>
-                    </div>
-                </div>
-            </div>
+        <div class="purple-wave-bottom">
+            <svg viewBox="0 0 1440 60" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+                <path d="M0 60C240 20 480 0 720 20C960 40 1200 20 1440 60H0Z" fill="#FFFFFF"/>
+            </svg>
         </div>
     </section>
 
-    <!-- ================= 6. DUAL OFFICES / LOCATIONS ================= -->
-    <section class="locations-section">
+    <!-- ================= 6. DUAL-ANCHOR PRESENCE: ENGINEERING HUBS & ALLIANCES ================= -->
+    <section class="hubs-section">
         <div class="container">
-            <div class="section-header">
-                <span class="section-tag">GLOBAL HUBS</span>
-                <h2 class="section-heading">Our Engineering &amp; Business Locations</h2>
-                <p class="section-desc">Visit our primary research lab in Hanoi or connect with our international partnership gateway in Singapore.</p>
+            <div class="hubs-header-split">
+                <div class="hubs-title-group">
+                    <span class="hubs-overline">DUAL-ANCHOR PRESENCE</span>
+                    <h2 class="hubs-heading">Engineering Hubs &amp; Alliances</h2>
+                </div>
+                <div class="hubs-subtitle-wrap">
+                    <p class="hubs-subtitle">Strategically rooted in Hanoi's high-tech talent corridor with executive liaison presence in downtown Singapore.</p>
+                </div>
             </div>
 
-            <div class="offices-grid">
-                <!-- Office 1: Hanoi Headquarters -->
-                <div class="office-card">
-                    <div class="office-card-header">
-                        <span class="office-badge">Headquarters &middot; AI Lab</span>
-                        <h3 class="office-title">Hanoi Tech Hub (Vietnam)</h3>
-                    </div>
-
-                    <div class="office-details">
-                        <div class="detail-item">
-                            <div class="detail-icon">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                                    <circle cx="12" cy="10" r="3"></circle>
-                                </svg>
-                            </div>
-                            <div class="detail-info">
-                                <div class="detail-label">Address</div>
-                                <div class="detail-value">
-                                    Floor 4, Golden Field Building, 24 Nguyen Co Thach, Nam Tu Liem, Hanoi, Vietnam
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="detail-item">
-                            <div class="detail-icon">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                                </svg>
-                            </div>
-                            <div class="detail-info">
-                                <div class="detail-label">Direct Phone</div>
-                                <div class="detail-value"><a href="tel:+842437958686">+84 (0) 24 3795 8686</a></div>
-                            </div>
-                        </div>
-
-                        <div class="detail-item">
-                            <div class="detail-icon">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                                    <polyline points="22,6 12,13 2,6"></polyline>
-                                </svg>
-                            </div>
-                            <div class="detail-info">
-                                <div class="detail-label">Email Inquiries</div>
-                                <div class="detail-value"><a href="mailto:compliance@icts.io">compliance@icts.io</a></div>
-                            </div>
-                        </div>
-
-                        <div class="detail-item">
-                            <div class="detail-icon">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <polyline points="12 6 12 12 16 14"></polyline>
-                                </svg>
-                            </div>
-                            <div class="detail-info">
-                                <div class="detail-label">Working Hours</div>
-                                <div class="detail-value">Mon &ndash; Fri: 08:30 &ndash; 18:00 (GMT+7)</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Interactive Google Maps Embed (No plugin required, zero latency) -->
-                    <div class="map-container">
+            <div class="hubs-grid">
+                <!-- Location 1: Hanoi Delivery Headquarters -->
+                <div class="hub-card">
+                    <div class="hub-map-frame">
                         <iframe
-                            class="map-iframe"
-                            title="ICTS Hanoi Location Map"
-                            src="https://maps.google.com/maps?q=Golden%20Field%20Building%2C%2024%20Nguyen%20Co%20Thach%2C%20Nam%20Tu%20Liem%2C%20Hanoi%2C%20Vietnam&t=&z=15&ie=UTF8&iwloc=&output=embed"
+                            class="hub-map-iframe"
+                            title="Hanoi Delivery Headquarters Map"
+                            src="https://maps.google.com/maps?q=Tr%C6%B0%E1%BB%9Dng+Qu%E1%BB%91c+t%E1%BA%BF+-+%C4%90%E1%BA%A1i+h%E1%BB%8Dc+Qu%E1%BB%91c+gia+H%C3%A0+N%E1%BB%99i%2C+1+Tr%E1%BB%8Bnh+V%C4%83n+B%C3%B4%2C+Nam+T%E1%BB%AB+Li%C3%AAm%2C+H%C3%A0+N%E1%BB%99i&t=&z=16&ie=UTF8&iwloc=&output=embed"
                             loading="lazy"
                             allowfullscreen>
                         </iframe>
+                        <span class="hub-badge">R&amp;D Core Engine</span>
+                        <div class="hub-floating-card">
+                            <div class="hub-text-block">
+                                <div class="hub-name">Hanoi Delivery Headquarters</div>
+                                <div class="hub-address">Floor 4, AMDI Group Building, So 1 Trinh Van Bo, Nam Tu Liem, Hanoi, Vietnam &bull; Trường Quốc tế - ĐHQGHN</div>
+                            </div>
+                            <a href="https://maps.app.goo.gl/aYj9aFHP8vTFGrcj7" target="_blank" rel="noopener noreferrer" class="hub-link-btn" title="Open in Google Maps">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                    <polyline points="15 3 21 3 21 9"></polyline>
+                                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                                </svg>
+                            </a>
+                        </div>
                     </div>
-
-                    <div class="office-card-footer">
-                        <a href="https://maps.google.com/?q=Golden+Field+Building,+24+Nguyen+Co+Thach,+Nam+Tu+Liem,+Hanoi,+Vietnam" target="_blank" rel="noopener noreferrer" class="btn-map-link">
-                            <span>Open in Google Maps</span>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                                <polyline points="15 3 21 3 21 9"></polyline>
-                                <line x1="10" y1="14" x2="21" y2="3"></line>
+                    <div class="hub-features-row">
+                        <div class="hub-feat-item">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                                <polyline points="9 12 11 14 15 10"></polyline>
                             </svg>
-                        </a>
+                            <span>ISO 27001 Certified Facilities</span>
+                        </div>
+                        <div class="hub-feat-item">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            <span>GMT+7 Timezone Coverage</span>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Office 2: Singapore Gateway -->
-                <div class="office-card">
-                    <div class="office-card-header">
-                        <span class="office-badge">Regional Gateway &middot; APAC</span>
-                        <h3 class="office-title">Singapore Global Hub</h3>
-                    </div>
-
-                    <div class="office-details">
-                        <div class="detail-item">
-                            <div class="detail-icon">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                                    <circle cx="12" cy="10" r="3"></circle>
-                                </svg>
-                            </div>
-                            <div class="detail-info">
-                                <div class="detail-label">Address</div>
-                                <div class="detail-value">
-                                    68 Circular Road, #02-01, Singapore 049422
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="detail-item">
-                            <div class="detail-icon">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                                </svg>
-                            </div>
-                            <div class="detail-info">
-                                <div class="detail-label">Direct Phone</div>
-                                <div class="detail-value"><a href="tel:+6567018200">+65 6701 8200</a></div>
-                            </div>
-                        </div>
-
-                        <div class="detail-item">
-                            <div class="detail-icon">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                                    <polyline points="22,6 12,13 2,6"></polyline>
-                                </svg>
-                            </div>
-                            <div class="detail-info">
-                                <div class="detail-label">Email Inquiries</div>
-                                <div class="detail-value"><a href="mailto:global@icts.io">global@icts.io</a></div>
-                            </div>
-                        </div>
-
-                        <div class="detail-item">
-                            <div class="detail-icon">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <polyline points="12 6 12 12 16 14"></polyline>
-                                </svg>
-                            </div>
-                            <div class="detail-info">
-                                <div class="detail-label">Working Hours</div>
-                                <div class="detail-value">Mon &ndash; Fri: 09:00 &ndash; 18:00 (SGT)</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Interactive Google Maps Embed (No plugin required, zero latency) -->
-                    <div class="map-container">
+                <!-- Location 2: Singapore Commercial Hub -->
+                <div class="hub-card">
+                    <div class="hub-map-frame">
                         <iframe
-                            class="map-iframe"
-                            title="ICTS Singapore Location Map"
-                            src="https://maps.google.com/maps?q=68%20Circular%20Road%2C%20Singapore%20049422&t=&z=15&ie=UTF8&iwloc=&output=embed"
+                            class="hub-map-iframe"
+                            title="Singapore Commercial Hub Map"
+                            src="https://maps.google.com/maps?q=Hiap+Hoe+Building%2C+Zhongshan+Park%2C+Singapore&t=&z=16&ie=UTF8&iwloc=&output=embed"
                             loading="lazy"
                             allowfullscreen>
                         </iframe>
+                        <span class="hub-badge">Strategic Liaison</span>
+                        <div class="hub-floating-card">
+                            <div class="hub-text-block">
+                                <div class="hub-name">Singapore Commercial Hub</div>
+                                <div class="hub-address">Hiap Hoe Building, Zhongshan Park &bull; Global Client Representation</div>
+                            </div>
+                            <a href="https://maps.google.com/?q=Hiap+Hoe+Building,+Zhongshan+Park,+Singapore" target="_blank" rel="noopener noreferrer" class="hub-link-btn" title="Open in Google Maps">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                    <polyline points="15 3 21 3 21 9"></polyline>
+                                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                                </svg>
+                            </a>
+                        </div>
                     </div>
-
-                    <div class="office-card-footer">
-                        <a href="https://maps.google.com/?q=68+Circular+Road,+Singapore+049422" target="_blank" rel="noopener noreferrer" class="btn-map-link">
-                            <span>Open in Google Maps</span>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                                <polyline points="15 3 21 3 21 9"></polyline>
-                                <line x1="10" y1="14" x2="21" y2="3"></line>
+                    <div class="hub-features-row">
+                        <div class="hub-feat-item">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="2" y1="12" x2="22" y2="12"></line>
+                                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
                             </svg>
-                        </a>
+                            <span>APAC Executive Engagement</span>
+                        </div>
+                        <div class="hub-feat-item">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                                <line x1="6" y1="12" x2="18" y2="12"></line>
+                            </svg>
+                            <span>Multi-Currency Contracting</span>
+                        </div>
                     </div>
                 </div>
             </div>
