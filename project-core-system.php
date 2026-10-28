@@ -527,6 +527,15 @@ function pcs_register_roles() {
 }
 register_activation_hook(__FILE__, 'pcs_register_roles');
 
+// Tự động đảm bảo role Maker và Checker luôn tồn tại trong cơ sở dữ liệu WordPress
+add_action('init', function() {
+    if (function_exists('get_role')) {
+        if (!get_role('maker') || !get_role('checker')) {
+            pcs_register_roles();
+        }
+    }
+}, 1);
+
 
 // =========================================================================
 // 4. LOGIC CHẶN (SERVER-SIDE): MAKER-CHECKER, RELEASE, KHÓA DỮ LIỆU, PHÂN QUYỀN CAMPAIGN
