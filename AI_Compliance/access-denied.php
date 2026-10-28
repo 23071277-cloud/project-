@@ -49,7 +49,7 @@ if (isset($_GET['action']) && in_array($_GET['action'], ['logout', 'switch_accou
         session_destroy();
     }
     $login_url = function_exists('pcs_url') ? pcs_url('page-login.php') : 'page-login.php';
-    $target = $login_url . (strpos($login_url, '?') !== false ? '&' : '?') . 'loggedout=true&switched=true';
+    $target = $login_url;
     if (function_exists('pcs_safe_redirect')) {
         pcs_safe_redirect($target);
     } else {

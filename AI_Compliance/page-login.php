@@ -32,7 +32,7 @@ if (isset($_GET['action']) && in_array($_GET['action'], ['logout', 'signout', 's
         }
     }
     $login_url = function_exists('pcs_url') ? pcs_url('page-login.php') : 'page-login.php';
-    $target = $login_url . (strpos($login_url, '?') !== false ? '&' : '?') . (isset($_GET['switched']) ? 'switched=true' : 'loggedout=true');
+    $target = $login_url;
     if (function_exists('pcs_safe_redirect')) {
         pcs_safe_redirect($target);
     } else {
@@ -79,7 +79,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['email'])) {
 }
 
 // Tu dong dieu huong neu nguoi dung da dang nhap (qua Google One Tap hoac WordPress Auth Cookie)
-if (function_exists('is_user_logged_in') && is_user_logged_in() && ($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' && !isset($_GET['loggedout']) && !isset($_GET['switched'])) {
+if (function_exists('is_user_logged_in') && is_user_logged_in() && ($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' && !(isset($_GET['action']) && in_array($_GET['action'], ['logout', 'signout', 'switch_account'], true))) {
     $u_prof = function_exists('get_current_user_profile') ? get_current_user_profile() : null;
     $role = strtoupper($u_prof['role'] ?? 'MAKER');
     if ($role === 'ADMIN') {

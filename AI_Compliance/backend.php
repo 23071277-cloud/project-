@@ -1329,7 +1329,7 @@ function pcs_handle_global_logout() {
         }
 
         $target = function_exists('pcs_url') ? pcs_url('page-login.php') : 'page-login.php';
-        pcs_safe_redirect($target . (strpos($target, '?') !== false ? '&' : '?') . (isset($_GET['switched']) ? 'switched=true' : 'loggedout=true'));
+        pcs_safe_redirect($target);
     }
 }
 }

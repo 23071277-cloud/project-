@@ -66,7 +66,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
         wp_logout();
     }
     $target = function_exists('pcs_url') ? pcs_url('page-login.php') : 'page-login.php';
-    header('Location: ' . $target . (strpos($target, '?') !== false ? '&' : '?') . 'loggedout=true');
+    header('Location: ' . $target);
     exit;
 }
 
