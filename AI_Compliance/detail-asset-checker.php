@@ -2023,6 +2023,7 @@ $aiScoringResultUrl = function_exists('pcs_url') ? pcs_url('ai-scoring-result.ph
             background-color: #059669;
         }
     </style>
+    <?php if (function_exists("wp_head")) wp_head(); ?>
 </head>
 <body>
 
@@ -2838,5 +2839,6 @@ function closeDiffModal() {
         </div>
     </div>
 
+    <?php if (function_exists("wp_footer")) wp_footer(); ?>
 </body>
 </html>

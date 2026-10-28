@@ -1345,6 +1345,7 @@ if (!function_exists('pcs_render_score_status_icon')) {
             color: #4F57A7;
         }
     </style>
+    <?php if (function_exists("wp_head")) wp_head(); ?>
 </head>
 <body>
 
@@ -1375,7 +1376,8 @@ if (!function_exists('pcs_render_score_status_icon')) {
                 </a>
             </div>
         </main>
-        </body>
+            <?php if (function_exists("wp_footer")) wp_footer(); ?>
+</body>
         </html>
         <?php exit; ?>
     <?php endif; ?>
@@ -1399,7 +1401,8 @@ if (!function_exists('pcs_render_score_status_icon')) {
                 </a>
             </div>
         </main>
-        </body>
+            <?php if (function_exists("wp_footer")) wp_footer(); ?>
+</body>
         </html>
         <?php exit; ?>
     <?php endif; ?>
@@ -2641,5 +2644,6 @@ if (!function_exists('pcs_render_score_status_icon')) {
             </form>
         </div>
     </div>
+    <?php if (function_exists("wp_footer")) wp_footer(); ?>
 </body>
 </html>

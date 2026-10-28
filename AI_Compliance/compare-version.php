@@ -812,6 +812,7 @@ $returnLabel  = $data['return_label'] ?? 'Return to Workspace';
             color: #CBD5E1;
         }
     </style>
+    <?php if (function_exists("wp_head")) wp_head(); ?>
 </head>
 <body>
 
@@ -1292,5 +1293,6 @@ $returnLabel  = $data['return_label'] ?? 'Return to Workspace';
             }
         });
     </script>
+    <?php if (function_exists("wp_footer")) wp_footer(); ?>
 </body>
 </html>

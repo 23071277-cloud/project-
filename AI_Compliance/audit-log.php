@@ -1170,6 +1170,7 @@ $allActivityUrl  = '?' . http_build_query(array_merge($_GET, ['mode' => 'all']))
             background: #373E8C;
         }
     </style>
+    <?php if (function_exists("wp_head")) wp_head(); ?>
 </head>
 <body>
 
@@ -1827,5 +1828,6 @@ $allActivityUrl  = '?' . http_build_query(array_merge($_GET, ['mode' => 'all']))
         </script>
     <?php endif; ?>
 
+    <?php if (function_exists("wp_footer")) wp_footer(); ?>
 </body>
 </html>

@@ -1663,6 +1663,7 @@ foreach ($campaigns as $c) {
             }
         }
     </style>
+    <?php if (function_exists("wp_head")) wp_head(); ?>
 </head>
 <body>
 
@@ -2294,5 +2295,6 @@ foreach ($campaigns as $c) {
         window.addEventListener('load', checkQueueHashScroll);
         window.addEventListener('hashchange', checkQueueHashScroll);
     </script>
+    <?php if (function_exists("wp_footer")) wp_footer(); ?>
 </body>
 </html>

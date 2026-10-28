@@ -702,6 +702,7 @@ $partners = [
             }
         }
     </style>
+    <?php if (function_exists("wp_head")) wp_head(); ?>
 </head>
 <body>
 
@@ -979,5 +980,6 @@ $partners = [
             });
         });
     </script>
+    <?php if (function_exists("wp_footer")) wp_footer(); ?>
 </body>
 </html>

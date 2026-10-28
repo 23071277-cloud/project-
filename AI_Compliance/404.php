@@ -30,9 +30,11 @@ if (!file_exists($accessDeniedPath) && function_exists('get_template_directory')
 if (file_exists($accessDeniedPath)) {
     include $accessDeniedPath;
 } else {
-    echo '<!DOCTYPE html><html><head><title>404 Not Found</title></head><body style="font-family:sans-serif;text-align:center;padding:60px;">';
+    echo '<!DOCTYPE html><html><head><title>404 Not Found</title>    <?php if (function_exists("wp_head")) wp_head(); ?>
+</head><body style="font-family:sans-serif;text-align:center;padding:60px;">';
     echo '<h1>404 · Page Not Found</h1><p>The requested page could not be located or clearance is restricted.</p>';
     echo '<p><a href="' . esc_url(function_exists('home_url') ? home_url('/') : '/') . '">Return to Homepage</a></p>';
-    echo '</body></html>';
+    echo '    <?php if (function_exists("wp_footer")) wp_footer(); ?>
+</body></html>';
 }
 exit;

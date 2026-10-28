@@ -835,6 +835,7 @@ $allCampaigns = function_exists('get_all_campaigns') ? get_all_campaigns() : [];
             .bottom-action-bar { flex-direction: column; align-items: stretch; }
         }
     </style>
+    <?php if (function_exists("wp_head")) wp_head(); ?>
 </head>
 <body>
 
@@ -871,6 +872,7 @@ $allCampaigns = function_exists('get_all_campaigns') ? get_all_campaigns() : [];
             </div>
         </main>
 </div>
+    <?php if (function_exists("wp_footer")) wp_footer(); ?>
 </body>
 </html>
 <?php 
@@ -1863,5 +1865,6 @@ endif;
     }
 </script>
 
+    <?php if (function_exists("wp_footer")) wp_footer(); ?>
 </body>
 </html>

@@ -1014,6 +1014,7 @@ sort($uniqueCheckers);
             }
         }
     </style>
+    <?php if (function_exists("wp_head")) wp_head(); ?>
 </head>
 <body>
 
@@ -1622,5 +1623,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+    <?php if (function_exists("wp_footer")) wp_footer(); ?>
 </body>
 </html>

@@ -508,6 +508,7 @@ $homeUrl = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-page.ph
             }
         }
     </style>
+    <?php if (function_exists("wp_head")) wp_head(); ?>
 </head>
 <body>
 
@@ -642,5 +643,6 @@ $homeUrl = function_exists('pcs_url') ? pcs_url('home-page.php') : 'home-page.ph
         </div>
     </footer>
 
+    <?php if (function_exists("wp_footer")) wp_footer(); ?>
 </body>
 </html>

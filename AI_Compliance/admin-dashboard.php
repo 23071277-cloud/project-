@@ -1946,6 +1946,7 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             background: #FEE2E2;
         }
     </style>
+    <?php if (function_exists("wp_head")) wp_head(); ?>
 </head>
 <body>
 
@@ -3571,5 +3572,6 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
             checkCampaignsHashAndExpand();
         }
     </script>
+    <?php if (function_exists("wp_footer")) wp_footer(); ?>
 </body>
 </html>

@@ -1507,6 +1507,7 @@ unset($camp);
             }
         }
     </style>
+    <?php if (function_exists("wp_head")) wp_head(); ?>
 </head>
 <body>
 
@@ -2186,5 +2187,6 @@ unset($camp);
             }
         });
     </script>
+    <?php if (function_exists("wp_footer")) wp_footer(); ?>
 </body>
 </html>

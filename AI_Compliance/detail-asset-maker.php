@@ -1671,6 +1671,7 @@ $nextVersionNum = $currentVersionNum + 1;
             .asset-row-card div:nth-child(3), .asset-row-card div:nth-child(4) { display: none; }
         }
     </style>
+    <?php if (function_exists("wp_head")) wp_head(); ?>
 </head>
 <body>
 
@@ -1707,6 +1708,7 @@ $nextVersionNum = $currentVersionNum + 1;
             </div>
         </main>
 </div>
+    <?php if (function_exists("wp_footer")) wp_footer(); ?>
 </body>
 </html>
 <?php 
@@ -2484,5 +2486,6 @@ endif;
 </div>
 </script>
 
+    <?php if (function_exists("wp_footer")) wp_footer(); ?>
 </body>
 </html>

@@ -758,6 +758,7 @@ if (function_exists('get_template_directory_uri')) {
             }
         }
     </style>
+    <?php if (function_exists("wp_head")) wp_head(); ?>
 </head>
 <body>
 
@@ -1118,5 +1119,6 @@ if (function_exists('get_template_directory_uri')) {
         </div>
     </footer>
 
+    <?php if (function_exists("wp_footer")) wp_footer(); ?>
 </body>
 </html>

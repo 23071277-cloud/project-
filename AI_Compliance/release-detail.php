@@ -756,6 +756,7 @@ $compareScreenUrl = $data['campaign_id'] ? add_query_arg([
             gap: 14px;
         }
     </style>
+    <?php if (function_exists("wp_head")) wp_head(); ?>
 </head>
 <body>
 
@@ -795,7 +796,8 @@ $compareScreenUrl = $data['campaign_id'] ? add_query_arg([
             </div>
         </main>
     </div>
-    </body>
+        <?php if (function_exists("wp_footer")) wp_footer(); ?>
+</body>
     </html>
     <?php exit; endif; ?>
 
@@ -1185,5 +1187,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+    <?php if (function_exists("wp_footer")) wp_footer(); ?>
 </body>
 </html>

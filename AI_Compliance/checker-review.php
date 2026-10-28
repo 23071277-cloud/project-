@@ -1084,6 +1084,7 @@ $compareScreenUrl = (function_exists('pcs_url') ? pcs_url('compare-version.php')
             }
         }
     </style>
+    <?php if (function_exists("wp_head")) wp_head(); ?>
 </head>
 <body>
 
@@ -1632,5 +1633,6 @@ $compareScreenUrl = (function_exists('pcs_url') ? pcs_url('compare-version.php')
             return true;
         }
     </script>
+    <?php if (function_exists("wp_footer")) wp_footer(); ?>
 </body>
 </html>
