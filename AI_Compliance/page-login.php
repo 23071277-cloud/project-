@@ -77,6 +77,25 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['email'])) {
         $loginError = 'Invalid credentials or user not found. Please verify your email / username.';
     }
 }
+
+// Tu dong dieu huong neu nguoi dung da dang nhap (qua Google One Tap hoac WordPress Auth Cookie)
+if (function_exists('is_user_logged_in') && is_user_logged_in() && ($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' && !isset($_GET['loggedout']) && !isset($_GET['switched'])) {
+    $u_prof = function_exists('get_current_user_profile') ? get_current_user_profile() : null;
+    $role = strtoupper($u_prof['role'] ?? 'MAKER');
+    if ($role === 'ADMIN') {
+        $dest = function_exists('pcs_url') ? pcs_url('admin-dashboard.php') : 'admin-dashboard.php';
+        header('Location: ' . $dest);
+        exit;
+    } elseif ($role === 'CHECKER') {
+        $dest = function_exists('pcs_url') ? pcs_url('checker-dashboard.php') : 'checker-dashboard.php';
+        header('Location: ' . $dest);
+        exit;
+    } else {
+        $dest = function_exists('pcs_url') ? pcs_url('maker-dashboard.php') : 'maker-dashboard.php';
+        header('Location: ' . $dest);
+        exit;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -89,8 +108,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['email'])) {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,500;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <?php if (function_exists('wp_head')) wp_head(); ?>
 
     <style>
+        html {
+            margin-top: 0 !important;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -375,6 +399,80 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['email'])) {
             transform: translateY(0);
         }
 
+        /* Separator OR */
+        .login-separator {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 20px 0 16px;
+            color: #8C92B4;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .login-separator::before,
+        .login-separator::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #E2E4ED;
+        }
+
+        .login-separator span {
+            padding: 0 12px;
+        }
+
+        /* Google Login Section */
+        .google-login-wrap {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .google-login-wrap .rtcamp-google-login-container,
+        .google-login-wrap .rtcamp-login-hook-container {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+
+        .btn-google-login-custom {
+            width: 100%;
+            height: 50px;
+            background: #FFFFFF;
+            color: #272D5E;
+            border: 1px solid #E2E4ED;
+            border-radius: 12px;
+            font-size: 14.5px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .btn-google-login-custom:hover {
+            background: #F8FAFC;
+            border-color: #CBD5E1;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            transform: translateY(-1px);
+        }
+
+        .btn-google-login-custom:active {
+            transform: translateY(0);
+        }
+
+        .google-svg-icon {
+            flex-shrink: 0;
+        }
+
         /* Footer Support */
         .help-support {
             text-align: center;
@@ -537,6 +635,50 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['email'])) {
                         </svg>
                     </button>
 
+                    <!-- Google Login Section -->
+                    <div class="login-separator">
+                        <span>or continue with</span>
+                    </div>
+
+                    <div class="google-login-wrap">
+                        <?php
+                        $rendered_google_btn = false;
+
+                        // 1. Tich hop shortcode [google_login] cua plugin rtCamp
+                        if (shortcode_exists('google_login')) {
+                            $sc_html = do_shortcode('[google_login button_text="Continue with Google" force_display="yes" /]');
+                            if (!empty(trim($sc_html))) {
+                                echo '<div class="rtcamp-google-login-container">' . $sc_html . '</div>';
+                                $rendered_google_btn = true;
+                            }
+                        }
+
+                        // 2. Tich hop hook login_form neu plugin su dung hook chuan cua WordPress
+                        if (!$rendered_google_btn && has_action('login_form')) {
+                            ob_start();
+                            do_action('login_form');
+                            $hook_html = ob_get_clean();
+                            if (!empty(trim($hook_html))) {
+                                echo '<div class="rtcamp-login-hook-container">' . $hook_html . '</div>';
+                                $rendered_google_btn = true;
+                            }
+                        }
+
+                        // 3. Fallback nut Google SVG 4 mau chinh hang
+                        if (!$rendered_google_btn) {
+                        ?>
+                            <button type="button" class="btn-google-login-custom" onclick="if(window.google && google.accounts && google.accounts.id) { google.accounts.id.prompt(); } else { alert('Google Sign-in service is initializing. Please verify credentials in WP Admin.'); }">
+                                <svg class="google-svg-icon" width="20" height="20" viewBox="0 0 24 24">
+                                    <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+                                    <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.27v3.15C3.25 21.31 7.31 24 12 24z"/>
+                                    <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.27C.46 8.2.01 10.05.01 12c0 1.95.45 3.8 1.26 5.42l4.01-3.15z"/>
+                                    <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.25 2.69 1.27 6.58l4.01 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+                                </svg>
+                                <span>Continue with Google</span>
+                            </button>
+                        <?php } ?>
+                    </div>
+
                 </form>
 
             </div>
@@ -595,5 +737,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['email'])) {
             try { localStorage.removeItem('currentUser'); } catch(e) {}
         });
     </script>
+    <?php if (function_exists('wp_footer')) wp_footer(); ?>
 </body>
 </html>
