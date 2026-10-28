@@ -493,6 +493,7 @@ $allCampaigns = function_exists('get_all_campaigns') ? get_all_campaigns() : [];
             border-color: #A5B4FC;
             background: #FFFFFF;
         }
+        .drop-zone-prompt,
         .drop-zone-prompt * {
             pointer-events: none;
         }
@@ -1101,9 +1102,11 @@ endif;
                                 </span>
                             </div>
 
-                            <input type="file" name="asset_file" id="realFileInput" accept=".png,.jpg,.jpeg,.pdf,.webp" style="display: none;" onchange="handleFileSelect(this)">
+                            <div class="large-drop-zone" id="dropZoneArea" style="position: relative;">
+                                <input type="file" name="asset_file" id="realFileInput" accept=".png,.jpg,.jpeg,.pdf,.webp" 
+                                       style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 10;" 
+                                       onchange="handleFileSelect(this)">
 
-                            <div class="large-drop-zone" id="dropZoneArea" onclick="handleDropZoneClick(event)">
                                 <!-- 1. Empty State Prompt (Hidden when file is chosen) -->
                                 <div class="drop-zone-prompt" id="dropZonePrompt" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; width: 100%;">
                                     <div class="cloud-circle-icon">
@@ -1122,7 +1125,7 @@ endif;
                                 </div>
 
                                 <!-- 2. Active File Preview Container (Expands to dashed frame) -->
-                                <div class="active-file-container" id="activeFileContainer" style="display: none; width: 100%; flex-direction: column; align-items: center; gap: 14px;" onclick="event.stopPropagation();">
+                                <div class="active-file-container" id="activeFileContainer" style="display: none; width: 100%; flex-direction: column; align-items: center; gap: 14px; position: relative; z-index: 20;" onclick="event.stopPropagation();">
                                     <!-- Expanded visual frame across the dashed dropzone -->
                                     <div class="expanded-file-preview-box" id="expandedFilePreviewBox" style="width: 100%; height: 320px; max-height: 400px; background: #FAF8FF; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; border: 1px solid #E2E8F0;">
                                         <img id="expandedImgPreview" src="" alt="Artwork Preview" style="display: none; max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 6px;">
@@ -1130,7 +1133,7 @@ endif;
                                     </div>
 
                                     <!-- Integrated Action Bar with Replace and Remove -->
-                                    <div class="integrated-file-card" id="activeFileCard" style="width: 100%;" onclick="event.stopPropagation();">
+                                    <div class="integrated-file-card" id="activeFileCard" style="width: 100%; position: relative; z-index: 25;" onclick="event.stopPropagation();">
                                         <div style="display: flex; align-items: center; gap: 14px;">
                                             <div class="file-thumb-square" id="fileThumbPreview">
                                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -1150,8 +1153,8 @@ endif;
                                             </div>
                                         </div>
                                         <div style="display: flex; gap: 16px; align-items: center;">
-                                            <button type="button" class="btn-action-replace" style="color: #4F57A7; font-size: 12.5px; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 4px 8px; border: none; background: none;" onclick="triggerReplaceFile(event)">Replace</button>
-                                            <button type="button" class="btn-action-remove" style="color: #BA1A1A; font-size: 12.5px; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 4px 8px; border: none; background: none;" onclick="triggerRemoveFile(event)">Remove</button>
+                                            <button type="button" class="btn-action-replace" style="color: #4F57A7; font-size: 12.5px; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 4px 8px; border: none; background: none; position: relative; z-index: 30;" onclick="triggerReplaceFile(event)">Replace</button>
+                                            <button type="button" class="btn-action-remove" style="color: #BA1A1A; font-size: 12.5px; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 4px 8px; border: none; background: none; position: relative; z-index: 30;" onclick="triggerRemoveFile(event)">Remove</button>
                                         </div>
                                     </div>
                                 </div>
@@ -1610,6 +1613,7 @@ endif;
         var input = document.getElementById('realFileInput');
         if (input) {
             input.value = '';
+            input.style.pointerEvents = 'auto';
             input.click();
         }
     }
@@ -1627,6 +1631,7 @@ endif;
         if (!file) return;
 
         hasFile = true;
+        if (input) input.style.pointerEvents = 'none';
         var fileName = file.name;
         var fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
         var fileExt = fileName.split('.').pop().toUpperCase();
@@ -1691,7 +1696,10 @@ endif;
 
     function removeSelectedFile() {
         var input = document.getElementById('realFileInput');
-        if (input) input.value = '';
+        if (input) {
+            input.value = '';
+            input.style.pointerEvents = 'auto';
+        }
         hasFile = false;
 
         var dropArea = document.getElementById('dropZoneArea');
@@ -1734,6 +1742,9 @@ endif;
             dropArea.addEventListener(eventName, function(e) {
                 e.preventDefault();
                 e.stopPropagation();
+                if (e.dataTransfer) {
+                    e.dataTransfer.dropEffect = 'copy';
+                }
                 dropArea.classList.add('drag-over');
             }, false);
         });
@@ -1741,7 +1752,9 @@ endif;
         dropArea.addEventListener('dragleave', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            dropArea.classList.remove('drag-over');
+            if (!e.relatedTarget || !dropArea.contains(e.relatedTarget)) {
+                dropArea.classList.remove('drag-over');
+            }
         }, false);
 
         dropArea.addEventListener('drop', function(e) {
@@ -1753,13 +1766,15 @@ endif;
                 const input = document.getElementById('realFileInput');
                 if (input) {
                     try {
-                        const transfer = new DataTransfer();
-                        for (let i = 0; i < dt.files.length; i++) {
-                            transfer.items.add(dt.files[i]);
-                        }
-                        input.files = transfer.files;
-                    } catch (err) {
                         input.files = dt.files;
+                    } catch (err) {
+                        try {
+                            const transfer = new DataTransfer();
+                            for (let i = 0; i < dt.files.length; i++) {
+                                transfer.items.add(dt.files[i]);
+                            }
+                            input.files = transfer.files;
+                        } catch (e2) {}
                     }
                     handleFileSelect(input);
                 }

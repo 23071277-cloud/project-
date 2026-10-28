@@ -1275,6 +1275,17 @@ $aiScoringResultUrl = function_exists('pcs_url') ? pcs_url('ai-scoring-result.ph
             background-color: #e11d48;
             border-radius: 9999px;
         }
+        .ai-pill.scoring {
+            background-color: #fffbeb;
+            color: #b45309;
+            border: 1px solid #FDE68A;
+        }
+        .ai-pill.scoring .dot {
+            width: 6px;
+            height: 6px;
+            background-color: #d97706;
+            border-radius: 9999px;
+        }
 
         /* Status Badges */
         .status-pill-table {
@@ -2176,6 +2187,7 @@ $aiScoringResultUrl = function_exists('pcs_url') ? pcs_url('ai-scoring-result.ph
                             $aiPillClass = 'needs-look';
                             if ($ast['ai_verdict'] === 'Pass') $aiPillClass = 'pass';
                             elseif ($ast['ai_verdict'] === 'Fail') $aiPillClass = 'fail';
+                            elseif ($ast['ai_verdict'] === 'Scoring') $aiPillClass = 'scoring';
 
                             $stRaw = str_replace([' ', '-'], '_', strtolower(trim($ast['status'] ?? 'draft')));
                             if ($stRaw === 'awaiting_release' || $stRaw === 'awaiting') $stRaw = 'approved';
@@ -2278,6 +2290,7 @@ $aiScoringResultUrl = function_exists('pcs_url') ? pcs_url('ai-scoring-result.ph
                 $selAiClass = 'needs-look';
                 if ($selectedAsset['ai_verdict'] === 'Pass') $selAiClass = 'pass';
                 elseif ($selectedAsset['ai_verdict'] === 'Fail') $selAiClass = 'fail';
+                elseif ($selectedAsset['ai_verdict'] === 'Scoring') $selAiClass = 'scoring';
             ?>
                 <div class="section-SELECTED" id="selectedVersionSection">
                     <!-- 1. ZONE VERSION & PREVIEW -->

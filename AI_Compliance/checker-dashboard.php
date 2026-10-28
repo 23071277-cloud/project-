@@ -1145,6 +1145,11 @@ foreach ($campaigns as $c) {
             color: #7B5800;
             border: 1px solid #FFE3A8;
         }
+        .ai-pill.scoring {
+            background-color: #FEF3C7;
+            color: #B45309;
+            border: 1px solid #FDE68A;
+        }
 
         .btn-table-open-review {
             background-color: #373E8C;
@@ -1908,6 +1913,7 @@ foreach ($campaigns as $c) {
                                                                     $aiLabel = 'PASS';
                                                                     if ($asset['badge_type'] === 'danger') { $aiPill = 'fail'; $aiLabel = 'FAIL'; }
                                                                     elseif ($asset['badge_type'] === 'warning') { $aiPill = 'needs_review'; $aiLabel = 'NEEDS REVIEW'; }
+                                                                    elseif ($asset['badge_type'] === 'scoring' || ($asset['status'] ?? '') === 'scoring') { $aiPill = 'scoring'; $aiLabel = 'SCORING'; }
                                                                 ?>
                                                                     <tr>
                                                                         <td style="font-weight: 700; color: #0F172A;"><?= htmlspecialchars($asset['name']) ?></td>
@@ -1984,6 +1990,7 @@ foreach ($campaigns as $c) {
                                     $aiClass = 'pass';
                                     if ($item['ai_status'] === 'FAIL') $aiClass = 'fail';
                                     elseif ($item['ai_status'] === 'NEEDS REVIEW') $aiClass = 'needs_review';
+                                    elseif ($item['ai_status'] === 'SCORING' || $item['status'] === 'scoring') $aiClass = 'scoring';
                                 ?>
                                     <tr class="queue-row" data-status="<?= $item['status'] ?>">
                                         <td style="min-width: 160px;">

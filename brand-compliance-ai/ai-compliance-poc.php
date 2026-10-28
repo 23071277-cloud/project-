@@ -55,22 +55,61 @@ if ( ! function_exists( 'pcs_call_gemini_api' ) ) {
  */
 if ( ! function_exists( 'pcs_call_real_gemini_vision' ) ) {
     function pcs_call_real_gemini_vision( $file_url, $criterion, $api_key, $prompt_version = 'v1.2' ) {
-    // Tải ảnh để lấy base64
+    // 1. Tải ảnh: Ưu tiên đọc trực tiếp từ disk nếu file nằm trên server (nhanh hơn 1000 lần so với HTTP loopback)
     $image_data = null;
     $mime_type  = 'image/jpeg';
 
-    $response = wp_remote_get( $file_url, [
-        'timeout'   => 15,
-        'sslverify' => false,
-    ] );
+    $local_path = '';
+    if ( function_exists('wp_upload_dir') ) {
+        $upload_dir = wp_upload_dir();
+        if ( !empty($upload_dir['baseurl']) && strpos($file_url, $upload_dir['baseurl']) === 0 ) {
+            $rel = substr($file_url, strlen($upload_dir['baseurl']));
+            $candidate = $upload_dir['basedir'] . $rel;
+            if ( file_exists($candidate) ) {
+                $local_path = $candidate;
+            }
+        }
+    }
+    if ( empty($local_path) && defined('ABSPATH') ) {
+        $parsed_path = parse_url($file_url, PHP_URL_PATH);
+        if ( !empty($parsed_path) && file_exists(ABSPATH . ltrim($parsed_path, '/')) ) {
+            $local_path = ABSPATH . ltrim($parsed_path, '/');
+        } elseif ( !empty($parsed_path) && defined('WP_CONTENT_DIR') && strpos($parsed_path, '/wp-content/') !== false ) {
+            $sub = substr($parsed_path, strpos($parsed_path, '/wp-content/') + 12);
+            if ( file_exists(WP_CONTENT_DIR . '/' . $sub) ) {
+                $local_path = WP_CONTENT_DIR . '/' . $sub;
+            }
+        }
+    }
 
-    if ( ! is_wp_error( $response ) && wp_remote_retrieve_response_code( $response ) === 200 ) {
-        $body = wp_remote_retrieve_body( $response );
-        if ( ! empty( $body ) ) {
-            $image_data = base64_encode( $body );
-            $content_type = wp_remote_retrieve_header( $response, 'content-type' );
-            if ( ! empty( $content_type ) ) {
-                $mime_type = explode( ';', $content_type )[0];
+    if ( !empty($local_path) && file_exists($local_path) ) {
+        $file_bytes = @file_get_contents($local_path);
+        if ( !empty($file_bytes) ) {
+            $image_data = base64_encode($file_bytes);
+            $ext = strtolower(pathinfo($local_path, PATHINFO_EXTENSION));
+            if ($ext === 'png') $mime_type = 'image/png';
+            elseif ($ext === 'webp') $mime_type = 'image/webp';
+            elseif ($ext === 'pdf') $mime_type = 'application/pdf';
+            elseif ($ext === 'gif') $mime_type = 'image/gif';
+            else $mime_type = 'image/jpeg';
+        }
+    }
+
+    // Fallback: nếu không tìm thấy file local thì mới tải qua HTTP với timeout ngắn
+    if ( empty($image_data) ) {
+        $response = wp_remote_get( $file_url, [
+            'timeout'   => 6,
+            'sslverify' => false,
+        ] );
+
+        if ( ! is_wp_error( $response ) && wp_remote_retrieve_response_code( $response ) === 200 ) {
+            $body = wp_remote_retrieve_body( $response );
+            if ( ! empty( $body ) ) {
+                $image_data = base64_encode( $body );
+                $content_type = wp_remote_retrieve_header( $response, 'content-type' );
+                if ( ! empty( $content_type ) ) {
+                    $mime_type = explode( ';', $content_type )[0];
+                }
             }
         }
     }
@@ -100,7 +139,7 @@ You must output strictly valid JSON matching this schema:
   }
 }";
 
-    $endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=' . urlencode( $api_key );
+    $endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' . urlencode( $api_key );
 
     $payload_parts = [
         [ 'text' => "Audit criterion: {$criterion}. Prompt version: {$prompt_version}. Please inspect the attached marketing creative." ]
@@ -140,7 +179,7 @@ You must output strictly valid JSON matching this schema:
     $api_res = wp_remote_post( $endpoint, [
         'headers'   => [ 'Content-Type' => 'application/json' ],
         'body'      => wp_json_encode( $request_body ),
-        'timeout'   => 25,
+        'timeout'   => 10,
         'sslverify' => false,
     ] );
 

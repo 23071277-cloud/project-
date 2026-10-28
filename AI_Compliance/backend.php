@@ -2081,17 +2081,36 @@ function get_all_campaigns($filter = 'all') {
                 $file_url    = get_post_meta($current_ver_id, '_file_url', true);
                 $review_note = get_post_meta($current_ver_id, '_review_note', true);
 
-                // Khi AI chạy xong (được ghi nhận qua _ai_completed = 1), chuyển trạng thái sang in_review
+                // Khi AI chạy xong (được ghi nhận qua _ai_completed = 1 hoặc đã có bản ghi check_result), chuyển trạng thái sang in_review
                 if ($status === 'scoring') {
                     $ai_done = (int) get_post_meta($current_ver_id, '_ai_completed', true);
-                    if ($ai_done === 1) {
+                    $has_checks = false;
+                    if ($ai_done !== 1 && function_exists('get_posts')) {
+                        $chks = get_posts([
+                            'post_type'      => 'check_result',
+                            'post_status'    => ['publish', 'any'],
+                            'posts_per_page' => 1,
+                            'meta_key'       => '_version_id',
+                            'meta_value'     => (string) $current_ver_id,
+                            'fields'         => 'ids'
+                        ]);
+                        if (!empty($chks)) {
+                            $has_checks = true;
+                            $ai_done = 1;
+                        }
+                    }
+                    if ($ai_done === 1 || $has_checks) {
+                        if (function_exists('pcs_server_meta')) {
+                            pcs_server_meta($current_ver_id, '_ai_completed', 1);
+                            pcs_server_meta($current_ver_id, '_status', 'in_review');
+                            pcs_server_meta($aid, '_current_version_id', $current_ver_id);
+                        } else {
+                            update_post_meta($current_ver_id, '_ai_completed', 1);
+                            update_post_meta($current_ver_id, '_status', 'in_review');
+                            update_post_meta($aid, '_current_version_id', $current_ver_id);
+                        }
                         if (function_exists('pcs_transition_version_to_in_review')) {
                             pcs_transition_version_to_in_review($current_ver_id, $aid);
-                        } else {
-                            update_post_meta($current_ver_id, '_status', 'in_review');
-                            if (function_exists('pcs_server_meta')) {
-                                pcs_server_meta($current_ver_id, '_status', 'in_review');
-                            }
                         }
                         $status = 'in_review';
                     }
@@ -3239,6 +3258,28 @@ function handle_upload_asset_version($campaign_name_or_id, $asset_name_or_id, $u
             pcs_bump_sync_version();
         }
 
+        // Đẩy task vào Action Scheduler và kích hoạt chạy ngầm phi đồng bộ (Non-blocking)
+        // Tuyệt đối KHÔNG gọi synchronous để tránh làm treo request gây lỗi 504 Gateway Time-out!
+        if ($version_id > 0) {
+            if (function_exists('as_enqueue_async_action')) {
+                as_enqueue_async_action('pcs_background_ai_scoring_job', [
+                    'version_id' => $version_id,
+                    'asset_id'   => $asset_id
+                ]);
+            }
+            if (function_exists('wp_remote_post')) {
+                $bg_endpoint = function_exists('pcs_url') ? pcs_url('ai-scoring-progress.php') : 'ai-scoring-progress.php';
+                $sep = (strpos($bg_endpoint, '?') !== false) ? '&' : '?';
+                $bg_url = $bg_endpoint . $sep . 'action=run_real_ai&version_id=' . (int)$version_id . '&asset_id=' . (int)$asset_id;
+                @wp_remote_post($bg_url, [
+                    'timeout'   => 0.01,
+                    'blocking'  => false,
+                    'sslverify' => false,
+                    'cookies'   => !empty($_COOKIE) ? $_COOKIE : []
+                ]);
+            }
+        }
+
         return $version_id ?: true;
     }
 
@@ -3467,7 +3508,30 @@ function get_checker_review_queue($filter = 'all') {
     ]);
     foreach ($scoring_versions as $sv) {
         $ai_done = (int) get_post_meta($sv->ID, '_ai_completed', true);
+        if ($ai_done !== 1) {
+            $chks = get_posts([
+                'post_type'      => 'check_result',
+                'post_status'    => ['publish', 'any'],
+                'posts_per_page' => 1,
+                'meta_key'       => '_version_id',
+                'meta_value'     => (string) $sv->ID,
+                'fields'         => 'ids'
+            ]);
+            if (!empty($chks)) {
+                $ai_done = 1;
+                if (function_exists('pcs_server_meta')) {
+                    pcs_server_meta($sv->ID, '_ai_completed', 1);
+                } else {
+                    update_post_meta($sv->ID, '_ai_completed', 1);
+                }
+            }
+        }
         if ($ai_done === 1) {
+            if (function_exists('pcs_server_meta')) {
+                pcs_server_meta($sv->ID, '_status', 'in_review');
+            } else {
+                update_post_meta($sv->ID, '_status', 'in_review');
+            }
             if (function_exists('pcs_transition_version_to_in_review')) {
                 pcs_transition_version_to_in_review($sv->ID);
             }
@@ -3491,6 +3555,31 @@ function get_checker_review_queue($filter = 'all') {
 
     if (empty($versions)) {
         return [];
+    }
+
+    // Pre-fetch all check_result for all versions in ONE single query (reduces 100+ DB queries to 1)
+    $vids = wp_list_pluck($versions, 'ID');
+    $checks_by_version = [];
+    if (!empty($vids)) {
+        $all_checks = get_posts([
+            'post_type'      => 'check_result',
+            'post_status'    => ['publish', 'any'],
+            'posts_per_page' => -1,
+            'meta_query'     => [
+                [
+                    'key'     => '_version_id',
+                    'value'   => $vids,
+                    'compare' => 'IN'
+                ]
+            ]
+        ]);
+        foreach ($all_checks as $chk) {
+            $c_vid = (int) get_post_meta($chk->ID, '_version_id', true);
+            if (!isset($checks_by_version[$c_vid])) {
+                $checks_by_version[$c_vid] = [];
+            }
+            $checks_by_version[$c_vid][] = $chk;
+        }
     }
 
     $queue = [];
@@ -3538,14 +3627,8 @@ function get_checker_review_queue($filter = 'all') {
             }
         }
 
-        // AI Check Results
-        $ai_checks = get_posts([
-            'post_type'      => 'check_result',
-            'post_status'    => 'publish',
-            'posts_per_page' => -1,
-            'meta_key'       => '_version_id',
-            'meta_value'     => (string) $vid
-        ]);
+        // AI Check Results (lấy từ mảng đã pre-fetch, không tốn thêm query vào CSDL)
+        $ai_checks = $checks_by_version[$vid] ?? [];
 
         $ai_status = 'PASS';
         $ai_badge_type = 'success'; // success, danger, warning
@@ -4221,6 +4304,30 @@ function get_campaign_detail_asset_data($campaign_id = 0, $selected_asset_id = 0
                     else $ai_verdict = 'Pass';
                 }
             }
+        }
+
+        // ĐỒNG BỘ TRẠNG THÁI STATUS THEO KẾT QUẢ AI ASSESSMENT:
+        // 1. Khi AI đã chấm xong (có kết quả Pass, Fail, Needs Look):
+        //    Status của Asset BẮT BUỘC phải chuyển sang 'in_review', không được đứng ở 'scoring'!
+        if ($status === 'scoring' && (!empty($ai_checks) || in_array($ai_verdict, ['Pass', 'Fail', 'Needs Look'], true))) {
+            $status = 'in_review';
+            if (function_exists('pcs_server_meta')) {
+                pcs_server_meta($current_ver_id, '_status', 'in_review');
+                pcs_server_meta($current_ver_id, '_ai_completed', 1);
+                pcs_server_meta($aid, '_current_version_id', $current_ver_id);
+            } else {
+                update_post_meta($current_ver_id, '_status', 'in_review');
+                update_post_meta($current_ver_id, '_ai_completed', 1);
+                update_post_meta($aid, '_current_version_id', $current_ver_id);
+            }
+            if (function_exists('pcs_transition_version_to_in_review')) {
+                pcs_transition_version_to_in_review($current_ver_id, $aid);
+            }
+        }
+        // 2. Khi AI thực sự đang chấm (chưa có kết quả check_result):
+        //    AI Assessment hiển thị 'Scoring' (màu vàng), Status hiển thị 'Scoring'.
+        elseif ($status === 'scoring' && empty($ai_checks) && ($ai_verdict === 'Pending AI' || empty($ai_verdict))) {
+            $ai_verdict = 'Scoring';
         }
 
         // Checker & Release metadata từ current version

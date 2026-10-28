@@ -129,5 +129,16 @@ function pcs_execute_ai_scoring( $version_id, $asset_id ) {
     }
 
     // CHUYỂN VÒNG ĐỜI SANG 'in_review' ĐỂ CHECKER VÀO DUYỆT
+    update_post_meta( $version_id, '_ai_completed', 1 );
     update_post_meta( $version_id, '_status', 'in_review' );
+    if ( function_exists('pcs_server_meta') ) {
+        pcs_server_meta( $version_id, '_ai_completed', 1 );
+        pcs_server_meta( $version_id, '_status', 'in_review' );
+        if ( !empty($asset_id) ) {
+            pcs_server_meta( $asset_id, '_current_version_id', $version_id );
+        }
+    }
+    if ( function_exists('pcs_transition_version_to_in_review') ) {
+        pcs_transition_version_to_in_review( $version_id, $asset_id );
+    }
 }

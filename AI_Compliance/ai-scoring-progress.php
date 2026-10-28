@@ -67,6 +67,11 @@ $targetCampaignId = (int) ($_GET['campaign_id'] ?? 0);
 // Endpoint chạy AI thực tế và lưu kết quả vào database (CPT check_result)
 if ((isset($_GET['action']) && $_GET['action'] === 'run_real_ai') || 
     (isset($_POST['action']) && $_POST['action'] === 'run_real_ai')) {
+    ignore_user_abort(true);
+    set_time_limit(300);
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        @session_write_close();
+    }
     $vId = (int)($_REQUEST['version_id'] ?? $targetVersionId);
     $aId = (int)($_REQUEST['asset_id'] ?? $targetAssetId);
     $results = [];
