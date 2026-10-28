@@ -1336,7 +1336,6 @@ if (function_exists('get_template_directory_uri')) {
                             loading="lazy"
                             allowfullscreen>
                         </iframe>
-                        <span class="hub-badge">R&amp;D Core Engine</span>
                         <div class="hub-floating-card">
                             <div class="hub-text-block">
                                 <div class="hub-name">Hanoi Delivery Headquarters</div>
@@ -1379,7 +1378,6 @@ if (function_exists('get_template_directory_uri')) {
                             loading="lazy"
                             allowfullscreen>
                         </iframe>
-                        <span class="hub-badge">Strategic Liaison</span>
                         <div class="hub-floating-card">
                             <div class="hub-text-block">
                                 <div class="hub-name">Singapore Commercial Hub</div>
