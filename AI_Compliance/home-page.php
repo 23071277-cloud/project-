@@ -8,6 +8,9 @@ if (file_exists(__DIR__ . '/backend.php')) {
     require_once __DIR__ . '/inc/backend.php';
 }
 $loginUrl = function_exists('pcs_url') ? pcs_url('page-login.php') : 'page-login.php';
+$homeUrl = function_exists('pcs_url') ? pcs_url('home-page.php') : (function_exists('home_url') ? home_url('/') : 'home-page.php');
+$solutionUrl = function_exists('home_url') ? home_url('/solution/') : 'page-solution.php';
+$aboutUrl = function_exists('home_url') ? home_url('/about-us/') : 'page-about-us.php';
 $homeLogoUrl = 'images/logo.png';
 if (function_exists('get_template_directory_uri')) {
     $homeLogoUrl = get_template_directory_uri() . '/images/logo.png';
@@ -85,19 +88,19 @@ if (function_exists('get_template_directory_uri')) {
         .header-left {
             display: flex;
             align-items: center;
-            gap: 32px;
+            gap: 40px;
         }
 
         .brand-logo {
-            display: flex;
+            display: inline-flex;
             align-items: center;
-            gap: 10px;
+            text-decoration: none;
         }
 
         .brand-logo-img {
-            height: 36px;
+            height: 38px;
             width: auto;
-            max-width: 130px;
+            max-width: 140px;
             object-fit: contain;
             display: block;
         }
@@ -105,18 +108,19 @@ if (function_exists('get_template_directory_uri')) {
         .nav-links {
             display: flex;
             align-items: center;
-            gap: 24px;
+            gap: 28px;
         }
 
         .nav-item {
             font-size: 15px;
             font-weight: 600;
-            color: #334155;
-            transition: color 0.2s;
+            color: #2D3748;
+            text-decoration: none;
+            transition: color 0.2s ease;
         }
 
         .nav-item:hover {
-            color: #4E56A6;
+            color: #1E3A8A;
         }
 
         .header-right {
@@ -611,16 +615,23 @@ if (function_exists('get_template_directory_uri')) {
 </head>
 <body>
 
-    <!-- ================= 1. HEADER (100% UNIFIED TOP NAVBAR) ================= -->
-    <?php 
-    if (function_exists('pcs_render_top_navbar')) {
-        pcs_render_top_navbar(['is_home' => true]);
-    } else {
-        $is_home = true;
-        $unavIsHome = true;
-        @include __DIR__ . '/inc/navbar.php';
-    }
-    ?>
+    <!-- ================= 1. HEADER (HOMEPAGE DEDICATED NAVBAR) ================= -->
+    <header class="header">
+        <div class="container">
+            <div class="header-left">
+                <a href="<?= esc_url($homeUrl) ?>" class="brand-logo" title="Brand Compliance AI - Homepage">
+                    <img src="<?= esc_url($homeLogoUrl) ?>" alt="ICTS Simply Effective" class="brand-logo-img" onerror="this.onerror=null; this.src='images/logo.png';">
+                </a>
+                <nav class="nav-links">
+                    <a href="<?= esc_url($solutionUrl) ?>" class="nav-item">Solution</a>
+                    <a href="<?= esc_url($aboutUrl) ?>" class="nav-item">About Us</a>
+                </nav>
+            </div>
+            <div class="header-right">
+                <a href="<?= esc_url($loginUrl) ?>" class="btn-primary-yellow">Start Review</a>
+            </div>
+        </div>
+    </header>
 
     <!-- ================= 2. HERO SECTION ================= -->
     <section class="hero-section">
