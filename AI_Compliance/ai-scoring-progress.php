@@ -1360,7 +1360,6 @@ $fileUrl      = $version['file_url'] ?? '';
             color: #4F57A7;
         }
     </style>
-    <?php if (function_exists("wp_head")) wp_head(); ?>
 </head>
 <body>
 
@@ -1391,8 +1390,7 @@ $fileUrl      = $version['file_url'] ?? '';
                 </a>
             </div>
         </main>
-            <?php if (function_exists("wp_footer")) wp_footer(); ?>
-</body>
+        </body>
         </html>
         <?php exit; ?>
     <?php endif; ?>
@@ -1416,8 +1414,7 @@ $fileUrl      = $version['file_url'] ?? '';
                 </a>
             </div>
         </main>
-            <?php if (function_exists("wp_footer")) wp_footer(); ?>
-</body>
+        </body>
         </html>
         <?php exit; ?>
     <?php endif; ?>
@@ -2210,6 +2207,5 @@ $fileUrl      = $version['file_url'] ?? '';
             }
         });
     </script>
-    <?php if (function_exists("wp_footer")) wp_footer(); ?>
 </body>
 </html>

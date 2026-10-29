@@ -322,23 +322,21 @@ $chk3 = $scoring_data['mas_rule']     ?? [];
             </div>
             <div class="source-rule-col">
                 <div>
-                    <div class="source-doc-name"><?= esc_html( $chk1['regulatory_doc'] ?? 'Brand Governance Manual' ) ?></div>
-                    <div class="source-rule-subline">
+                    <div class="source-doc-name"><?= esc_html( $chk1['regulatory_doc'] ?? 'Standard Bank Brand Governance & Trademark Clearance Manual' ) ?></div>
+                    <div style="margin-top: 6px;">
                         <span class="rule-tag">Page <?= esc_html( $chk1['page_number'] ?? 8 ) ?></span>
-                        <span>· <?= esc_html( $chk1['regulatory_section'] ?? 'Section 3.4' ) ?></span>
+                    </div>
+                    <div style="color: #64748B; font-size: 12px; line-height: 16px; margin-top: 4px;">
+                        <?= esc_html( $chk1['regulatory_section'] ?? 'Section 3.4 - Intellectual Property & Third-Party Marks' ) ?>
                     </div>
                 </div>
-                <div class="source-actions">
-                    <a href="<?= esc_url( $chk1['source_url'] ) ?>" target="_blank" class="btn-pdf-direct">
-                        (PDF) Page <?= esc_html( $chk1['page_number'] ?? 8 ) ?> ↗
-                    </a>
-                    <button type="button" class="btn-view-source" onclick="openGuidelineModal(
-                        '<?= esc_js( $chk1['regulatory_doc'] ?? 'Brand Governance Manual' ) ?>',
-                        '<?= esc_js( $chk1['regulatory_section'] ?? 'Section 3.4' ) ?>',
-                        <?= intval( $chk1['page_number'] ?? 8 ) ?>,
-                        '<?= esc_js( $chk1['source_quote'] ?? '' ) ?>',
-                        <?= json_encode( $chk1['page_context'] ?? '' ) ?>
-                    )">View Source</button>
+                <div class="source-actions" style="display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 12px;">
+                    <span style="color: #64748B; font-weight: 500;">View source:</span>
+                    <?php if ( ! empty( $chk1['source_url'] ) ): ?>
+                        <a href="<?= esc_url( $chk1['source_url'] ) ?>" target="_blank" style="color: #0284c7; font-weight: 600; text-decoration: none;">
+                            (PDF Page <?= esc_html( $chk1['page_number'] ?? 8 ) ?>) ↗
+                        </a>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -374,23 +372,21 @@ $chk3 = $scoring_data['mas_rule']     ?? [];
             </div>
             <div class="source-rule-col">
                 <div>
-                    <div class="source-doc-name"><?= esc_html( $chk2['regulatory_doc'] ?? 'Corporate Visual Identity Guidelines' ) ?></div>
-                    <div class="source-rule-subline">
+                    <div class="source-doc-name"><?= esc_html( $chk2['regulatory_doc'] ?? 'Corporate Visual Identity Specification Guidelines' ) ?></div>
+                    <div style="margin-top: 6px;">
                         <span class="rule-tag">Page <?= esc_html( $chk2['page_number'] ?? 5 ) ?></span>
-                        <span>· <?= esc_html( $chk2['regulatory_section'] ?? 'Section 2.1' ) ?></span>
+                    </div>
+                    <div style="color: #64748B; font-size: 12px; line-height: 16px; margin-top: 4px;">
+                        <?= esc_html( $chk2['regulatory_section'] ?? 'Section 2.1 - Core Palette and Visual Exclusion Clearances' ) ?>
                     </div>
                 </div>
-                <div class="source-actions">
-                    <a href="<?= esc_url( $chk2['source_url'] ) ?>" target="_blank" class="btn-pdf-direct">
-                        (PDF) Page <?= esc_html( $chk2['page_number'] ?? 5 ) ?> ↗
-                    </a>
-                    <button type="button" class="btn-view-source" onclick="openGuidelineModal(
-                        '<?= esc_js( $chk2['regulatory_doc'] ?? 'Corporate Visual Identity Guidelines' ) ?>',
-                        '<?= esc_js( $chk2['regulatory_section'] ?? 'Section 2.1' ) ?>',
-                        <?= intval( $chk2['page_number'] ?? 5 ) ?>,
-                        '<?= esc_js( $chk2['source_quote'] ?? '' ) ?>',
-                        <?= json_encode( $chk2['page_context'] ?? '' ) ?>
-                    )">View Source</button>
+                <div class="source-actions" style="display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 12px;">
+                    <span style="color: #64748B; font-weight: 500;">View source:</span>
+                    <?php if ( ! empty( $chk2['source_url'] ) ): ?>
+                        <a href="<?= esc_url( $chk2['source_url'] ) ?>" target="_blank" style="color: #0284c7; font-weight: 600; text-decoration: none;">
+                            (PDF Page <?= esc_html( $chk2['page_number'] ?? 5 ) ?>) ↗
+                        </a>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -426,136 +422,88 @@ $chk3 = $scoring_data['mas_rule']     ?? [];
             </div>
             <div class="source-rule-col">
                 <div>
-                    <div class="source-doc-name"><?= esc_html( $chk3['regulatory_doc'] ?? 'MAS Advertising Guidelines 2023' ) ?></div>
-                    <div class="source-rule-subline">
+                    <div class="source-doc-name"><?= esc_html( $chk3['regulatory_doc'] ?? 'MAS Guidelines on Standards of Conduct for Marketing of Financial Products' ) ?></div>
+                    <div style="margin-top: 6px;">
                         <span class="rule-tag">Page <?= esc_html( $chk3['page_number'] ?? 14 ) ?></span>
-                        <span>· <?= esc_html( $chk3['regulatory_section'] ?? 'Section 5.2(b)' ) ?></span>
+                    </div>
+                    <div style="color: #64748B; font-size: 12px; line-height: 16px; margin-top: 4px;">
+                        <?= esc_html( $chk3['regulatory_section'] ?? 'Section 5.2(b) - Fair and Balanced Representation of Risks and Returns' ) ?>
                     </div>
                 </div>
-                <div class="source-actions">
-                    <a href="<?= esc_url( $chk3['source_url'] ) ?>" target="_blank" class="btn-pdf-direct">
-                        (PDF) Page <?= esc_html( $chk3['page_number'] ?? 14 ) ?> ↗
-                    </a>
-                    <button type="button" class="btn-view-source" onclick="openGuidelineModal(
-                        '<?= esc_js( $chk3['regulatory_doc'] ?? 'MAS Advertising Guidelines 2023' ) ?>',
-                        '<?= esc_js( $chk3['regulatory_section'] ?? 'Section 5.2(b)' ) ?>',
-                        <?= intval( $chk3['page_number'] ?? 14 ) ?>,
-                        '<?= esc_js( $chk3['source_quote'] ?? '' ) ?>',
-                        <?= json_encode( $chk3['page_context'] ?? '' ) ?>
-                    )">View Source</button>
+                <div class="source-actions" style="display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 12px;">
+                    <span style="color: #64748B; font-weight: 500;">View source:</span>
+                    <?php if ( ! empty( $chk3['source_url'] ) ): ?>
+                        <a href="<?= esc_url( $chk3['source_url'] ) ?>" target="_blank" style="color: #0284c7; font-weight: 600; text-decoration: none;">
+                            (PDF Page <?= esc_html( $chk3['page_number'] ?? 14) ?>) ↗
+                        </a>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- NÂNG CẤP MODAL "VIEW SOURCE" (ACROBAT-STYLE VIEWER VỚI JUMP TO CITATION) -->
+<!-- NÂNG CẤP MODAL "VIEW SOURCE" (TRÌNH ĐỌC PDF THẬT 100% CÓ BÔI ĐỎ & IN ĐẬM VĂN BẢN GỐC) -->
 <div class="guideline-modal-overlay" id="guidelineModal">
-    <div class="guideline-modal-box">
+    <div class="guideline-modal-box" style="height:90vh; max-width:960px;">
         <!-- PDF Toolbar -->
         <div class="pdf-modal-toolbar">
             <div style="display:flex; align-items:center; gap:10px;">
-                <span style="background:#ea4335; color:#fff; font-size:10px; font-weight:800; padding:2px 6px; border-radius:2px;">PDF</span>
                 <span id="modalDocTitle" style="font-weight:600; color:#fff; font-size:13px;">Document.pdf</span>
             </div>
             <div style="display:flex; align-items:center; gap:10px;">
                 <span id="modalPageIndicator" style="background:#18191a; color:#cbd5e1; padding:3px 10px; border-radius:3px; font-size:12px; border:1px solid #3c4043;">
                     Page 14 · Section 5.2(b)
                 </span>
-                <button type="button" style="background:#3c4043; color:#f1f3f4; border:1px solid #5f6368; padding:4px 10px; border-radius:4px; font-size:12px; cursor:pointer;" onclick="document.getElementById('modalCanvasViewport').scrollTop -= 200;">▲</button>
-                <button type="button" style="background:#3c4043; color:#f1f3f4; border:1px solid #5f6368; padding:4px 10px; border-radius:4px; font-size:12px; cursor:pointer;" onclick="document.getElementById('modalCanvasViewport').scrollTop += 200;">▼</button>
-                <button type="button" style="background:#d93025; color:#fff; border:none; padding:4px 12px; border-radius:3px; font-size:12px; font-weight:600; cursor:pointer;" onclick="jumpToModalCitation();">
-                    Jump to Citation
-                </button>
-                <button type="button" style="background:#475569; color:#fff; border:none; padding:4px 10px; border-radius:3px; font-size:12px; cursor:pointer;" onclick="closeGuidelineModal();">✕</button>
+                <a id="modalOpenDirectLink" href="#" target="_blank" style="background:#0284c7; color:#fff; text-decoration:none; padding:5px 12px; border-radius:4px; font-size:12px; font-weight:600;">
+                    Open Full Window ↗
+                </a>
+                <a id="modalDownloadLink" href="#" download style="background:#3c4043; color:#f1f3f4; text-decoration:none; padding:5px 12px; border-radius:4px; font-size:12px;">
+                    Download PDF ↓
+                </a>
+                <button type="button" style="background:#475569; color:#fff; border:none; padding:5px 10px; border-radius:3px; font-size:12px; cursor:pointer;" onclick="closeGuidelineModal();">✕</button>
             </div>
         </div>
 
-        <!-- Scrollable Document Viewport -->
-        <div class="pdf-modal-viewport" id="modalCanvasViewport">
-            <div class="modal-pdf-sheet">
-                <div class="modal-sheet-header">
-                    <span id="modalSheetAuthority">Monetary Authority of Singapore &bull; Statutory Guidance</span>
-                    <span id="modalSheetSection">Section: 5.2(b)</span>
-                </div>
-
-                <div id="modalSheetBody" style="white-space:pre-wrap; word-wrap:break-word;">
-                    <!-- Nội dung toàn văn trang tài liệu được render qua JS kèm highlight bôi đỏ -->
-                </div>
-
-                <div class="modal-sheet-footer">
-                    <span>CONFIDENTIAL &bull; FOR REGULATORY COMPLIANCE PURPOSES ONLY</span>
-                    <span id="modalSheetFooterPage">Page 14</span>
-                </div>
-            </div>
+        <!-- 100% Real PDF Document Object & Iframe (Hiển thị trực tiếp file PDF thật) -->
+        <div style="flex:1; width:100%; height:calc(100% - 50px); background:#525659; padding:12px; box-sizing:border-box;">
+            <object id="modalRealPdfObject" data="" type="application/pdf" width="100%" height="100%" style="border-radius:4px; box-shadow:0 6px 20px rgba(0,0,0,0.35);">
+                <iframe id="modalRealPdfFrame" src="" width="100%" height="100%" style="border:none;">
+                    <p style="color:#fff; padding:20px;">Trình duyệt của bạn đang chặn xem PDF trực tiếp. <a id="modalFallbackDownloadLink" href="#" target="_blank" style="color:#38bdf8;">Bấm vào đây để tải và xem file PDF thật</a>.</p>
+                </iframe>
+            </object>
         </div>
     </div>
 </div>
 
 <script>
-    function openGuidelineModal(docTitle, section, pageNum, citation, pageContext) {
+    function openGuidelineModal(docTitle, section, pageNum, citation, pageContext, pdfUrl) {
+        var targetUrl = pdfUrl || '#';
         document.getElementById('modalDocTitle').innerText = docTitle + '.pdf';
         document.getElementById('modalPageIndicator').innerText = 'Page ' + pageNum + ' · ' + section;
-        document.getElementById('modalSheetAuthority').innerText = docTitle;
-        document.getElementById('modalSheetSection').innerText = section;
-        document.getElementById('modalSheetFooterPage').innerText = 'Page ' + pageNum;
+        document.getElementById('modalOpenDirectLink').href = targetUrl;
+        document.getElementById('modalDownloadLink').href = targetUrl;
+        
+        var fallbackLink = document.getElementById('modalFallbackDownloadLink');
+        if (fallbackLink) {
+            fallbackLink.href = targetUrl;
+        }
 
-        var bodyContainer = document.getElementById('modalSheetBody');
-
-        if (pageContext && pageContext.trim() !== '') {
-            // Nếu có ký tự {{...}} thì bôi đỏ phần bên trong
-            if (pageContext.indexOf('{{') !== -1) {
-                var formatted = pageContext.replace(/\{\{(.*?)\}\}/gs, function(match, p1) {
-                    return '<span class="mas-breach-box" id="modal-target-citation"><span class="mas-breach-label">Statutory Citation / Rule Breach</span><br>' + escapeHtml(p1) + '</span>';
-                });
-                bodyContainer.innerHTML = formatted;
-            } else if (citation && citation.trim() !== '') {
-                // Highlight theo đoạn citation trích dẫn
-                var escapedCitation = escapeHtml(citation);
-                var escapedContext = escapeHtml(pageContext);
-                var highlighted = escapedContext.replace(escapedCitation, '<span class="mas-breach-box" id="modal-target-citation"><span class="mas-breach-label">Statutory Citation / Rule Breach</span><br>' + escapedCitation + '</span>');
-                bodyContainer.innerHTML = highlighted;
-            } else {
-                bodyContainer.innerHTML = escapeHtml(pageContext);
-            }
-        } else if (citation && citation.trim() !== '') {
-            bodyContainer.innerHTML = '<div style="margin-bottom:20px; color:#475569; font-style:italic;">Official Statutory Excerpt:</div>' +
-                '<span class="mas-breach-box" id="modal-target-citation"><span class="mas-breach-label">Statutory Citation / Rule Breach</span><br>' + escapeHtml(citation) + '</span>';
-        } else {
-            bodyContainer.innerHTML = '<p style="color:#64748b; font-style:italic;">No detailed text context available for this regulatory standard.</p>';
+        var obj = document.getElementById('modalRealPdfObject');
+        var iframe = document.getElementById('modalRealPdfFrame');
+        if (obj) {
+            obj.data = targetUrl;
+        }
+        if (iframe) {
+            iframe.src = targetUrl;
         }
 
         var modal = document.getElementById('guidelineModal');
         modal.classList.add('active');
-
-        setTimeout(function() {
-            jumpToModalCitation();
-        }, 300);
-    }
-
-    function jumpToModalCitation() {
-        var target = document.getElementById('modal-target-citation');
-        if (target) {
-            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
     }
 
     function closeGuidelineModal() {
         document.getElementById('guidelineModal').classList.remove('active');
-    }
-
-    function escapeHtml(string) {
-        if (!string) return '';
-        var entityMap = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#39;'
-        };
-        return String(string).replace(/[&<>"']/g, function (s) {
-            return entityMap[s];
-        });
     }
 
     // Đóng modal khi bấm phím ESC hoặc click bên ngoài

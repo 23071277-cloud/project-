@@ -170,10 +170,6 @@ if (!function_exists('pcs_bump_sync_version')) {
         if (function_exists('update_option')) {
             update_option('pcs_last_sync_ts', $ts, false);
         }
-        global $wpdb;
-        if ($wpdb && isset($wpdb->options)) {
-            $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_pcs_kpis_%' OR option_name LIKE '_transient_timeout_pcs_kpis_%'");
-        }
     }
 }
 if (!function_exists('pcs_get_sync_version')) {
@@ -651,21 +647,13 @@ function pcs_send_notification($user_id, $title, $message, $type = 'info', $link
             update_post_meta($nid, '_is_read', '0');
             update_post_meta($nid, '_created_at', $now);
 
-            // Gửi email thật qua Action Scheduler (Non-blocking) để tuyệt đối không làm treo request HTTP
-            if (function_exists('get_userdata')) {
+            // Gửi email thật qua WP Mail SMTP nếu recipient có email hợp lệ
+            if (function_exists('wp_mail') && function_exists('get_userdata')) {
                 $u_recip = get_userdata($user_id);
                 if ($u_recip && !empty($u_recip->user_email)) {
                     $mail_subj = '[Brand Compliance] ' . $title;
                     $mail_body = "Hi " . $u_recip->display_name . ",\n\n" . $message . "\n\nAction link: " . $link . "\n\n-- Brand Compliance System";
-                    if (function_exists('as_enqueue_async_action')) {
-                        as_enqueue_async_action('pcs_async_send_email', [
-                            'to'      => $u_recip->user_email,
-                            'subject' => $mail_subj,
-                            'message' => $mail_body
-                        ]);
-                    } elseif (function_exists('wp_mail') && (defined('WP_CLI') || !empty(get_option('wp_mail_smtp')))) {
-                        @wp_mail($u_recip->user_email, $mail_subj, $mail_body);
-                    }
+                    @wp_mail($u_recip->user_email, $mail_subj, $mail_body);
                 }
             }
 
@@ -3073,22 +3061,6 @@ if (function_exists('has_action') && !has_action('pcs_background_ai_scoring_job'
     }, 10, 2);
 }
 
-if (function_exists('add_action')) {
-    if (function_exists('remove_all_actions')) {
-        remove_all_actions('pcs_async_send_email');
-    }
-    add_action('pcs_async_send_email', function($to = '', $subject = '', $message = '', ...$rest) {
-        if (is_array($to)) {
-            $subject = $to['subject'] ?? ($to[1] ?? '');
-            $message = $to['message'] ?? ($to[2] ?? '');
-            $to      = $to['to'] ?? ($to[0] ?? '');
-        }
-        if (!empty($to) && !empty($subject) && !empty($message) && function_exists('wp_mail')) {
-            @wp_mail($to, $subject, $message);
-        }
-    }, 10, 4);
-}
-
 /**
  * Xử lý tải lên Asset Version mới (Maker Upload)
  */
@@ -4355,30 +4327,7 @@ function get_campaign_detail_asset_data($campaign_id = 0, $selected_asset_id = 0
         // 2. Khi AI thực sự đang chấm (chưa có kết quả check_result):
         //    AI Assessment hiển thị 'Scoring' (màu vàng), Status hiển thị 'Scoring'.
         elseif ($status === 'scoring' && empty($ai_checks) && ($ai_verdict === 'Pending AI' || empty($ai_verdict))) {
-            $started_at = (int) get_post_meta($current_ver_id, '_scoring_started_at', true);
-            // Self-healing: Nếu Action Scheduler bị hoãn hoặc không kích hoạt sau 3 giây, tự động chấm và cập nhật ngay
-            if ($started_at > 0 && (time() - $started_at > 3) && function_exists('pcs_run_ai_scoring_for_version')) {
-                $eval_results = pcs_run_ai_scoring_for_version($current_ver_id);
-                if (!empty($eval_results) && !isset($eval_results['error'])) {
-                    $status = 'in_review';
-                    if (function_exists('pcs_server_meta')) {
-                        pcs_server_meta($current_ver_id, '_status', 'in_review');
-                        pcs_server_meta($current_ver_id, '_ai_completed', 1);
-                        pcs_server_meta($aid, '_current_version_id', $current_ver_id);
-                    } else {
-                        update_post_meta($current_ver_id, '_status', 'in_review');
-                        update_post_meta($current_ver_id, '_ai_completed', 1);
-                        update_post_meta($aid, '_current_version_id', $current_ver_id);
-                    }
-                    if (function_exists('pcs_transition_version_to_in_review')) {
-                        pcs_transition_version_to_in_review($current_ver_id, $aid);
-                    }
-                } else {
-                    $ai_verdict = 'Scoring';
-                }
-            } else {
-                $ai_verdict = 'Scoring';
-            }
+            $ai_verdict = 'Scoring';
         }
 
         // Checker & Release metadata từ current version
@@ -8518,8 +8467,7 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
         : ($finding_mas . ' ' . $analysis_mas);
 
     $get_status_meta = function($sc) {
-        $sc = (int) $sc;
-        if ($sc >= 60) {
+        if ($sc >= 71) {
             return [
                 'status'     => 'pass',
                 'badge'      => 'Pass',
@@ -8528,7 +8476,7 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
                 'dot_color'  => '#10B981',
                 'border'     => 'rgba(16, 185, 129, 0.20)'
             ];
-        } elseif ($sc >= 30) {
+        } elseif ($sc >= 31) {
             return [
                 'status'     => 'needs_human',
                 'badge'      => 'Needs Human Look',
@@ -8729,19 +8677,10 @@ if (!function_exists('pcs_run_ai_scoring_for_version')) {
 
         $criteria = ['foreign_logo', 'guideline', 'mas_rule'];
         $results  = [];
-        $prev_internal = function_exists('pcs_internal') ? pcs_internal(true) : false;
-
-        // Ưu tiên 1: Chấm gộp cả 3 tiêu chí trong 1 request duy nhất (Nhanh và chính xác với Gemini)
-        $bundle_raw = function_exists('pcs_call_gemini_api_all_checks') ? pcs_call_gemini_api_all_checks($file_url) : false;
-        $bundle_data = $bundle_raw ? json_decode($bundle_raw, true) : null;
 
         foreach ($criteria as $criterion) {
-            if (is_array($bundle_data) && isset($bundle_data[$criterion]) && is_array($bundle_data[$criterion])) {
-                $data = $bundle_data[$criterion];
-            } else {
-                $raw_response = function_exists('pcs_call_gemini_api') ? pcs_call_gemini_api($file_url, $criterion) : '';
-                $data = json_decode($raw_response, true);
-            }
+            $raw_response = function_exists('pcs_call_gemini_api') ? pcs_call_gemini_api($file_url, $criterion) : '';
+            $data = json_decode($raw_response, true);
 
             if (!is_array($data)) {
                 $data = [
@@ -8800,9 +8739,6 @@ if (!function_exists('pcs_run_ai_scoring_for_version')) {
             update_post_meta($check_id, '_criterion',           $criterion);
             update_post_meta($check_id, '_score',               $score);
             update_post_meta($check_id, '_status',              $status);
-            update_post_meta($check_id, '_verdict',             ($score >= 71) ? 'PASS' : (($score >= 31) ? 'NEEDS LOOK' : 'FAIL'));
-            update_post_meta($check_id, '_ai_verdict',          ($score >= 71) ? 'PASS' : (($score >= 31) ? 'NEEDS LOOK' : 'FAIL'));
-            update_post_meta($check_id, '_ai_score',            $score);
             update_post_meta($check_id, '_finding',             $finding);
             update_post_meta($check_id, '_analysis',            $analysis);
             update_post_meta($check_id, '_reason',              $reason);
@@ -8846,10 +8782,6 @@ if (!function_exists('pcs_run_ai_scoring_for_version')) {
         update_post_meta($version_id, '_version_status', 'in_review');
         update_post_meta($version_id, '_ai_completed', 1);
 
-        if (function_exists('pcs_internal')) {
-            pcs_internal($prev_internal);
-        }
-
         if (function_exists('pcs_transition_version_to_in_review')) {
             pcs_transition_version_to_in_review($version_id);
         } else {
@@ -8882,9 +8814,6 @@ if (!function_exists('get_ai_scoring_screen_data')) {
  */
 if (!function_exists('pcs_handle_sync_heartbeat')) {
     function pcs_handle_sync_heartbeat() {
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            @session_write_close();
-        }
         while (ob_get_level()) {
             ob_end_clean();
         }
@@ -8916,20 +8845,14 @@ if (!function_exists('pcs_handle_sync_heartbeat')) {
             $role = strtoupper($currentUser['role'] ?? 'MAKER');
         }
 
-        // Retrieve real-time KPI counts for active role (cached in transient to prevent DB overload)
-        $transient_key = 'pcs_kpis_' . md5($role . '_' . $uid);
-        $kpis = function_exists('get_transient') ? get_transient($transient_key) : false;
-        if ($kpis === false || !is_array($kpis)) {
-            if ($role === 'ADMIN') {
-                $kpis = function_exists('get_admin_kpis') ? get_admin_kpis() : [];
-            } elseif ($role === 'CHECKER') {
-                $kpis = function_exists('get_checker_kpis') ? get_checker_kpis() : [];
-            } else {
-                $kpis = function_exists('get_maker_kpis') ? get_maker_kpis($uid) : [];
-            }
-            if (function_exists('set_transient')) {
-                set_transient($transient_key, $kpis, 8);
-            }
+        // Retrieve real-time KPI counts for active role
+        $kpis = [];
+        if ($role === 'ADMIN') {
+            $kpis = function_exists('get_admin_kpis') ? get_admin_kpis() : [];
+        } elseif ($role === 'CHECKER') {
+            $kpis = function_exists('get_checker_kpis') ? get_checker_kpis() : [];
+        } else {
+            $kpis = function_exists('get_maker_kpis') ? get_maker_kpis($uid) : [];
         }
 
         $unread_notifs = ($uid > 0 && function_exists('pcs_get_unread_notifications_count')) 
