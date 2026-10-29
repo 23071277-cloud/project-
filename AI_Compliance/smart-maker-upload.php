@@ -592,12 +592,15 @@ $allCampaigns = function_exists('get_all_campaigns') ? get_all_campaigns() : [];
             width: 100%;
             padding: 24px;
             background: white;
-            box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.05);
+            box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.05);
             border-radius: 12px;
             border: 1px solid rgba(226, 232, 240, 0.70);
             display: flex;
             flex-direction: column;
             gap: 20px;
+            position: sticky;
+            top: 88px;
+            align-self: flex-start;
         }
 
         .rail-section-header {
@@ -682,38 +685,71 @@ $allCampaigns = function_exists('get_all_campaigns') ? get_all_campaigns() : [];
             gap: 8px;
         }
         .guideline-rail-item {
-            padding: 10px;
+            padding: 9px 12px;
             background: #F3F2FF;
-            border-radius: 4px;
+            border-radius: 6px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             font-size: 12px;
             color: #161B2E;
             font-weight: 500;
+            gap: 8px;
+        }
+        .guideline-rail-item span:first-child {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 180px;
+            display: inline-block;
         }
 
         /* Upload Summary Table */
-        .summary-specs-grid {
-            display: grid;
-            grid-template-columns: 80px 1fr;
-            row-gap: 8px;
+        .summary-specs-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
             font-size: 12px;
         }
+        .summary-spec-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+            padding: 3px 0;
+            border-bottom: 1px dashed #F1F5F9;
+        }
+        .summary-spec-row:last-child {
+            border-bottom: none;
+        }
         .summary-label {
-            color: #464651;
+            color: #64748B;
             font-weight: 600;
-            letter-spacing: 0.24px;
+            font-size: 12px;
+            letter-spacing: 0.2px;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
         .summary-val {
             color: #161B2E;
-            font-weight: 500;
+            font-weight: 600;
+            font-size: 12px;
             text-align: right;
-            word-break: break-all;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 175px;
+            display: inline-block;
         }
         .summary-val-mono {
             font-family: 'JetBrains Mono', monospace;
             font-size: 11px;
+            color: #334155;
+            background: #F8FAFC;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid #E2E8F0;
         }
 
         .ai-banner-strip {
@@ -1139,12 +1175,12 @@ endif;
 
                                     <!-- Integrated Action Bar with Replace and Remove -->
                                     <div class="integrated-file-card" id="activeFileCard" style="width: 100%; position: relative; z-index: 25;" onclick="event.stopPropagation();">
-                                        <div style="display: flex; align-items: center; gap: 14px;">
-                                            <div class="file-thumb-square" id="fileThumbPreview">
+                                        <div style="display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1; margin-right: 14px;">
+                                            <div class="file-thumb-square" id="fileThumbPreview" style="flex-shrink: 0;">
                                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                                             </div>
-                                            <div>
-                                                <strong style="color: #161B2E; font-size: 13px; display: block;" id="cardFileName">file.png</strong>
+                                            <div style="min-width: 0; flex: 1;">
+                                                <strong style="color: #161B2E; font-size: 13px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;" id="cardFileName" title="">file.png</strong>
                                                 <div class="file-meta-specs">
                                                     <span id="cardFileFormat">PNG</span>
                                                     <span>•</span>
@@ -1157,7 +1193,7 @@ endif;
                                                 </div>
                                             </div>
                                         </div>
-                                        <div style="display: flex; gap: 16px; align-items: center;">
+                                        <div style="display: flex; gap: 12px; align-items: center; flex-shrink: 0;">
                                             <button type="button" class="btn-action-replace" style="color: #4F57A7; font-size: 12.5px; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 4px 8px; border: none; background: none; position: relative; z-index: 30;" onclick="triggerReplaceFile(event)">Replace</button>
                                             <button type="button" class="btn-action-remove" style="color: #BA1A1A; font-size: 12.5px; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 4px 8px; border: none; background: none; position: relative; z-index: 30;" onclick="triggerRemoveFile(event)">Remove</button>
                                         </div>
@@ -1275,23 +1311,29 @@ endif;
                             <div class="rail-section-header">
                                 <h3 class="rail-heading">Upload Summary</h3>
                             </div>
-                            <div class="summary-specs-grid">
-                                <span class="summary-label">Campaign:</span>
-                                <span class="summary-val"><?= esc_html($campaignName) ?></span>
-
-                                <span class="summary-label">Asset:</span>
-                                <span class="summary-val" id="summaryAssetName"><?= esc_html($selAssetName) ?></span>
-
-                                <span class="summary-label">Version:</span>
-                                <span class="summary-val" style="color: #1F2674; font-weight: 700;" id="summaryVersionNum">V<?= (int)$targetVersion ?></span>
-
-                                <span class="summary-label">File:</span>
-                                <span class="summary-val summary-val-mono" id="summaryFileName">No file selected</span>
-
-                                <span class="summary-label">Status:</span>
-                                <div class="summary-val" style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;" id="summaryStatusRow">
-                                    <div style="width: 6px; height: 6px; border-radius: 3px; background: #94A3B8;"></div>
-                                    <span style="color: #64748B;">Waiting</span>
+                            <div class="summary-specs-list">
+                                <div class="summary-spec-row">
+                                    <span class="summary-label">Campaign:</span>
+                                    <span class="summary-val" title="<?= esc_attr($campaignName) ?>"><?= esc_html($campaignName) ?></span>
+                                </div>
+                                <div class="summary-spec-row">
+                                    <span class="summary-label">Asset:</span>
+                                    <span class="summary-val" id="summaryAssetName" title="<?= esc_attr($selAssetName) ?>"><?= esc_html($selAssetName) ?></span>
+                                </div>
+                                <div class="summary-spec-row">
+                                    <span class="summary-label">Version:</span>
+                                    <span class="summary-val" style="color: #1F2674; font-weight: 700;" id="summaryVersionNum">V<?= (int)$targetVersion ?></span>
+                                </div>
+                                <div class="summary-spec-row">
+                                    <span class="summary-label">File:</span>
+                                    <span class="summary-val summary-val-mono" id="summaryFileName" title="No file selected">No file selected</span>
+                                </div>
+                                <div class="summary-spec-row">
+                                    <span class="summary-label">Status:</span>
+                                    <div class="summary-val" style="display: flex; align-items: center; justify-content: flex-end; gap: 5px;" id="summaryStatusRow">
+                                        <div style="width: 6px; height: 6px; border-radius: 50%; background: #94A3B8;"></div>
+                                        <span style="color: #64748B;">Waiting</span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -1317,11 +1359,11 @@ endif;
                         <strong style="color: #1F2674;" id="stripVersionNum">V<?= (int)$targetVersion ?></strong>
                     </div>
 
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <svg width="11" height="14" viewBox="0 0 11 14" fill="none">
+                    <div style="display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 320px;">
+                        <svg width="11" height="14" viewBox="0 0 11 14" fill="none" style="flex-shrink: 0;">
                             <path d="M2.66667 10.6667H8V9.33333H2.66667V10.6667ZM2.66667 8H8V6.66667H2.66667V8ZM1.33333 13.3333C0.966667 13.3333 0.652778 13.2028 0.391667 12.9417C0.130556 12.6806 0 12.3667 0 12V1.33333C0 0.966667 0.130556 0.652778 0.391667 0.391667C0.652778 0.130556 0.966667 0 1.33333 0H6.66667L10.6667 4V12C10.6667 12.3667 10.5361 12.6806 10.275 12.9417C10.0139 13.2028 9.7 13.3333 9.33333 13.3333H1.33333ZM6 4.66667V1.33333H1.33333V12H9.33333V4.66667H6Z" fill="#767682"/>
                         </svg>
-                        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #464651;" id="stripFileName">no file selected</span>
+                        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #464651; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 280px; display: inline-block;" id="stripFileName">no file selected</span>
                     </div>
 
                     <div style="display: flex; align-items: center; gap: 6px;">
@@ -1672,8 +1714,21 @@ endif;
             }
         }
 
+        // Helper: truncate long names for tight spaces (e.g. 17932458...2d5f.jpg)
+        var compactFileName = fileName;
+        if (fileName && fileName.length > 22) {
+            var dot = fileName.lastIndexOf('.');
+            var ext = dot !== -1 ? fileName.substring(dot) : '';
+            var base = dot !== -1 ? fileName.substring(0, dot) : fileName;
+            compactFileName = base.substring(0, 11) + '...' + base.substring(base.length - 5) + ext;
+        }
+
         // Update active file card
-        document.getElementById('cardFileName').textContent = fileName;
+        var cardEl = document.getElementById('cardFileName');
+        if (cardEl) {
+            cardEl.textContent = fileName;
+            cardEl.title = fileName;
+        }
         document.getElementById('cardFileFormat').textContent = fileExt;
         document.getElementById('cardFileSize').textContent = fileSizeMB + ' MB';
 
@@ -1690,10 +1745,18 @@ endif;
         }
 
         // Update Summary & Strip
-        document.getElementById('summaryFileName').textContent = fileName;
-        document.getElementById('summaryStatusRow').innerHTML = '<div style="width: 6px; height: 6px; border-radius: 3px; background: #10B981;"></div><span style="color: #10B981; font-weight: 600;">Ready</span>';
+        var sumFileEl = document.getElementById('summaryFileName');
+        if (sumFileEl) {
+            sumFileEl.textContent = compactFileName;
+            sumFileEl.title = fileName;
+        }
+        document.getElementById('summaryStatusRow').innerHTML = '<div style="width: 6px; height: 6px; border-radius: 50%; background: #10B981;"></div><span style="color: #10B981; font-weight: 600;">Ready</span>';
 
-        document.getElementById('stripFileName').textContent = fileName;
+        var stripFileEl = document.getElementById('stripFileName');
+        if (stripFileEl) {
+            stripFileEl.textContent = compactFileName;
+            stripFileEl.title = fileName;
+        }
         document.getElementById('stripStatusDot').style.background = '#10B981';
         document.getElementById('stripStatusText').textContent = 'Ready';
         document.getElementById('stripStatusText').style.color = '#10B981';
@@ -1720,14 +1783,17 @@ endif;
         if (imgPreview) { imgPreview.src = ''; imgPreview.style.display = 'none'; }
         if (pdfPreview) { pdfPreview.src = ''; pdfPreview.style.display = 'none'; }
 
-        document.getElementById('cardFileName').textContent = '';
+        var cardEl = document.getElementById('cardFileName');
+        if (cardEl) { cardEl.textContent = ''; cardEl.title = ''; }
         document.getElementById('cardFileFormat').textContent = '';
         document.getElementById('cardFileSize').textContent = '';
 
-        document.getElementById('summaryFileName').textContent = 'No file selected';
-        document.getElementById('summaryStatusRow').innerHTML = '<div style="width: 6px; height: 6px; border-radius: 3px; background: #94A3B8;"></div><span style="color: #64748B;">Waiting</span>';
+        var sumFileEl = document.getElementById('summaryFileName');
+        if (sumFileEl) { sumFileEl.textContent = 'No file selected'; sumFileEl.title = 'No file selected'; }
+        document.getElementById('summaryStatusRow').innerHTML = '<div style="width: 6px; height: 6px; border-radius: 50%; background: #94A3B8;"></div><span style="color: #64748B;">Waiting</span>';
 
-        document.getElementById('stripFileName').textContent = 'no file selected';
+        var stripFileEl = document.getElementById('stripFileName');
+        if (stripFileEl) { stripFileEl.textContent = 'no file selected'; stripFileEl.title = 'no file selected'; }
         document.getElementById('stripStatusDot').style.background = '#94A3B8';
         document.getElementById('stripStatusText').textContent = 'Waiting for File';
         document.getElementById('stripStatusText').style.color = '#64748B';
