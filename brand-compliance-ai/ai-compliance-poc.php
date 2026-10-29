@@ -614,8 +614,30 @@ if ( ! function_exists( 'pcs_run_heuristic_mock_engine' ) ) {
  * 4. GIAO DIỆN KIỂM THỬ TRONG WP-ADMIN (AI AUDIT TEST POC)
  */
 add_action( 'admin_menu', function() {
+    // 1. Thêm Menu chính nổi bật trên thanh bên trái (vị trí 29)
+    add_menu_page(
+        'AI Compliance Test Engine',
+        'AI Test PoC',
+        'manage_options',
+        'ai-compliance-poc',
+        'pcs_render_ai_test_page',
+        'dashicons-shield',
+        29
+    );
+
+    // 2. Thêm vào Menu phụ bên trong Compliance Review
     add_submenu_page(
         'brand-compliance-review',
+        'AI Test PoC Engine',
+        'AI Test PoC Engine',
+        'manage_options',
+        'ai-compliance-poc',
+        'pcs_render_ai_test_page'
+    );
+
+    // 3. Thêm vào Menu phụ bên trong Check Results
+    add_submenu_page(
+        'edit.php?post_type=check_result',
         'AI Test PoC Engine',
         'AI Test PoC Engine',
         'manage_options',
@@ -627,16 +649,83 @@ add_action( 'admin_menu', function() {
 if ( ! function_exists( 'pcs_render_ai_test_page' ) ) {
     function pcs_render_ai_test_page() {
         ?>
-        <div class="wrap" style="max-width:1000px;">
-            <h1>MAS Regulatory Compliance Audit Engine <span style="font-size:12px; background:#1e293b; color:#fff; padding:3px 8px; border-radius:4px;">v2.6 Production</span></h1>
-            <p style="color:#64748b;">Mô-đun kiểm định tuân thủ tự động với Google Gemini Multimodal Vision AI.</p>
+        <style>
+            .pdf-viewer-wrapper {
+                margin-top: 25px;
+                background: #323639;
+                border-radius: 6px;
+                overflow: hidden;
+                box-shadow: 0 12px 30px rgba(0,0,0,0.3);
+                border: 1px solid #202224;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            }
+            .pdf-toolbar {
+                background: #26292b;
+                color: #e8eaed;
+                padding: 10px 18px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                border-bottom: 1px solid #18191a;
+                font-size: 13px;
+                user-select: none;
+            }
+            .pdf-toolbar-section {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+            .pdf-file-title {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-weight: 600;
+                color: #ffffff;
+                font-size: 13px;
+            }
+            .pdf-page-indicator {
+                background: #18191a;
+                color: #cbd5e1;
+                padding: 4px 10px;
+                border-radius: 3px;
+                font-size: 12px;
+                border: 1px solid #3c4043;
+            }
+            .pdf-tool-btn {
+                background: #3c4043;
+                color: #f1f3f4;
+                border: 1px solid #5f6368;
+                padding: 5px 12px;
+                border-radius: 4px;
+                font-size: 12px;
+                cursor: pointer;
+                text-decoration: none;
+                transition: all 0.15s ease;
+            }
+            .pdf-tool-btn:hover {
+                background: #5f6368;
+                color: #ffffff;
+            }
+        </style>
+
+        <div class="wrap" style="max-width:1100px;">
+            <h1 style="display:flex; align-items:center; gap:10px; margin-bottom: 5px;">
+                <span class="dashicons dashicons-shield" style="font-size:30px; width:30px; height:30px; color:#2563eb;"></span>
+                MAS Regulatory Compliance Audit Engine 
+                <span style="font-size:11px; background:#1e293b; color:#cbd5e1; padding:3px 8px; border-radius:4px; font-weight:600;">v2.6 Production</span>
+            </h1>
+            <p style="color:#64748b; margin-bottom: 20px;">
+                Mô-đun kiểm định tuân thủ tự động với Google Gemini Multimodal Vision AI. Hỗ trợ chạy thử trực tiếp mọi URL ấn phẩm quảng cáo và đối chiếu với điều luật MAS Singapore / Brand Guidelines.
+            </p>
 
             <?php
             if ( isset( $_POST['btn_test_ai'] ) ) {
                 $image_url = esc_url_raw( trim( $_POST['test_image_url'] ?? '' ) );
                 $criterion = sanitize_text_field( $_POST['test_criterion'] ?? 'mas_rule' );
 
-                if ( ! empty( $image_url ) ) {
+                if ( empty( $image_url ) ) {
+                    echo '<div class="notice notice-error"><p><strong>Lỗi:</strong> Vui lòng cung cấp URL hình ảnh hợp lệ.</p></div>';
+                } else {
                     $start_time = microtime( true );
                     $raw_json   = pcs_call_gemini_api( $image_url, $criterion );
                     $latency    = round( microtime( true ) - $start_time, 3 );
@@ -646,33 +735,92 @@ if ( ! function_exists( 'pcs_render_ai_test_page' ) ) {
                     $badge_bg = ( $score >= 71 ) ? '#2e7d32' : ( ( $score >= 31 ) ? '#d97706' : '#c53030' );
                     $status_label = ( $score >= 71 ) ? 'COMPLIANT (PASS)' : ( ( $score >= 31 ) ? 'NEEDS LOOK' : 'NON-COMPLIANT (FAIL)' );
 
-                    echo '<div style="background:#fff; border:1px solid #e2e8f0; padding:20px; border-radius:6px; margin:20px 0;">';
-                    echo '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">';
-                    echo '<h3 style="margin:0;">Criterion: <code>' . esc_html( $criterion ) . '</code></h3>';
-                    echo '<span style="background:' . $badge_bg . '; color:#fff; font-weight:700; padding:5px 12px; border-radius:4px;">' . $status_label . ' — ' . $score . '/100</span>';
+                    echo '<div style="background:#fff; border:1px solid #e2e8f0; padding:22px; border-radius:8px; margin:20px 0; box-shadow:0 1px 3px rgba(0,0,0,0.05);">';
+                    echo '<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:14px; margin-bottom:15px;">';
+                    echo '<h3 style="margin:0; font-size:15px;">Tiêu chí thẩm định: <code>' . esc_html( $criterion ) . '</code></h3>';
+                    echo '<span style="background:' . $badge_bg . '; color:#fff; font-weight:700; padding:6px 14px; border-radius:4px; font-size:13px;">' . $status_label . ' — ' . $score . '/100</span>';
                     echo '</div>';
-                    echo '<p><strong>Engine:</strong> ' . esc_html( $data['engine_source'] ?? 'Heuristic' ) . ' (Latency: ' . $latency . 's)</p>';
-                    echo '<p><strong>Finding:</strong> ' . esc_html( $data['finding'] ?? '' ) . '</p>';
-                    echo '<p><strong>Analysis:</strong> ' . esc_html( $data['analysis'] ?? '' ) . '</p>';
-                    echo '<p><strong>Reason:</strong> ' . esc_html( $data['reason'] ?? '' ) . '</p>';
-                    echo '<pre style="background:#0f172a; color:#38bdf8; padding:12px; border-radius:4px; max-height:220px; overflow:auto;">' . esc_html( $raw_json ) . '</pre>';
+
+                    echo '<div style="margin-bottom:16px; background:#f8fafc; padding:16px; border-radius:6px; border-left:4px solid #3b82f6;">';
+                    echo '<p style="margin:0 0 8px 0; font-size:13.5px;"><strong>🔍 Nhận định AI (Finding):</strong> ' . esc_html( $data['finding'] ?? 'N/A' ) . '</p>';
+                    echo '<p style="margin:0 0 8px 0; font-size:13.5px;"><strong>⚖️ Phân tích pháp lý (Analysis):</strong> ' . esc_html( $data['analysis'] ?? 'N/A' ) . '</p>';
+                    echo '<p style="margin:0; font-size:13.5px;"><strong>📋 Lý do tóm tắt (Reason):</strong> ' . esc_html( $data['reason'] ?? 'N/A' ) . '</p>';
+                    echo '</div>';
+
+                    $engine_badge = ! empty( $data['engine_source'] ) && strpos( $data['engine_source'], 'Gemini' ) !== false
+                        ? '<span style="background:#dcfce7; color:#15803d; padding:3px 10px; border-radius:4px; font-weight:700;">🤖 ' . esc_html( $data['engine_source'] ) . '</span>'
+                        : '<span style="background:#fef3c7; color:#b45309; padding:3px 10px; border-radius:4px; font-weight:700;">⚙️ ' . esc_html( $data['engine_source'] ?? 'Offline Fallback' ) . '</span>';
+
+                    echo '<p style="color:#64748b; font-size:13px; margin: 8px 0 16px 0;">Công cụ thực thi: ' . $engine_badge . ' &bull; Thời gian phản hồi: <strong>' . $latency . 's</strong></p>';
+
+                    // HIỂN THỊ FILE PDF VỚI SỐ TRANG TÀI LIỆU
+                    if ( ! empty( $data['regulatory_reference'] ) ) {
+                        $ref = $data['regulatory_reference'];
+
+                        $doc_lower = strtolower( $ref['document'] ?? '' );
+                        if ( strpos( $doc_lower, 'mas' ) !== false ) {
+                            $pdf_file_name = 'mas-advertising-guidelines-2023.pdf';
+                        } elseif ( strpos( $doc_lower, 'brand' ) !== false ) {
+                            $pdf_file_name = 'brand-governance-manual.pdf';
+                        } else {
+                            $pdf_file_name = 'corporate-identity-spec.pdf';
+                        }
+                        $real_pdf_url = plugins_url( 'assets/docs/' . $pdf_file_name, __FILE__ );
+                        $page_num = intval( $ref['page_number'] ?? 1 );
+                        ?>
+                        <div class="pdf-viewer-wrapper">
+                            <!-- Toolbar -->
+                            <div class="pdf-toolbar">
+                                <div class="pdf-toolbar-section">
+                                    <span class="pdf-file-title">📄 <?php echo esc_html( $ref['document'] ?? 'Regulatory Document' ); ?>.pdf</span>
+                                </div>
+                                <div class="pdf-toolbar-section">
+                                    <span class="pdf-page-indicator">
+                                        Page <?php echo esc_html( $page_num ); ?> · <?php echo esc_html( $ref['section'] ?? '' ); ?>
+                                    </span>
+                                    <a href="<?php echo esc_url( $real_pdf_url . '#page=' . $page_num ); ?>" target="_blank" class="pdf-tool-btn" style="background:#0284c7; color:#fff; font-weight:600;">
+                                        Xem toàn màn hình ↗
+                                    </a>
+                                    <a href="<?php echo esc_url( $real_pdf_url ); ?>" download class="pdf-tool-btn">
+                                        Tải PDF ↓
+                                    </a>
+                                </div>
+                            </div>
+
+                            <!-- Trình đọc PDF nhúng -->
+                            <div style="background:#525659; padding:15px; box-sizing:border-box;">
+                                <object data="<?php echo esc_url( $real_pdf_url . '#page=' . $page_num ); ?>" type="application/pdf" width="100%" height="600px" style="border-radius:4px;">
+                                    <iframe src="<?php echo esc_url( $real_pdf_url . '#page=' . $page_num ); ?>" width="100%" height="600px" style="border:none;">
+                                        <p style="color:#fff; padding:20px;">Trình duyệt đang chặn nhúng PDF trực tiếp. <a href="<?php echo esc_url( $real_pdf_url ); ?>" target="_blank" style="color:#38bdf8;">Bấm vào đây để tải và xem tài liệu PDF</a>.</p>
+                                    </iframe>
+                                </object>
+                            </div>
+                        </div>
+                        <?php
+                    }
+
+                    echo '<h4 style="margin-top:25px; margin-bottom:8px; font-size:13px; color:#475569;">Standardized JSON Output Payload:</h4>';
+                    echo '<pre style="background:#0f172a; color:#38bdf8; padding:15px; border-radius:6px; font-size:13px; max-height:250px; overflow:auto;">' . esc_html( $raw_json ) . '</pre>';
                     echo '</div>';
                 }
             }
             ?>
 
-            <form method="post" style="background:#fff; padding:20px; border:1px solid #e2e8f0; border-radius:6px;">
-                <label style="font-weight:600;">Marketing Asset URL:</label><br>
-                <input type="url" name="test_image_url" style="width:100%; margin:8px 0 15px; padding:8px 12px;" value="<?php echo isset($_POST['test_image_url']) ? esc_attr($_POST['test_image_url']) : 'https://dev-brandcompliance-v2.pantheonsite.io/wp-content/uploads/2026/10/1793245878123_1195192335750983776_1195192335750983776_7eca4397979faf16583430349deb2d5f.jpg'; ?>" required><br>
+            <form method="post" style="background:#fff; padding:24px; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.05); margin-top:20px;">
+                <label style="font-size:13px; font-weight:600;">1. URL Ảnh / Ấn phẩm quảng cáo cần kiểm thử:</label><br>
+                <input type="url" name="test_image_url" placeholder="Dán link ảnh cần kiểm thử..." style="width:100%; margin:8px 0 15px; padding:10px 14px; border:1px solid #cbd5e1; border-radius:5px;" value="<?php echo isset( $_POST['test_image_url'] ) ? esc_attr( $_POST['test_image_url'] ) : 'https://dev-brandcompliance-v2.pantheonsite.io/wp-content/uploads/2026/10/1793245878123_1195192335750983776_1195192335750983776_7eca4397979faf16583430349deb2d5f.jpg'; ?>" required><br>
 
-                <label style="font-weight:600;">Inspection Criterion:</label><br>
-                <select name="test_criterion" style="width:100%; margin:8px 0 20px; padding:8px 12px;">
-                    <option value="mas_rule">1. MAS Financial Advertising (Risk Disclosures & Returns)</option>
-                    <option value="foreign_logo">2. Foreign Logo & Trademark Clearance</option>
-                    <option value="guideline">3. Brand Visual Identity (Navy/Gold Chromatic Spec)</option>
+                <label style="font-size:13px; font-weight:600;">2. Tiêu chí kiểm định:</label><br>
+                <select name="test_criterion" style="width:100%; margin:8px 0 20px; padding:10px 14px; border:1px solid #cbd5e1; border-radius:5px;" required>
+                    <?php $current_crit = $_POST['test_criterion'] ?? 'mas_rule'; ?>
+                    <option value="mas_rule" <?php selected( $current_crit, 'mas_rule' ); ?>>1. Quy chuẩn quảng cáo tài chính MAS (Cam kết lợi nhuận & Cảnh báo rủi ro)</option>
+                    <option value="foreign_logo" <?php selected( $current_crit, 'foreign_logo' ); ?>>2. Nhãn hiệu & Logo đối thủ / Bên thứ ba (Rule FL-01)</option>
+                    <option value="guideline" <?php selected( $current_crit, 'guideline' ); ?>>3. Chuẩn nhận diện thương hiệu & Dải màu Navy/Gold (Spec BG-01)</option>
                 </select><br>
 
-                <button type="submit" name="btn_test_ai" class="button button-primary">Run Compliance Audit</button>
+                <button type="submit" name="btn_test_ai" class="button button-primary button-large" style="height:40px; padding:0 24px; font-size:13px; border-radius:4px;">
+                    Chạy kiểm định AI (Run Compliance Audit)
+                </button>
             </form>
         </div>
         <?php

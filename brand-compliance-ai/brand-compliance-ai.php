@@ -86,3 +86,11 @@ add_action( 'admin_menu', function() {
         'pcs_render_gemini_settings_page'
     );
 });
+
+// 5. Thêm liên kết thao tác nhanh trực tiếp trong trang Plugins (wp-admin/plugins.php)
+add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), function( $links ) {
+    $test_link = '<a href="' . admin_url( 'admin.php?page=ai-compliance-poc' ) . '" style="color:#2563eb; font-weight:700;">Chạy thử AI (Test PoC)</a>';
+    $settings_link = '<a href="' . admin_url( 'admin.php?page=gemini-ai-settings' ) . '">Cài đặt API Key</a>';
+    array_unshift( $links, $test_link, $settings_link );
+    return $links;
+});

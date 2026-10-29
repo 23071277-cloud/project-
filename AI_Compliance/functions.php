@@ -122,6 +122,14 @@ add_filter('template_include', 'ai_compliance_template_router');
 function ai_compliance_template_router($template) {
     $req_uri = strtolower($_SERVER['REQUEST_URI'] ?? '');
 
+    // Nếu request chứa ai-compliance-poc, tự động chuyển về trang WP-Admin Test Tool (tránh rơi vào 404/Access Denied)
+    if (strpos($req_uri, 'ai-compliance-poc') !== false) {
+        if (!is_admin()) {
+            wp_safe_redirect(admin_url('admin.php?page=ai-compliance-poc'));
+            exit;
+        }
+    }
+
     // Nếu request chứa ai-scoring-result (kể cả lồng dưới checker-dashboard), phục vụ trực tiếp ai-scoring-result.php
     if (strpos($req_uri, 'ai-scoring-result') !== false) {
         $scoring_file = get_template_directory() . '/ai-scoring-result.php';
