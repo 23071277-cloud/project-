@@ -42,7 +42,7 @@ function pcs_render_gemini_settings_page() {
             ];
         } else {
             $start_time = microtime( true );
-            $test_endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' . urlencode( $active_key );
+            $test_endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=' . urlencode( $active_key );
             $test_body = [
                 'contents' => [
                     [
@@ -79,7 +79,7 @@ function pcs_render_gemini_settings_page() {
                     $reply = trim( $decoded['candidates'][0]['content']['parts'][0]['text'] );
                     $test_result = [
                         'success' => true,
-                        'message' => "Success (HTTP 200)! Google Gemini 1.5 Flash responded: \"{$reply}\" in {$latency}s. Real Multimodal Vision AI is active."
+                        'message' => "Success (HTTP 200)! Google Gemini Multimodal Vision responded: \"{$reply}\" in {$latency}s. Real Multimodal Vision AI is active."
                     ];
                 } else {
                     $api_err = $decoded['error']['message'] ?? ('HTTP ' . $status_code . ': ' . substr( $res_body, 0, 200 ));
