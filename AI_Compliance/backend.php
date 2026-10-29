@@ -3073,12 +3073,20 @@ if (function_exists('has_action') && !has_action('pcs_background_ai_scoring_job'
     }, 10, 2);
 }
 
-if (function_exists('has_action') && !has_action('pcs_async_send_email') && function_exists('add_action')) {
-    add_action('pcs_async_send_email', function($args) {
-        if (!empty($args['to']) && !empty($args['subject']) && !empty($args['message']) && function_exists('wp_mail')) {
-            @wp_mail($args['to'], $args['subject'], $args['message']);
+if (function_exists('add_action')) {
+    if (function_exists('remove_all_actions')) {
+        remove_all_actions('pcs_async_send_email');
+    }
+    add_action('pcs_async_send_email', function($to = '', $subject = '', $message = '', ...$rest) {
+        if (is_array($to)) {
+            $subject = $to['subject'] ?? ($to[1] ?? '');
+            $message = $to['message'] ?? ($to[2] ?? '');
+            $to      = $to['to'] ?? ($to[0] ?? '');
         }
-    });
+        if (!empty($to) && !empty($subject) && !empty($message) && function_exists('wp_mail')) {
+            @wp_mail($to, $subject, $message);
+        }
+    }, 10, 4);
 }
 
 /**
@@ -8720,6 +8728,7 @@ if (!function_exists('pcs_run_ai_scoring_for_version')) {
 
         $criteria = ['foreign_logo', 'guideline', 'mas_rule'];
         $results  = [];
+        $prev_internal = function_exists('pcs_internal') ? pcs_internal(true) : false;
 
         foreach ($criteria as $criterion) {
             $raw_response = function_exists('pcs_call_gemini_api') ? pcs_call_gemini_api($file_url, $criterion) : '';
@@ -8824,6 +8833,10 @@ if (!function_exists('pcs_run_ai_scoring_for_version')) {
 
         update_post_meta($version_id, '_version_status', 'in_review');
         update_post_meta($version_id, '_ai_completed', 1);
+
+        if (function_exists('pcs_internal')) {
+            pcs_internal($prev_internal);
+        }
 
         if (function_exists('pcs_transition_version_to_in_review')) {
             pcs_transition_version_to_in_review($version_id);

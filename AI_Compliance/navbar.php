@@ -1819,5 +1819,27 @@ window.addEventListener('click', function(e) {
     setTimeout(function() {
         checkSyncState(false);
     }, 800);
+
+    // 4. Tự động làm mờ và ẩn thông báo thành công / cảnh báo sau 10 giây (Auto-dismiss alert toast)
+    function autoDismissAlertToasts() {
+        var toasts = document.querySelectorAll('.alert-toast, .alert-success, .alert-danger, [class*="alert-toast"]');
+        toasts.forEach(function(toast) {
+            if (toast.dataset.hasAutoDismiss) return;
+            toast.dataset.hasAutoDismiss = 'true';
+            setTimeout(function() {
+                toast.style.transition = 'opacity 0.8s ease, transform 0.8s ease, margin 0.8s ease, padding 0.8s ease, max-height 0.8s ease';
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-10px)';
+                setTimeout(function() {
+                    toast.style.display = 'none';
+                }, 800);
+            }, 10000); // 10 giây
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', autoDismissAlertToasts);
+    } else {
+        autoDismissAlertToasts();
+    }
 })();
 </script>

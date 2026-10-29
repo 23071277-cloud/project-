@@ -51,6 +51,9 @@ if ($reqMethod === 'POST' && isset($_POST['action']) && $_POST['action'] === 'cr
         $releaseAlert = 'Error: Target Deadline must be a future date (cannot be today or in the past).';
         $releaseSuccess = false;
     } elseif (!empty($campTitle) && function_exists('handle_create_campaign')) {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            @session_write_close();
+        }
         $cid = handle_create_campaign($campTitle, $campDeadline, $maker_ids, $checker_ids, $campOwnerId);
         if ($cid) {
             $releaseAlert = 'Campaign "' . htmlspecialchars($campTitle) . '" created successfully with assigned team and attached guidelines!';
@@ -3293,7 +3296,7 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                 };
             }
 
-            // Client-side deadline check on campaign form submit
+            // Client-side deadline check on campaign form submit + loading state
             const campForm = document.getElementById('adminCreateCampaignForm');
             if (campForm) {
                 campForm.addEventListener('submit', function(e) {
@@ -3306,6 +3309,13 @@ $allCheckersList = function_exists('pcs_get_system_users_by_role') ? pcs_get_sys
                             dlInput.focus();
                             return false;
                         }
+                    }
+                    const submitBtn = campForm.querySelector('button[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                        submitBtn.style.opacity = '0.75';
+                        submitBtn.style.cursor = 'wait';
+                        submitBtn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:6px;vertical-align:middle;"></span> Creating & Uploading...';
                     }
                 });
             }
