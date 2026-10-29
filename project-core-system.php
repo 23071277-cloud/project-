@@ -899,3 +899,38 @@ add_action('manage_asset_version_posts_custom_column', function ($col, $post_id)
             break;
     }
 }, 10, 2);
+
+// =========================================================================
+// BẮT BUỘC HTTPS CHO TẤT CẢ REDIRECT URI VÀ LOGIN WITH GOOGLE (OAUTH 2.0)
+// =========================================================================
+add_filter('site_url', function ($url) {
+    if (isset($_ENV['PANTHEON_ENVIRONMENT']) || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) {
+        return str_replace('http://', 'https://', $url);
+    }
+    return $url;
+}, 999);
+
+add_filter('home_url', function ($url) {
+    if (isset($_ENV['PANTHEON_ENVIRONMENT']) || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) {
+        return str_replace('http://', 'https://', $url);
+    }
+    return $url;
+}, 999);
+
+add_filter('login_url', function ($url) {
+    if (isset($_ENV['PANTHEON_ENVIRONMENT']) || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) {
+        return str_replace('http://', 'https://', $url);
+    }
+    return $url;
+}, 999);
+
+add_filter('set_url_scheme', function ($url, $scheme) {
+    if (isset($_ENV['PANTHEON_ENVIRONMENT']) || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) {
+        return str_replace('http://', 'https://', $url);
+    }
+    return $url;
+}, 999, 2);
+
+add_filter('rtcamp.google_redirect_url', function ($url) {
+    return str_replace('http://', 'https://', $url);
+}, 999);
