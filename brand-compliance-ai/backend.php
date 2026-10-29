@@ -29,6 +29,8 @@ if ( ! function_exists( 'pcs_run_ai_scoring_for_version' ) ) {
         return [ 'error' => 'Invalid version ID' ];
     }
 
+    $prev_internal = function_exists('pcs_internal') ? pcs_internal(true) : false;
+
     // Lấy URL file asset đính kèm
     $file_url = get_post_meta( $version_id, '_file_url', true ) ?: get_post_meta( $version_id, '_asset_file_url', true );
     if ( empty( $file_url ) ) {
@@ -141,6 +143,10 @@ if ( ! function_exists( 'pcs_run_ai_scoring_for_version' ) ) {
     update_post_meta( $version_id, '_ai_completed', 1 );
     if ( function_exists('pcs_transition_version_to_in_review') ) {
         pcs_transition_version_to_in_review( $version_id );
+    }
+
+    if ( function_exists('pcs_internal') ) {
+        pcs_internal( $prev_internal );
     }
 
     return $results;

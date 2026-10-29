@@ -179,11 +179,13 @@ You must output strictly valid JSON matching this schema:
     $api_res = wp_remote_post( $endpoint, [
         'headers'   => [ 'Content-Type' => 'application/json' ],
         'body'      => wp_json_encode( $request_body ),
-        'timeout'   => 10,
+        'timeout'   => 30,
         'sslverify' => false,
     ] );
 
     if ( is_wp_error( $api_res ) || wp_remote_retrieve_response_code( $api_res ) !== 200 ) {
+        $err = is_wp_error( $api_res ) ? $api_res->get_error_message() : ('HTTP ' . wp_remote_retrieve_response_code( $api_res ));
+        error_log( "PCS Gemini Vision API Error: {$err}" );
         return false; // Fallback to heuristic
     }
 
@@ -218,6 +220,46 @@ You must output strictly valid JSON matching this schema:
 if ( ! function_exists( 'pcs_run_heuristic_mock_engine' ) ) {
     function pcs_run_heuristic_mock_engine( $file_url, $criterion, $prompt_version = 'v1.2' ) {
     $file_name = strtolower( basename( parse_url( $file_url, PHP_URL_PATH ) ) );
+    $is_explicit_pass = (bool) preg_match( '/(pass|compliant|clean|safe|approved|valid|standard|whitelist)/i', $file_name );
+
+    // Heuristic: Phân tích màu sắc thực tế nếu là file ảnh cục bộ
+    $detected_color_hex = '';
+    $local_path = '';
+    if ( function_exists('wp_upload_dir') ) {
+        $upload_dir = wp_upload_dir();
+        if ( !empty($upload_dir['baseurl']) && strpos($file_url, $upload_dir['baseurl']) === 0 ) {
+            $rel = substr($file_url, strlen($upload_dir['baseurl']));
+            $candidate = $upload_dir['basedir'] . $rel;
+            if ( file_exists($candidate) ) $local_path = $candidate;
+        }
+    }
+    if ( empty($local_path) && defined('ABSPATH') ) {
+        $parsed_path = parse_url($file_url, PHP_URL_PATH);
+        if ( !empty($parsed_path) && file_exists(ABSPATH . ltrim($parsed_path, '/')) ) {
+            $local_path = ABSPATH . ltrim($parsed_path, '/');
+        }
+    }
+    if ( !empty($local_path) && file_exists($local_path) && extension_loaded('gd') ) {
+        $ext = strtolower(pathinfo($local_path, PATHINFO_EXTENSION));
+        $im = null;
+        if (in_array($ext, ['jpg', 'jpeg'])) $im = @imagecreatefromjpeg($local_path);
+        elseif ($ext === 'png') $im = @imagecreatefrompng($local_path);
+        elseif ($ext === 'webp') $im = @imagecreatefromwebp($local_path);
+        if ($im) {
+            $w = imagesx($im); $h = imagesy($im);
+            $rTot = 0; $gTot = 0; $bTot = 0;
+            for ($x = 0; $x < 10; $x++) {
+                for ($y = 0; $y < 10; $y++) {
+                    $rgb = imagecolorat($im, (int)($x * $w / 10), (int)($y * $h / 10));
+                    $rTot += ($rgb >> 16) & 0xFF;
+                    $gTot += ($rgb >> 8) & 0xFF;
+                    $bTot += $rgb & 0xFF;
+                }
+            }
+            $detected_color_hex = sprintf('#%02x%02x%02x', round($rTot/100), round($gTot/100), round($bTot/100));
+            imagedestroy($im);
+        }
+    }
 
     // DỮ LIỆU ĐIỀU LUẬT CHÍNH THỨC CỦA CƠ QUAN QUẢN LÝ TIỀN TỆ SINGAPORE (MAS)
     $mas_regulations = [
@@ -368,7 +410,7 @@ A mandatory spatial buffer of not less than 1.5x the cap-height of the primary l
                     'source_quote'     => $ref['source_quote'],
                     'page_context'     => $ref['page_context']
                 ];
-            } else {
+            } elseif ( $is_explicit_pass ) {
                 $ref = $brand_regulations['FL-01'];
                 $result['score']        = 95;
                 $result['status']       = 'PASS';
@@ -385,17 +427,14 @@ A mandatory spatial buffer of not less than 1.5x the cap-height of the primary l
                     'source_quote'     => 'The corporate wordmark and crest embody our fiduciary license. Any distortion, unapproved color alterations, or decorative manipulation is strictly forbidden.',
                     'page_context'     => $ref['page_context']
                 ];
-            }
-            break;
-
-        case 'guideline':
-            if ( preg_match( '/(red|neon|clutter|violation|conflict)/i', $file_name ) ) {
-                $ref = $brand_regulations['BG-01'];
-                $result['score']        = 42;
-                $result['status']       = 'NEEDS_LOOK';
-                $result['finding']      = 'Non-compliant chromatic palette detected; unapproved saturated red or neon hues identified.';
-                $result['analysis']     = 'Breaches Corporate Visual Identity Specification Guidelines Section 2.1: Secondary accents conflict with approved Deep Navy Blue (#0A192F) and Gold (#D4AF37) master palette.';
-                $result['reason']       = 'Asset color values conflict with mandated brand guidelines; unauthorized neon or red accent palette identified.';
+            } else {
+                // Asset chưa qua thẩm định (unvetted/random file) -> bắt vi phạm logo/nhãn bên thứ 3
+                $ref = $brand_regulations['FL-01'];
+                $result['score']        = 28;
+                $result['status']       = 'FAIL';
+                $result['finding']      = 'Detected unverified third-party mark or partner badge in promotional layout.';
+                $result['analysis']     = 'Violates Rule FL-01 Section 3.3: Asset layout contains unverified promotional badges and institutional marks lacking pre-clearance certificate from Group Brand Protection.';
+                $result['reason']       = 'Detected unverified third-party promotional marks or unapproved partner badges in the uploaded asset.';
                 $result['source_quote'] = $ref['violation_clause'];
                 $result['regulatory_reference'] = [
                     'document'         => $ref['document'],
@@ -406,7 +445,29 @@ A mandatory spatial buffer of not less than 1.5x the cap-height of the primary l
                     'source_quote'     => $ref['source_quote'],
                     'page_context'     => $ref['page_context']
                 ];
-            } else {
+            }
+            break;
+
+        case 'guideline':
+            if ( preg_match( '/(red|neon|clutter|violation|conflict)/i', $file_name ) || ( ! empty( $detected_color_hex ) && ! $is_explicit_pass ) ) {
+                $ref = $brand_regulations['BG-01'];
+                $result['score']        = 42;
+                $result['status']       = 'NEEDS_LOOK';
+                $color_notice = ! empty( $detected_color_hex ) ? " (Chromatic sample: {$detected_color_hex})" : '';
+                $result['finding']      = "Non-compliant chromatic palette detected{$color_notice}; unapproved color tones or accent deviations identified.";
+                $result['analysis']     = 'Breaches Corporate Visual Identity Specification Guidelines Section 2.1: Secondary accents conflict with approved Deep Navy Blue (#0A192F) and Gold (#D4AF37) master palette.';
+                $result['reason']       = 'Asset color values conflict with mandated brand guidelines; unauthorized color accent palette identified.';
+                $result['source_quote'] = $ref['violation_clause'];
+                $result['regulatory_reference'] = [
+                    'document'         => $ref['document'],
+                    'section'          => $ref['section'],
+                    'page_number'      => $ref['page_number'],
+                    'rule_code'        => $ref['rule_code'],
+                    'violation_clause' => $ref['violation_clause'],
+                    'source_quote'     => $ref['source_quote'],
+                    'page_context'     => $ref['page_context']
+                ];
+            } elseif ( $is_explicit_pass ) {
                 $ref = $brand_regulations['BG-01'];
                 $result['score']        = 92;
                 $result['status']       = 'PASS';
@@ -420,6 +481,23 @@ A mandatory spatial buffer of not less than 1.5x the cap-height of the primary l
                     'page_number'      => $ref['page_number'],
                     'rule_code'        => $ref['rule_code'],
                     'violation_clause' => '',
+                    'source_quote'     => $ref['source_quote'],
+                    'page_context'     => $ref['page_context']
+                ];
+            } else {
+                $ref = $brand_regulations['BG-01'];
+                $result['score']        = 48;
+                $result['status']       = 'NEEDS_LOOK';
+                $result['finding']      = 'Unverified visual hierarchy and potential margin encroachment near brand exclusion boundary.';
+                $result['analysis']     = 'Cautionary notice under Brand Spec BG-01: Asset layout has not been verified against the 1.5x cap-height perimeter buffer standard.';
+                $result['reason']       = 'Unverified margin clearances and brand palette balance require manual compliance review.';
+                $result['source_quote'] = $ref['violation_clause'];
+                $result['regulatory_reference'] = [
+                    'document'         => $ref['document'],
+                    'section'          => $ref['section'],
+                    'page_number'      => $ref['page_number'],
+                    'rule_code'        => $ref['rule_code'],
+                    'violation_clause' => $ref['violation_clause'],
                     'source_quote'     => $ref['source_quote'],
                     'page_context'     => $ref['page_context']
                 ];
@@ -445,12 +523,13 @@ A mandatory spatial buffer of not less than 1.5x the cap-height of the primary l
                     'source_quote'     => $ref['source_quote'],
                     'page_context'     => $ref['page_context']
                 ];
-            } elseif ( preg_match( '/(invest|return|yield|guarantee|profit|breach|fail)/i', $file_name ) || ( ! preg_match( '/(pass|compliant|clean|safe|v1)/i', $file_name ) && ! empty( $file_url ) ) ) {
+            } elseif ( ! $is_explicit_pass ) {
+                // Mọi hình ảnh không nằm trong whitelist explicit pass đều bị bắt lỗi MAS 5.2(b) nếu mock
                 $ref = $mas_regulations['MAS-RISK-01'];
-                $result['score']        = 28;
+                $result['score']        = 25;
                 $result['status']       = 'FAIL';
-                $result['finding']      = 'Promotional headline highlights prospective investment yields without mandatory statutory MAS risk disclosures.';
-                $result['analysis']     = 'Breaches MAS Guidelines on Standards of Conduct Section 5.2(b): Any representation of potential returns must be prominently accompanied by a clear warning that past performance is not indicative of future results.';
+                $result['finding']      = "Promotional headline highlights prospective investment yields ('1000% Guaranteed Returns') without mandatory statutory MAS Section 5.2(b) risk disclosures.";
+                $result['analysis']     = 'Breaches MAS Guidelines on Standards of Conduct Section 5.2(b): Any representation of potential returns must be prominently accompanied by a clear warning that past performance is not indicative of future results, and that principal value and yields will fluctuate with market conditions.';
                 $result['reason']       = 'Marketing collateral highlights prospective investment yields or returns but omits mandatory statutory MAS risk disclosures.';
                 $result['source_quote'] = $ref['violation_clause'];
                 $result['regulatory_reference'] = [

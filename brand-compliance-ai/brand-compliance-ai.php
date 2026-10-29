@@ -20,6 +20,9 @@ require_once __DIR__ . '/ai-compliance-poc.php';
 // 2. Nạp Backend lưu trữ Database CPT check_result và chuẩn bị dữ liệu (Member 2)
 require_once __DIR__ . '/backend.php';
 
+// 2.1 Nạp Cài đặt & Chuẩn đoán Gemini AI API Key
+require_once __DIR__ . '/gemini-settings.php';
+
 // 3. Đăng ký Shortcode hiển thị giao diện kết quả chấm điểm [ai_scoring_result]
 add_shortcode( 'ai_compliance_result', function( $atts ) {
     ob_start();
@@ -51,5 +54,24 @@ add_action( 'admin_menu', function() {
         function() {
             include __DIR__ . '/ai-scoring-result.php';
         }
+    );
+
+    // Menu Cài đặt Gemini AI API Key
+    add_submenu_page(
+        'brand-compliance-review',
+        'Gemini AI Settings',
+        'Gemini AI Settings',
+        'manage_options',
+        'gemini-ai-settings',
+        'pcs_render_gemini_settings_page'
+    );
+
+    add_submenu_page(
+        'edit.php?post_type=check_result',
+        'Gemini AI Settings',
+        'Gemini AI Settings',
+        'manage_options',
+        'gemini-ai-settings',
+        'pcs_render_gemini_settings_page'
     );
 });
