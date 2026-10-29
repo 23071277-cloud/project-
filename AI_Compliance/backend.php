@@ -8730,9 +8730,17 @@ if (!function_exists('pcs_run_ai_scoring_for_version')) {
         $results  = [];
         $prev_internal = function_exists('pcs_internal') ? pcs_internal(true) : false;
 
+        // Ưu tiên 1: Chấm gộp cả 3 tiêu chí trong 1 request duy nhất (Nhanh và chính xác với Gemini)
+        $bundle_raw = function_exists('pcs_call_gemini_api_all_checks') ? pcs_call_gemini_api_all_checks($file_url) : false;
+        $bundle_data = $bundle_raw ? json_decode($bundle_raw, true) : null;
+
         foreach ($criteria as $criterion) {
-            $raw_response = function_exists('pcs_call_gemini_api') ? pcs_call_gemini_api($file_url, $criterion) : '';
-            $data = json_decode($raw_response, true);
+            if (is_array($bundle_data) && isset($bundle_data[$criterion]) && is_array($bundle_data[$criterion])) {
+                $data = $bundle_data[$criterion];
+            } else {
+                $raw_response = function_exists('pcs_call_gemini_api') ? pcs_call_gemini_api($file_url, $criterion) : '';
+                $data = json_decode($raw_response, true);
+            }
 
             if (!is_array($data)) {
                 $data = [
