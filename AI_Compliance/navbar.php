@@ -1704,13 +1704,20 @@ window.addEventListener('click', function(e) {
         updateKpiBox('.kpi-icon-box.status-released', kpis.released);
     }
 
+    var isRefreshingInPlace = false;
+    var lastRefreshInPlaceTime = 0;
+
     function refreshPageContentInPlace() {
-        if (isScoringPage) return; // Do not reload DOM while scoring is actively scanning
+        if (isScoringPage || isRefreshingInPlace) return; // Do not reload DOM while scoring is actively scanning or request pending
+        if (Date.now() - lastRefreshInPlaceTime < 6000) return; // Minimum 6s debounce between full page syncs
 
         var activeEl = document.activeElement;
         var isEditing = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable);
         var isModalOpen = !!document.querySelector('.modal-overlay[style*="display: flex"], .modal-overlay.active, .modal-window:not([style*="display: none"])');
         if (isEditing || isModalOpen) return;
+
+        isRefreshingInPlace = true;
+        lastRefreshInPlaceTime = Date.now();
 
         var baseHref = window.location.href.split('#')[0];
         var sep = baseHref.indexOf('?') !== -1 ? '&' : '?';
@@ -1750,7 +1757,10 @@ window.addEventListener('click', function(e) {
                     recalculateNotifCounts();
                 }
             })
-            .catch(function(err) {});
+            .catch(function(err) {})
+            .finally(function() {
+                isRefreshingInPlace = false;
+            });
     }
 
     function checkSyncState(forceUpdate) {
@@ -1800,10 +1810,10 @@ window.addEventListener('click', function(e) {
         }
     });
 
-    // 3. Heartbeat ngầm định kỳ mỗi 2.5 giây (Realtime cross-role sync without reload)
+    // 3. Heartbeat ngầm định kỳ mỗi 8 giây (Realtime cross-role sync without reload, tiết kiệm tài nguyên server)
     setInterval(function() {
         checkSyncState(false);
-    }, 2500);
+    }, 8000);
 
     // Initial check shortly after page load
     setTimeout(function() {

@@ -170,6 +170,10 @@ if (!function_exists('pcs_bump_sync_version')) {
         if (function_exists('update_option')) {
             update_option('pcs_last_sync_ts', $ts, false);
         }
+        global $wpdb;
+        if ($wpdb && isset($wpdb->options)) {
+            $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_pcs_kpis_%' OR option_name LIKE '_transient_timeout_pcs_kpis_%'");
+        }
     }
 }
 if (!function_exists('pcs_get_sync_version')) {
@@ -647,13 +651,21 @@ function pcs_send_notification($user_id, $title, $message, $type = 'info', $link
             update_post_meta($nid, '_is_read', '0');
             update_post_meta($nid, '_created_at', $now);
 
-            // Gửi email thật qua WP Mail SMTP nếu recipient có email hợp lệ
-            if (function_exists('wp_mail') && function_exists('get_userdata')) {
+            // Gửi email thật qua Action Scheduler (Non-blocking) để tuyệt đối không làm treo request HTTP
+            if (function_exists('get_userdata')) {
                 $u_recip = get_userdata($user_id);
                 if ($u_recip && !empty($u_recip->user_email)) {
                     $mail_subj = '[Brand Compliance] ' . $title;
                     $mail_body = "Hi " . $u_recip->display_name . ",\n\n" . $message . "\n\nAction link: " . $link . "\n\n-- Brand Compliance System";
-                    @wp_mail($u_recip->user_email, $mail_subj, $mail_body);
+                    if (function_exists('as_enqueue_async_action')) {
+                        as_enqueue_async_action('pcs_async_send_email', [
+                            'to'      => $u_recip->user_email,
+                            'subject' => $mail_subj,
+                            'message' => $mail_body
+                        ]);
+                    } elseif (function_exists('wp_mail') && (defined('WP_CLI') || !empty(get_option('wp_mail_smtp')))) {
+                        @wp_mail($u_recip->user_email, $mail_subj, $mail_body);
+                    }
                 }
             }
 
@@ -3059,6 +3071,14 @@ if (function_exists('has_action') && !has_action('pcs_background_ai_scoring_job'
             pcs_transition_version_to_in_review($version_id, $asset_id);
         }
     }, 10, 2);
+}
+
+if (function_exists('has_action') && !has_action('pcs_async_send_email') && function_exists('add_action')) {
+    add_action('pcs_async_send_email', function($args) {
+        if (!empty($args['to']) && !empty($args['subject']) && !empty($args['message']) && function_exists('wp_mail')) {
+            @wp_mail($args['to'], $args['subject'], $args['message']);
+        }
+    });
 }
 
 /**
@@ -8837,6 +8857,9 @@ if (!function_exists('get_ai_scoring_screen_data')) {
  */
 if (!function_exists('pcs_handle_sync_heartbeat')) {
     function pcs_handle_sync_heartbeat() {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            @session_write_close();
+        }
         while (ob_get_level()) {
             ob_end_clean();
         }
@@ -8868,14 +8891,20 @@ if (!function_exists('pcs_handle_sync_heartbeat')) {
             $role = strtoupper($currentUser['role'] ?? 'MAKER');
         }
 
-        // Retrieve real-time KPI counts for active role
-        $kpis = [];
-        if ($role === 'ADMIN') {
-            $kpis = function_exists('get_admin_kpis') ? get_admin_kpis() : [];
-        } elseif ($role === 'CHECKER') {
-            $kpis = function_exists('get_checker_kpis') ? get_checker_kpis() : [];
-        } else {
-            $kpis = function_exists('get_maker_kpis') ? get_maker_kpis($uid) : [];
+        // Retrieve real-time KPI counts for active role (cached in transient to prevent DB overload)
+        $transient_key = 'pcs_kpis_' . md5($role . '_' . $uid);
+        $kpis = function_exists('get_transient') ? get_transient($transient_key) : false;
+        if ($kpis === false || !is_array($kpis)) {
+            if ($role === 'ADMIN') {
+                $kpis = function_exists('get_admin_kpis') ? get_admin_kpis() : [];
+            } elseif ($role === 'CHECKER') {
+                $kpis = function_exists('get_checker_kpis') ? get_checker_kpis() : [];
+            } else {
+                $kpis = function_exists('get_maker_kpis') ? get_maker_kpis($uid) : [];
+            }
+            if (function_exists('set_transient')) {
+                set_transient($transient_key, $kpis, 8);
+            }
         }
 
         $unread_notifs = ($uid > 0 && function_exists('pcs_get_unread_notifications_count')) 

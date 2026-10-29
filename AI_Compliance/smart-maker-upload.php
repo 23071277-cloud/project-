@@ -98,6 +98,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action']) && 
         $targetAsset = ($uploadMode === 'new_version' && $assetIdPost > 0) ? $assetIdPost : $assetNamePost;
 
         if (function_exists('handle_upload_asset_version')) {
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                @session_write_close();
+            }
             $res = handle_upload_asset_version($targetCamp, $targetAsset, $uploadedFileName, $versionNotes, $assetTypePost);
             $uploadedVersionId = (int)$res;
             if (function_exists('pcs_bump_sync_version')) {

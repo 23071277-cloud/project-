@@ -98,11 +98,16 @@ foreach ($backend_paths as $bpath) {
     }
 }
 
-// 3. Khởi tạo PHP Session an toàn trong WordPress
-add_action('init', 'ai_compliance_init_session');
+// 3. Khởi tạo PHP Session an toàn và không gây nghẽn (Non-blocking Session)
+add_action('init', 'ai_compliance_init_session', 1);
 function ai_compliance_init_session() {
     if (!session_id() && !headers_sent()) {
         @session_start();
+        // Nhả lock session file ngay lập tức cho các request không ghi session (như GET, heartbeat, polling)
+        // để tuyệt đối không làm nghẽn (deadlock) các tiến trình PHP-FPM song song của người dùng
+        if (empty($_POST['login_submit']) && empty($_POST['action']) && empty($_GET['logout'])) {
+            @session_write_close();
+        }
     }
 }
 
