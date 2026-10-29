@@ -8298,13 +8298,36 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
     $is_revised_v = ($ver_num > 1);
 
     // =========================================================================
-    // CRITERION 1: FOREIGN LOGOS (Marker 1)
+    // DYNAMIC PASS / FAIL RESOLUTION FOR DEMO & LIVE EVALUATION
     // =========================================================================
-    $is_competitor_violation = (bool) preg_match('/(ocbc|uob|hsbc|citi|maybank|binance|crypto|foreign|competitor)/i', $file_name);
-    if ($is_competitor_violation) {
-        $score_foreign = $existing_checks['foreign_logo']['score'] ?? 20;
+    $is_pass_file = (bool) preg_match('/(pass|clean|compliant|safe|premier|wealth|banner|valid)/i', $file_name);
+    $is_fail_file = (bool) preg_match('/(fail|dbs|ocbc|uob|hsbc|citi|visa|mastercard|crypto|guarantee|profit|neon|clutter|violation)/i', $file_name);
+
+    // 1. Foreign Logo
+    if ($is_fail_file && preg_match('/(dbs|ocbc|uob|hsbc|citi|visa|mastercard|crypto|competitor|fail)/i', $file_name)) {
+        $score_foreign = 20;
+    } elseif ($is_pass_file) {
+        $score_foreign = 95;
     } else {
-        $score_foreign = $existing_checks['foreign_logo']['score'] ?? ($is_revised_v ? 98 : 95);
+        $score_foreign = $existing_checks['foreign_logo']['score'] ?? 95;
+    }
+
+    // 2. Guideline
+    if ($is_fail_file && preg_match('/(neon|clutter|red|conflict|violation|fail)/i', $file_name)) {
+        $score_guideline = 30;
+    } elseif ($is_pass_file) {
+        $score_guideline = 92;
+    } else {
+        $score_guideline = $existing_checks['guideline']['score'] ?? 88;
+    }
+
+    // 3. MAS Rule
+    if ($is_fail_file && preg_match('/(guarantee|profit|return|yield|free|0%|fail)/i', $file_name)) {
+        $score_mas = 18;
+    } elseif ($is_pass_file) {
+        $score_mas = 94;
+    } else {
+        $score_mas = $existing_checks['mas_rule']['score'] ?? 94;
     }
 
     $quote_foreign = !empty($existing_checks['foreign_logo']['quote'])
@@ -8363,13 +8386,6 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
     // =========================================================================
     // CRITERION 2: BRAND & COMPLIANCE DOCUMENTS (Marker 2)
     // =========================================================================
-    $is_contrast_violation = (bool) preg_match('/(neon|clutter|violation|contrast|wrong_color|low_contrast)/i', $file_name);
-    if ($is_contrast_violation) {
-        $score_guideline = $existing_checks['guideline']['score'] ?? 40;
-    } else {
-        $score_guideline = $existing_checks['guideline']['score'] ?? ($is_revised_v ? 94 : 88);
-    }
-
     $quote_guideline = !empty($existing_checks['guideline']['quote'])
         ? $existing_checks['guideline']['quote']
         : $default_docs['guideline']['quote'];
@@ -8416,13 +8432,6 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
     // =========================================================================
     // CRITERION 3: MAS ADVERTISING RULES
     // =========================================================================
-    $is_missing_disclaimer = (bool) preg_match('/(no_disclaimer|missing_disclaimer|fail_disclaimer)/i', $file_name) && !$is_revised_v;
-    if ($is_missing_disclaimer) {
-        $score_mas = $existing_checks['mas_rule']['score'] ?? 28;
-    } else {
-        $score_mas = $existing_checks['mas_rule']['score'] ?? ($is_revised_v ? 94 : 94);
-    }
-
     $quote_mas = !empty($existing_checks['mas_rule']['quote'])
         ? $existing_checks['mas_rule']['quote']
         : $default_docs['mas_rule']['quote'];
