@@ -28,6 +28,12 @@ if (!function_exists('pcs_extract_user_info')) {
     }
 }
 
+// Ẩn thanh công cụ màu đen (WordPress Admin Bar) trên giao diện người dùng
+add_filter('show_admin_bar', '__return_false');
+add_action('wp_head', function() {
+    echo '<style>#wpadminbar { display: none !important; } html { margin-top: 0 !important; }</style>';
+}, 999);
+
 // 1. Tự động kiểm tra và nạp plugin Project Core nếu chưa được kích hoạt
 add_action('after_setup_theme', 'ai_compliance_setup_core_system');
 function ai_compliance_setup_core_system() {
