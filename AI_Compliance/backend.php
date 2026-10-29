@@ -8518,7 +8518,8 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
         : ($finding_mas . ' ' . $analysis_mas);
 
     $get_status_meta = function($sc) {
-        if ($sc >= 71) {
+        $sc = (int) $sc;
+        if ($sc >= 60) {
             return [
                 'status'     => 'pass',
                 'badge'      => 'Pass',
@@ -8527,7 +8528,7 @@ function get_ai_scoring_result_data($target_version_id = 0, $target_asset_id = 0
                 'dot_color'  => '#10B981',
                 'border'     => 'rgba(16, 185, 129, 0.20)'
             ];
-        } elseif ($sc >= 31) {
+        } elseif ($sc >= 30) {
             return [
                 'status'     => 'needs_human',
                 'badge'      => 'Needs Human Look',
@@ -8799,6 +8800,9 @@ if (!function_exists('pcs_run_ai_scoring_for_version')) {
             update_post_meta($check_id, '_criterion',           $criterion);
             update_post_meta($check_id, '_score',               $score);
             update_post_meta($check_id, '_status',              $status);
+            update_post_meta($check_id, '_verdict',             ($score >= 71) ? 'PASS' : (($score >= 31) ? 'NEEDS LOOK' : 'FAIL'));
+            update_post_meta($check_id, '_ai_verdict',          ($score >= 71) ? 'PASS' : (($score >= 31) ? 'NEEDS LOOK' : 'FAIL'));
+            update_post_meta($check_id, '_ai_score',            $score);
             update_post_meta($check_id, '_finding',             $finding);
             update_post_meta($check_id, '_analysis',            $analysis);
             update_post_meta($check_id, '_reason',              $reason);
